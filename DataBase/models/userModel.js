@@ -40,7 +40,7 @@ schema.pre(/^find/, async function (next) {
   next();
 });
 schema.methods.generateToken = async function () {
-  return await jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+  return jwt.sign({ id: this._id },"test", {
     expiresIn: "30d",
   });
 };

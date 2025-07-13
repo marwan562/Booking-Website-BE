@@ -1,7 +1,7 @@
-import { catchAsyncError } from "../../../middlewares/catchAsyncError.js";
-import { removeImage } from "../../../middlewares/deleteImg.js";
-import { AppError } from "../../../utilities/AppError.js";
-import  testimonialModel  from "../../../DataBase/models/testimonialModel.js";
+import { catchAsyncError } from "../../middlewares/catchAsyncError.js";
+import { removeImage } from "../../middlewares/deleteImg.js";
+import { AppError } from "../../utilities/AppError.js";
+import testimonialModel from "../../models/testimonialModel.js";
 
 const createTestimonial = catchAsyncError(async (req, res, next) => {
   const testimonial = new testimonialModel(req.body);
@@ -41,5 +41,5 @@ export {
   getAllTestimonial,
   createTestimonial,
   deleteTestimonial,
-  editTestimonial
+  editTestimonial,
 };

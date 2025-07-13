@@ -1,9 +1,9 @@
 import { Router } from "express";
 import * as Tour from "./tour.controller.js";
-import { allowedTo, auth } from "../../../middlewares/auth.js";
-import { uploadMixfile } from "../../../middlewares/fileUpload.js";
-import { saveImg } from "../../../middlewares/uploadToCloud.js";
-import { validation } from "../../../middlewares/validation.js";
+import { allowedTo, auth } from "../../middlewares/auth.js";
+import { uploadMixfile } from "../../middlewares/fileUpload.js";
+import { saveImg } from "../../middlewares/uploadToCloud.js";
+import { validation } from "../../middlewares/validation.js";
 import { createTourSchema, updatedTourSchema } from "./tour.validation.js";
 const tourRouter = Router();
 

@@ -3,59 +3,138 @@ import joi from "joi";
 const userSchemaLogin = joi.object({
   email: joi
     .string()
-    .pattern(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$/)
-    .required(),
-  password: joi
-    .string()
-    .pattern(/^(?=.*[A-Za-z])(?=.*\d).{8,}$/)
-    .required(),
+    .email({ tlds: { allow: false } })
+    .required()
+    .messages({
+      "string.email": "Please provide a valid email address",
+      "any.required": "Email is required",
+    }),
+  password: joi.string().min(8).required().messages({
+    "string.min": "Password must be at least 8 characters long",
+    "any.required": "Password is required",
+  }),
 });
+
 const userSchemaCreate = joi.object({
-  name: joi.string().min(2).max(15).required(),
+  name: joi
+    .string()
+    .min(2)
+    .max(50)
+    .pattern(/^[a-zA-Z\s]+$/)
+    .required()
+    .messages({
+      "string.min": "Name must be at least 2 characters long",
+      "string.max": "Name cannot exceed 50 characters",
+      "string.pattern.base": "Name can only contain letters and spaces",
+      "any.required": "Name is required",
+    }),
   email: joi
     .string()
-    .pattern(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$/)
-    .required(),
+    .email({ tlds: { allow: false } })
+    .required()
+    .messages({
+      "string.email": "Please provide a valid email address",
+      "any.required": "Email is required",
+    }),
   password: joi
     .string()
-    .pattern(/^(?=.*[A-Za-z])(?=.*\d).{8,}$/)
-    .required(),
-  rePassword: joi.ref("password"),
+    .min(8)
+    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .required()
+    .messages({
+      "string.min": "Password must be at least 8 characters long",
+      "string.pattern.base":
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+      "any.required": "Password is required",
+    }),
+  rePassword: joi.string().valid(joi.ref("password")).required().messages({
+    "any.only": "Passwords do not match",
+    "string.empty": "Confirm password is required",
+  }),
   avatar: joi.object({
-    url: joi.string(),
+    url: joi.string().uri(),
     public_id: joi.string(),
   }),
   age: joi.number(),
   nationality: joi.string(),
   phone: joi.number(),
+  gender: joi.string(),
 });
+
 const userSchemaUpdate = joi.object({
   id: joi.string().hex().length(24),
   name: joi.string().min(2).max(15),
-  email: joi
+  email: joi.string().email({ tlds: { allow: false } }),
+  password: joi
     .string()
-    .pattern(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$/),
-  password: joi.string().pattern(/^(?=.*[A-Za-z])(?=.*\d).{8,}$/),
+    .min(8)
+    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/),
   rePassword: joi.ref("password"),
   avatar: joi.object({
-    url: joi.string(),
+    url: joi.string().uri(),
     public_id: joi.string(),
   }),
-  age: joi.number(),
-  nationality: joi.string(),
-  phone: joi.number(),
+  age: joi.number().integer().min(1).max(120),
+  nationality: joi
+    .string()
+    .min(2)
+    .max(50)
+    .pattern(/^[a-zA-Z\s]+$/),
+  phone: joi.number().integer().positive(),
 });
+
 const forgetPasswordSchema = joi.object({
   email: joi
     .string()
-    .pattern(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$/)
-    .required(),
-  code: joi.number().integer().required(),
+    .email({ tlds: { allow: false } })
+    .required()
+    .messages({
+      "string.email": "Please provide a valid email address",
+      "any.required": "Email is required",
+    }),
+  code: joi.number().integer().min(1000).max(9999).required().messages({
+    "number.base": "Code must be a number",
+    "number.integer": "Code must be a whole number",
+    "number.min": "Code must be 4 digits",
+    "number.max": "Code must be 4 digits",
+    "any.required": "Code is required",
+  }),
   newPassword: joi
     .string()
-    .pattern(/^(?=.*[A-Za-z])(?=.*\d).{8,}$/)
-    .required(),
-  reNewPassword: joi.ref("newPassword"),
+    .min(8)
+    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .required()
+    .messages({
+      "string.min": "Password must be at least 8 characters long",
+      "string.pattern.base":
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+      "any.required": "New password is required",
+    }),
+  reNewPassword: joi.string().valid(joi.ref("password")).required().messages({
+    "any.only": "Passwords do not match",
+    "string.empty": "Confirm password is required",
+  }),
+});
+
+const changePasswordSchema = joi.object({
+  password: joi.string().required().messages({
+    "any.required": "Current password is required",
+  }),
+  newPassword: joi
+    .string()
+    .min(8)
+    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .required()
+    .messages({
+      "string.min": "Password must be at least 8 characters long",
+      "string.pattern.base":
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+      "any.required": "New password is required",
+    }),
+  reNewPassword: joi.string().valid(joi.ref("password")).required().messages({
+    "any.only": "Passwords do not match",
+    "string.empty": "Confirm password is required",
+  }),
 });
 
 export {
@@ -63,4 +142,5 @@ export {
   userSchemaLogin,
   userSchemaUpdate,
   forgetPasswordSchema,
+  changePasswordSchema,
 };

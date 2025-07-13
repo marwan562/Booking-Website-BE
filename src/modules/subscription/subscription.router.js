@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { auth, allowedTo } from "../../../middlewares/auth.js";
+import { auth } from "../../middlewares/auth.js";
 import {
   createSubscription,
   getAllSubscription,
   getSubscriptionById,
 } from "./subscription.controller.js";
-import { validation } from "../../../middlewares/validation.js";
+import { validation } from "../../middlewares/validation.js";
 import { subscriptionSchema } from "./subscription.validation.js";
 const subscriptionRouter = Router();
 

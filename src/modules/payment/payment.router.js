@@ -1,12 +1,11 @@
 import express from "express";
-import { auth } from "../../../middlewares/auth.js";
+import { auth } from "../../middlewares/auth.js";
 import {
 
   fwaterk,
   handleFaildPayment,
   handlePendingPayment,
   handleSuccessPayment,
-  sessionCheckout,
 } from "./payment.controller.js";
 const paymentRouter = express.Router();
 

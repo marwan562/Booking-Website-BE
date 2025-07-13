@@ -1,5 +1,5 @@
-import subscriptionModel from "../../../DataBase/models/subscriptionModel.js";
-import tourModel from "../../../DataBase/models/tourModel.js";
+import subscriptionModel from "../../models/subscriptionModel.js";
+import tourModel from "../../models/tourModel.js";
 import { catchAsyncError } from "../../../middlewares/catchAsyncError.js";
 import { AppError } from "../../../utilities/AppError.js";
 import { ApiFeature } from "../../../utilities/AppFeature.js";
@@ -130,12 +130,13 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       .filter()
       .sort()
       .search();
+
     const result = await apiFeature.mongoseQuery;
     if (!result) {
       return next(new AppError("can't find subscriptions"));
     }
     const cout = await subscriptionModel.find().countDocuments();
-    const pageNumber = Math.ceil(cout / 20);
+    const pageNumber = Math.ceil(cout / 10);
     res.status(200).send({
       message: "success",
       data: { page: apiFeature.page, result, pageNumber },
@@ -151,6 +152,7 @@ const getSubscriptionById = catchAsyncError(async (req, res, next) => {
     .filter()
     .sort()
     .search();
+
   const result = await apiFeature.mongoseQuery;
   if (!result) {
     return next(new AppError("can't find subscription"));

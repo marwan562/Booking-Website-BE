@@ -1,6 +1,7 @@
 export class ApiFeature {
   constructor(mongoseQuery, queryString) {
-    (this.mongoseQuery = mongoseQuery), (this.queryString = queryString);
+    this.mongoseQuery = mongoseQuery;
+    this.queryString = queryString;
   }
 
   paginate() {
@@ -9,11 +10,10 @@ export class ApiFeature {
       page = 1;
     }
     this.page = page;
-    const skip = (page - 1) * 20;
-    this.mongoseQuery.skip(skip).limit(20);
+    const skip = (page - 1) * 10;
+    this.mongoseQuery.skip(skip).limit(10);
     return this;
   }
-
 
   filter() {
     let filterobj = { ...this.queryString };

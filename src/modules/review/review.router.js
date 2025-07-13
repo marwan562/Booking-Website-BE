@@ -11,8 +11,8 @@ import {
   createReviewSchema,
   editReviewSchmea,
 } from "./review.validation.js";
-import { validation } from "../../../middlewares/validation.js";
-import { auth } from "../../../middlewares/auth.js";
+import { validation } from "../../middlewares/validation.js";
+import { auth } from "../../middlewares/auth.js";
 const reviewRouter = Router();
 
 reviewRouter

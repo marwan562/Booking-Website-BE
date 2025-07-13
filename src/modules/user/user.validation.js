@@ -9,10 +9,17 @@ const userSchemaLogin = joi.object({
       "string.email": "Please provide a valid email address",
       "any.required": "Email is required",
     }),
-  password: joi.string().min(8).required().messages({
-    "string.min": "Password must be at least 8 characters long",
-    "any.required": "Password is required",
-  }),
+  password: joi
+    .string()
+    .min(8)
+    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .required()
+    .messages({
+      "string.min": "Password must be at least 8 characters long",
+      "string.pattern.base":
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+      "any.required": "Password is required",
+    }),
 });
 
 const userSchemaCreate = joi.object({

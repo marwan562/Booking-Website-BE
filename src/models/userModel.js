@@ -64,7 +64,7 @@ schema.methods.generateAccessToken = async function () {
     throw new Error("ACCESS_TOKEN_SECRET environment variable is not set");
   }
 
-  return jwt.sign({ id: this._id }, process.env.ACCESS_SECRET, {
+  return jwt.sign({ id: this._id }, process.env.ACCESS_TOKEN_SECRET, {
     expiresIn: "15m",
   });
 };

@@ -1,29 +1,6 @@
 import { Router } from "express";
-import {
-  addToWishList,
-  authentication,
-  authorization,
-  changePassword,
-  checkCode,
-  forgetPassword,
-  getAllUsers,
-  getUserById,
-  getUserProfile,
-  getWishlist,
-  login,
-  register,
-  removeFromWishList,
-  sendCode,
-  updateUserProfile,
-  refreshToken,
-} from "./user.controller.js";
-import {
-  forgetPasswordSchema,
-  userSchemaLogin,
-  userSchemaUpdate,
-  changePasswordSchema,
-  userSchemaCreate,
-} from "./user.validation.js";
+import * as User from "./user.controller.js";
+import * as UserValidation from "./user.validation.js";
 import { allowedTo, auth } from "../../middlewares/auth.js";
 import { validation } from "../../middlewares/validation.js";
 import { saveImg } from "../../middlewares/uploadToCloud.js";
@@ -33,7 +10,6 @@ import {
   loginLimiter,
   strictLimiter,
 } from "../../middlewares/security.js";
-
 const userRouter = Router();
 
 // Public routes with rate limiting
@@ -43,53 +19,53 @@ userRouter
     registerLimiter,
     uploadMixfile([{ name: "avatar", maxCount: 1 }]),
     saveImg,
-    validation(userSchemaCreate),
-    register
+    validation(UserValidation.userSchemaCreate),
+    User.register
   );
 
 userRouter
   .route("/login")
-  .post(loginLimiter, validation(userSchemaLogin), login);
+  .post(loginLimiter, validation(UserValidation.userSchemaLogin), User.login);
 
-userRouter.route("/refreshToken").get(strictLimiter, refreshToken);
+userRouter.route("/refreshToken").get(strictLimiter, User.refreshToken);
 
-userRouter.route("/sendCode").put(strictLimiter, sendCode);
+userRouter.route("/sendCode").put(strictLimiter, User.sendCode);
 
-userRouter.route("/checkCode").put(strictLimiter, checkCode);
+userRouter.route("/checkCode").put(strictLimiter, User.checkCode);
 
 userRouter
   .route("/forgetPassword")
-  .patch(strictLimiter, validation(forgetPasswordSchema), forgetPassword);
+  .patch(strictLimiter, validation(UserValidation.forgetPasswordSchema), User.forgetPassword);
 
 // Protected routes
-userRouter.route("/wishlist").get(auth, getWishlist);
+userRouter.route("/wishlist").get(auth, User.getWishlist);
 
-userRouter.route("/profile").get(auth, getUserProfile);
+userRouter.route("/profile").get(auth, User.getUserProfile);
 
-userRouter.route("/authentication").get(auth, authentication);
+userRouter.route("/authentication").get(auth, User.authentication);
 
-userRouter.route("/authorization").get(auth, authorization);
+userRouter.route("/authorization").get(auth, User.authorization);
 
 userRouter
   .route("/changePassword")
-  .patch(auth, validation(changePasswordSchema), changePassword);
+  .patch(auth, validation(UserValidation.changePasswordSchema), User.changePassword);
 
-userRouter.route("/addToWishlist/:id").patch(auth, addToWishList);
+userRouter.route("/addToWishlist/:id").patch(auth, User.addToWishList);
 
-userRouter.route("/removeWishlist/:id").patch(auth, removeFromWishList);
+userRouter.route("/removeWishlist/:id").patch(auth, User.removeFromWishList);
 
 // Admin only routes
 userRouter
   .route("/")
-  .get(auth, allowedTo("admin"), getAllUsers)
+  .get(auth, allowedTo("admin"), User.getAllUsers)
   .patch(
     auth,
     uploadMixfile([{ name: "avatar", maxCount: 1 }]),
     saveImg,
-    validation(userSchemaUpdate),
-    updateUserProfile
+    validation(UserValidation.userSchemaUpdate),
+    User.updateUserProfile
   );
 
-userRouter.route("/:id").get(auth, allowedTo("admin"), getUserById);
+userRouter.route("/:id").get(auth, allowedTo("admin"), User.getUserById);
 
 export default userRouter;

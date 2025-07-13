@@ -1,4 +1,4 @@
-import cloudinary from "cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 import { AppError } from "../utilities/AppError.js";
 import convertToWebp from "../utilities/convertToWebp.js";
 
@@ -17,13 +17,13 @@ cloudinary.config({
   cloud_name: process.env.CLOUDINARY_NAME,
   api_key: process.env.API_KEY_CLOUDINARY,
   api_secret: process.env.API_SECRET_CLOUDINARY,
-})
-console.log("Cloudinary has been successfully connected.")
+});
+console.log("Cloudinary has been successfully connected.");
 
 export const saveImg = async (req, res, next) => {
   function uploadToCloudinary(buffer, folderName) {
     return new Promise((resolve, reject) => {
-      cloudinary.v2.uploader
+      cloudinary.uploader
         .upload_stream(
           {
             folder: folderName,
@@ -68,21 +68,22 @@ export const saveImg = async (req, res, next) => {
   }
 
   async function uploadMultipleFiles(fieldName, files) {
-    const uploadedFiles = [];
-    for (const file of files) {
-      const result = await handleFileUpload(fieldName, file.buffer);
-      uploadedFiles.push(result);
-    }
+    const uploadedFiles = await Promise.all(
+      files.map((file) => handleFileUpload(fieldName, file.buffer))
+    );
     return uploadedFiles;
   }
 
   async function handleFileUpload(fieldName, buffer) {
     try {
       const folder = getFolderName();
-      const convertedBuffer = await convertToWebp(buffer);
-      return await uploadToCloudinary(convertedBuffer, folder);
+      const webpBuffer = await convertToWebp(buffer);
+      return uploadToCloudinary(webpBuffer, folder);
     } catch (error) {
-      throw new AppError(`File upload failed: ${error.message}`, 500);
+      throw new AppError(
+        `Error uploading field "${fieldName}" to Cloudinary: ${error.message}`,
+        500
+      );
     }
   }
 
@@ -99,10 +100,12 @@ export const saveImg = async (req, res, next) => {
       }
     }
   } else {
-    req.body[req.file?.fieldname] = await handleFileUpload(
-      getFolderName(),
-      req.file?.buffer
-    );
+    if (req.file && req.file.buffer) {
+      req.body[req.file.fieldname] = await handleFileUpload(
+        req.file.fieldname,
+        req.file.buffer
+      );
+    }
   }
 
   next();

@@ -6,10 +6,20 @@ import { AppError } from "../../utilities/AppError.js";
 import sendEmail from "../../utilities/Emails/sendEmail.js";
 import { ApiFeature } from "../../utilities/AppFeature.js";
 import jwt from "jsonwebtoken";
+import tourModel from "../../models/tourModel.js";
 
 const register = catchAsyncError(async (req, res, next) => {
-  const { name, email, password, rePassword, age, nationality, phone, gender } =
-    req.body;
+  const {
+    name,
+    email,
+    password,
+    rePassword,
+    age,
+    nationality,
+    avatar,
+    phone,
+    gender,
+  } = req.body;
 
   if (password !== rePassword) {
     return next(new AppError("Passwords do not match!", 400));
@@ -24,6 +34,7 @@ const register = catchAsyncError(async (req, res, next) => {
     email,
     phone,
     age,
+    avatar,
     nationality,
     gender,
   });
@@ -164,6 +175,10 @@ const addToWishList = catchAsyncError(async (req, res, next) => {
 const removeFromWishList = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const { id } = req.params;
+
+  const tour = await tourModel.findById(id);
+  if (!tour) return next(new AppError("Tour not found!", 404));
+
   const user = await userModel
     .findByIdAndUpdate(
       _id,

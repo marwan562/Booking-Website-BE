@@ -35,29 +35,18 @@ userRouter.route("/checkCode").put(strictLimiter, User.checkCode);
 
 userRouter
   .route("/forgetPassword")
-  .patch(strictLimiter, validation(UserValidation.forgetPasswordSchema), User.forgetPassword);
+  .patch(
+    strictLimiter,
+    validation(UserValidation.forgetPasswordSchema),
+    User.forgetPassword
+  );
 
 // Protected routes
 userRouter.route("/wishlist").get(auth, User.getWishlist);
 
-userRouter.route("/profile").get(auth, User.getUserProfile);
-
-userRouter.route("/authentication").get(auth, User.authentication);
-
-userRouter.route("/authorization").get(auth, User.authorization);
-
 userRouter
-  .route("/changePassword")
-  .patch(auth, validation(UserValidation.changePasswordSchema), User.changePassword);
-
-userRouter.route("/addToWishlist/:id").patch(auth, User.addToWishList);
-
-userRouter.route("/removeWishlist/:id").patch(auth, User.removeFromWishList);
-
-// Admin only routes
-userRouter
-  .route("/")
-  .get(auth, allowedTo("admin"), User.getAllUsers)
+  .route("/profile")
+  .get(auth, User.getUserProfile)
   .patch(
     auth,
     uploadMixfile([{ name: "avatar", maxCount: 1 }]),
@@ -65,6 +54,25 @@ userRouter
     validation(UserValidation.userSchemaUpdate),
     User.updateUserProfile
   );
+
+userRouter.route("/authentication").get(auth, User.authentication);
+
+userRouter.route("/authorization").get(auth, User.authorization);
+
+userRouter
+  .route("/changePassword")
+  .patch(
+    auth,
+    validation(UserValidation.changePasswordSchema),
+    User.changePassword
+  );
+
+userRouter.route("/addToWishlist/:id").patch(auth, User.addToWishList);
+
+userRouter.route("/removeWishlist/:id").patch(auth, User.removeFromWishList);
+
+// Admin only routes
+userRouter.route("/").get(auth, allowedTo("admin"), User.getAllUsers);
 
 userRouter.route("/:id").get(auth, allowedTo("admin"), User.getUserById);
 

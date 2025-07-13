@@ -5,10 +5,8 @@ export class ApiFeature {
   }
 
   paginate() {
-    const page = this.queryString.page * 1 || 1;
-    if (page <= 0) {
-      page = 1;
-    }
+    let page = this.queryString.page * 1 || 1;
+    if (page <= 0) page = 1;
     this.page = page;
     const skip = (page - 1) * 10;
     this.mongoseQuery.skip(skip).limit(10);

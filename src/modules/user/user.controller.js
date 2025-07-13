@@ -66,10 +66,9 @@ const getAllUsers = catchAsyncError(async (req, res, next) => {
     .fields()
     .filter()
     .sort()
-    .search()
-    .lean();
+    .search();
 
-  const result = await apiFeature.mongoseQuery;
+  const result = await apiFeature.mongoseQuery.lean();
 
   const count = await userModel.find().countDocuments();
   const pageNumber = Math.ceil(count / 10);

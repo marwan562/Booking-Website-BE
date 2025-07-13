@@ -137,10 +137,9 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
     .fields()
     .filter()
     .search()
-    .sort()
-    .lean()
+    .sort();
 
-  const result = await apiFeature.mongoseQuery;
+  const result = await apiFeature.mongoseQuery.lean();
   const countTours = await tourModel.find().countDocuments();
   const pageNumber = Math.ceil(countTours / 10);
 

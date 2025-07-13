@@ -1,3 +1,5 @@
+import logger from "../../logs/logger";
+
 const customErrorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
@@ -56,6 +58,7 @@ const customErrorHandler = (err, req, res, next) => {
     }),
   };
 
+  logger.error(`${req.method} ${req.url} - ${err.message}`);
   res.status(statusCode).json(response);
 };
 

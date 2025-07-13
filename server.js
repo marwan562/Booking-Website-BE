@@ -3,7 +3,6 @@ import morgan from "morgan";
 import cors from "cors";
 import compression from "compression";
 import cookieParser from "cookie-parser";
-import customErrorHandler from "./DataBase/index.js";
 import dbConnection from "./DataBase/index.js";
 import router from "./src/router/index.js";
 import {
@@ -13,11 +12,11 @@ import {
   requestSizeLimit,
   apiLimiter,
 } from "./src/middlewares/security.js";
-import requestLogger from "./src/middlewares/logger.js";
-import logger from "./src/utilities/logger.js";
+import logger from "./logs/logger.js";
 import { AppError } from "./src/utilities/AppError.js";
 import { dirname } from "./src/utilities/getDirName.js";
 import dotenv from "dotenv";
+import customErrorHandler from "./src/middlewares/customErrorHandler.js";
 
 dotenv.config({ path: `${dirname}/.env` });
 
@@ -51,11 +50,14 @@ app.use(express.json(requestSizeLimit));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Logging
-app.use(requestLogger);
+const stream = {
+  write: (message) => logger.info(message.trim()),
+};
+
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 } else {
-  app.use(morgan("combined"));
+  app.use(morgan("combined", { stream }));
 }
 
 // Global rate limiting

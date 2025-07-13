@@ -204,9 +204,16 @@ const authorization = catchAsyncError(async (req, res, next) => {
 });
 const sendCode = catchAsyncError(async (req, res, next) => {
   const { email } = req.body;
+  const user = await userModel.findOne({ email });
+
+  if (!user) {
+    return next(new AppError("User not found!"));
+  }
+
   const randomCode = Math.floor(Math.random() * (9999 - 1000 + 1)) + 1000;
   const code = randomCode.toString();
-  await userModel.findOneAndUpdate({ email: email }, { code });
+  user.code = code;
+  await user.save();
   sendEmail({ email, code });
   res.status(200).send({ message: "success" });
 });
@@ -220,13 +227,18 @@ const checkCode = catchAsyncError(async (req, res, next) => {
   res.status(200).send({ message: "success", data: "correct code" });
 });
 const forgetPassword = catchAsyncError(async (req, res, next) => {
-  const { email, code, newPassword } = req.body;
+  const { email, code, newPassword, reNewPassword } = req.body;
+
+  if (newPassword !== reNewPassword) {
+    return next(new AppError("Passwords do not match!", 400));
+  }
 
   // Check if the provided email and code exist in the database
   const user = await userModel.findOneAndUpdate(
     { email, code },
     { password: await hash(newPassword, 10), $unset: { code: "" } }
   );
+  
   if (!user) {
     return next(new AppError("Invalid email or code", 400));
   }
@@ -246,6 +258,7 @@ const changePassword = catchAsyncError(async (req, res, next) => {
   });
   res.status(200).send({ message: "success", data: "password changed" });
 });
+
 const getUserProfile = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const user = await userModel.findById(_id);

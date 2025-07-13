@@ -113,7 +113,8 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       .fields()
       .filter()
       .sort()
-      .search();
+      .search()
+      .lean();
 
     if (!result) {
       return next(new AppError("can't find subscriptions"));
@@ -129,7 +130,8 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       .fields()
       .filter()
       .sort()
-      .search();
+      .search()
+      .lean();
 
     const result = await apiFeature.mongoseQuery;
     if (!result) {
@@ -151,7 +153,8 @@ const getSubscriptionById = catchAsyncError(async (req, res, next) => {
     .fields()
     .filter()
     .sort()
-    .search();
+    .search()
+    .lean()
 
   const result = await apiFeature.mongoseQuery;
   if (!result) {

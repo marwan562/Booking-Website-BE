@@ -137,7 +137,8 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
     .fields()
     .filter()
     .search()
-    .sort();
+    .sort()
+    .lean()
 
   const result = await apiFeature.mongoseQuery;
   const countTours = await tourModel.find().countDocuments();

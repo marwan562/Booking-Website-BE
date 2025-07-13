@@ -55,7 +55,8 @@ const getAllUsers = catchAsyncError(async (req, res, next) => {
     .fields()
     .filter()
     .sort()
-    .search();
+    .search()
+    .lean();
 
   const result = await apiFeature.mongoseQuery;
 
@@ -182,7 +183,7 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
     .lean();
 
   if (!user) return next(new AppError("User not found!", 404));
-  
+
   res.status(200).send({ message: "success", data: user.wishList });
 });
 

@@ -59,13 +59,23 @@ schema.pre(/^find/, async function (next) {
   next();
 });
 
-schema.methods.generateToken = async function (data) {
-  if (!process.env.JWT_SECRET) {
-    throw new Error("JWT_SECRET environment variable is not set");
+schema.methods.generateAccessToken = async function () {
+  if (!process.env.ACCESS_TOKEN_SECRET) {
+    throw new Error("ACCESS_TOKEN_SECRET environment variable is not set");
   }
 
-  return jwt.sign(data, process.env.JWT_SECRET, {
-    expiresIn: "7d", // Reduced from 30d to 7d for better security
+  return jwt.sign({ id: this._id }, process.env.ACCESS_SECRET, {
+    expiresIn: "15m",
+  });
+};
+
+schema.methods.generateRefreshToken = async function () {
+  if (!process.env.REFRESH_TOKEN_SECRET) {
+    throw new Error("REFRESH_TOKEN_SECRET environment variable is not set");
+  }
+
+  return jwt.sign({ id: this._id }, process.env.REFRESH_TOKEN_SECRET, {
+    expiresIn: "7d",
   });
 };
 

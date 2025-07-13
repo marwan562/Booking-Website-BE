@@ -1,6 +1,7 @@
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import customErrorHandler from "./DataBase/index.js";
 import dbConnection from "./DataBase/index.js";
 import router from "./src/router/index.js";
@@ -31,6 +32,9 @@ app.use(sanitizeData);
 // CORS configuration
 app.use(cors(corsOptions));
 
+// Request parsing cookies
+app.use(cookieParser());
+
 // Request parsing with size limits
 app.use(express.json(requestSizeLimit));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -49,7 +53,7 @@ app.use("/api", apiLimiter);
 app.use("/api", router);
 
 // Health check endpoint
-app.get("/health", (req, res) => {
+app.get("/health", (_, res) => {
   res.status(200).json({
     status: "success",
     message: "Server is running",
@@ -59,7 +63,7 @@ app.get("/health", (req, res) => {
 });
 
 // 404 handler
-app.all("*", (req, res, next) => {
+app.all("*", (req, _, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));
 });
 

@@ -3,15 +3,15 @@ import { AppError } from "../utilities/AppError.js";
 import { catchAsyncError } from "./catchAsyncError.js";
 import jwt from "jsonwebtoken";
 
-export const auth = catchAsyncError(async (req, res, next) => {
+export const auth = catchAsyncError(async (req, _, next) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer "))
-    return next(new AppError("Authorization token not provided", 401));
-
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next(new AppError("Access token missing from header", 401));
+  }
   const token = authHeader.split(" ")[1]; // Get the token
 
-  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, decoded) => {
     if (err) return next(new AppError(`Invalid token: ${err.message}`, 401));
 
     const { id } = decoded;
@@ -28,7 +28,7 @@ export const allowedTo = (...role) => {
   return catchAsyncError(async (req, res, next) => {
     if (!role.includes(req.user.role))
       return next(
-        new AppError(`you are not authorized you are ${req.user.role}`, 401)
+        new AppError(`you are not authorized you are ${req.user.role}`, 403)
       );
 
     next();

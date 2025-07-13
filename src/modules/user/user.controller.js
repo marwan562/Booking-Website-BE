@@ -10,19 +10,41 @@ import jwt from "jsonwebtoken";
 const register = catchAsyncError(async (req, res, next) => {
   const { name, email, password, rePassword, age, nationality, phone, gender } =
     req.body;
-  let user = null;
-  // Fogot avatar, password, phone, age, nationality, gender
-  user = await userModel.findOne({ email });
-  if (user) return next(new AppError("User already exists", 400));
 
-  user = new userModel({ name, password, phone, age, nationality, gender });
-  await user.save();
-  const token = await user.generateToken();
+  if (password !== rePassword) {
+    return next(new AppError("Passwords do not match!", 400));
+  }
+
+  const exists = await userModel.findOne({ email });
+  if (exists) return next(new AppError("User already exists", 400));
+
+  const user = await userModel.create({
+    name,
+    password,
+    email,
+    phone,
+    age,
+    nationality,
+    gender,
+  });
+
+  const accessToken = await user.generateAccessToken();
+
+  const refreshToken = await user.generateRefreshToken();
+
+  // refreshToken in HttpOnly cookie
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
+
   res.status(201).json({
     status: "success",
     data: {
       user,
-      token,
+      accessToken,
     },
   });
 });
@@ -55,50 +77,44 @@ const getAllUsers = catchAsyncError(async (req, res, next) => {
 const login = catchAsyncError(async (req, res, next) => {
   const { email, password } = req.body;
 
-  // Check if user exists
   const user = await userModel.findOne({ email });
-  if (!user) {
+  if (!user || !(await user.comparePassword(password))) {
     return next(new AppError("Invalid email or password", 401));
   }
 
-  // Verify password
-  const isPasswordValid = await user.comparePassword(password);
-  if (!isPasswordValid) {
-    return next(new AppError("Invalid email or password", 401));
-  }
-  const token = await user.generateToken();
+  const accessToken = await user.generateAccessToken();
 
-  // Log successful login
-  console.log(`Successful login: ${email} from IP: ${req.ip}`);
+  const refreshToken = await user.generateRefreshToken();
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
 
   res.status(200).json({
     status: "success",
     data: {
       user,
-      token,
+      accessToken,
     },
   });
 });
 
 const refreshToken = catchAsyncError(async (req, res, next) => {
-  const tokenHeader = req.headers.authorization;
+  const token = req.cookies.refreshToken;
+  if (!token) return next(new AppError("Refresh token missing", 401));
 
-  if (!tokenHeader || !tokenHeader.startsWith("Bearer "))
-    return next(new AppError("Authorization token not provided", 401));
+  jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, async (err, decoded) => {
+    if (err) return next(new AppError("Invalid refresh token", 401));
 
-  const token = tokenHeader.split(" ")[1]; // Get the token
+    const user = await userModel.findById(decoded.id);
+    if (!user) return next(new AppError("User not found", 401));
 
-  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-    if (err) return next(new AppError(`Invalid token: ${err.message}`, 401));
-    const { id } = decoded;
-    const user = await userModel.findById(id);
+    const accessToken = await user.generateAccessToken();
 
-    if (!user) return next(new AppError("User is not authorized", 401));
-
-    if (err.name === "TokenExpiredError") {
-      const newToken = await user.generateToken();
-      res.status(200).send({ message: "success", refreshToken: newToken });
-    }
+    return res.status(200).json({ message: "success", accessToken });
   });
 });
 

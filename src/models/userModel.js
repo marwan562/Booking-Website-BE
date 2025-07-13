@@ -59,6 +59,22 @@ schema.pre(/^find/, async function (next) {
   next();
 });
 
+schema.set("toJSON", {
+  transform: function (doc, ret) {
+    delete ret.password;
+    delete ret._v;
+    return ret;
+  },
+});
+
+schema.set("toObject", {
+  transform: function (doc, ret) {
+    delete ret.password;
+    delete ret._v;
+    return ret;
+  },
+});
+
 schema.methods.generateAccessToken = async function () {
   if (!process.env.ACCESS_TOKEN_SECRET) {
     throw new Error("ACCESS_TOKEN_SECRET environment variable is not set");

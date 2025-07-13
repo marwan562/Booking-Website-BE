@@ -89,11 +89,10 @@ const getAllUsers = catchAsyncError(async (req, res, next) => {
 const login = catchAsyncError(async (req, res, next) => {
   const { email, password } = req.body;
 
-  const user = await userModel.findOne({ email });
+  const user = await userModel.findOne({ email }).select("+password");
   if (!user || !(await user.comparePassword(password))) {
     return next(new AppError("Invalid email or password", 401));
   }
-
   const accessToken = await user.generateAccessToken();
 
   const refreshToken = await user.generateRefreshToken();
@@ -277,7 +276,7 @@ const forgetPassword = catchAsyncError(async (req, res, next) => {
 const changePassword = catchAsyncError(async (req, res, next) => {
   const { newPassword, password } = req.body;
   const { _id } = req.user;
-  const user = await userModel.findByIdAndUpdate(_id);
+  const user = await userModel.findByIdAndUpdate(_id).select("+password");
   if (!(await user.comparePassword(password))) {
     return next(new AppError("incorrect password"));
   }

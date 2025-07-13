@@ -137,6 +137,10 @@ const updateUserProfile = catchAsyncError(async (req, res, next) => {
 const addToWishList = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const { id } = req.params;
+  const tour = await tourModel.findById(id);
+
+  if (!tour) return next(new AppError("Tour not found!", 404));
+
   const user = await userModel
     .findByIdAndUpdate(
       _id,
@@ -148,8 +152,11 @@ const addToWishList = catchAsyncError(async (req, res, next) => {
     .populate({
       path: "wishList",
       select: "title description mainImg adultPricing", // Corrected field name to description
-    });
-  !user && next(new AppError("can't find the tour"));
+    })
+    .lean();
+
+  if (!user) return next(new AppError("User not found!", 404));
+
   res.status(200).send({ message: "success", data: user.wishList });
 });
 
@@ -173,7 +180,9 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
       },
     })
     .lean();
-  !user && next(new AppError("can't find the user"));
+
+  if (!user) return next(new AppError("User not found!", 404));
+  
   res.status(200).send({ message: "success", data: user.wishList });
 });
 
@@ -183,19 +192,22 @@ const getWishlist = catchAsyncError(async (req, res, next) => {
     path: "wishList",
     select: "mainImg title description adultPricing",
   });
+
   if (!user) {
     return next(new AppError("can't find user"));
   }
   if (!user.wishList[0]) {
     return next(new AppError("can't find any wishlist"));
   }
-  res.status(200).send({ message: "success", data: user });
+  res.status(200).send({ message: "success", data: user.wishList });
 });
+
 const authentication = catchAsyncError(async (req, res, next) => {
   res
     .status(200)
     .send({ message: "success", data: "Authentication successful" });
 });
+
 const authorization = catchAsyncError(async (req, res, next) => {
   const { role } = req.user;
   role == "user" && res.status(200).send({ message: "success", role: "user" });
@@ -238,7 +250,7 @@ const forgetPassword = catchAsyncError(async (req, res, next) => {
     { email, code },
     { password: await hash(newPassword, 10), $unset: { code: "" } }
   );
-  
+
   if (!user) {
     return next(new AppError("Invalid email or code", 400));
   }

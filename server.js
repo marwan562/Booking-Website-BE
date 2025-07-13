@@ -1,6 +1,7 @@
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import customErrorHandler from "./DataBase/index.js";
 import dbConnection from "./DataBase/index.js";
@@ -24,6 +25,9 @@ console.log("Loaded ENV:", process.env.NODE_ENV);
 
 // Connect to database
 dbConnection();
+
+// compression middleware
+app.use(compression());
 
 // Security middleware (order matters!)
 app.use(securityHeaders);

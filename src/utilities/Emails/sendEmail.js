@@ -2,17 +2,18 @@ import nodemailer from "nodemailer";
 import verifyEmailHTML from "./verifyEmailTemplate.js";
 import forgetPasswordHTML from "./ForgetPasswordTemplete.js";
 
-let sendEmail = async (option) => {
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true, 
-    auth: {
-      user: "shehabwaleedd@gmail.com", 
-      pass: "ctqm uwgp mqbw rgbz",
-    },
-  });
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
+let sendEmail = async (option) => {
   // send mail with defined transport object
   const mailOptions = {
     from: "f365",

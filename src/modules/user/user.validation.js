@@ -62,10 +62,12 @@ const userSchemaCreate = joi.object({
     url: joi.string().uri(),
     public_id: joi.string(),
   }),
-  age: joi.number(),
+  age: joi.number().min(17).max(100),
   nationality: joi.string(),
-  phone: joi.number(),
-  gender: joi.string(),
+  phone: joi.string().required().messages({
+    "any.required": "Phone number is required",
+  }),
+  gender: joi.string().valid("male", "female", "other").required(),
 });
 
 const userSchemaUpdate = joi.object({

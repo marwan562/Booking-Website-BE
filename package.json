@@ -28,6 +28,7 @@
     "nodemailer": "^6.9.13",
     "sharp": "^0.33.2",
     "stripe": "^14.25.0",
+    "winston": "^3.17.0",
     "xss-clean": "^0.1.4"
   },
   "scripts": {

@@ -13,6 +13,8 @@ import {
   requestSizeLimit,
   apiLimiter,
 } from "./src/middlewares/security.js";
+import requestLogger from "./src/middlewares/logger.js";
+import logger from "./src/utilities/logger.js";
 import { AppError } from "./src/utilities/AppError.js";
 import { dirname } from "./src/utilities/getDirName.js";
 import dotenv from "dotenv";
@@ -24,7 +26,12 @@ const app = express();
 console.log("Loaded ENV:", process.env.NODE_ENV);
 
 // Connect to database
-dbConnection();
+try {
+  dbConnection();
+  logger.info("Database connection established");
+} catch (err) {
+  logger.error(`Database connection failed: ${err.message}`);
+}
 
 // compression middleware
 app.use(compression());
@@ -44,6 +51,7 @@ app.use(express.json(requestSizeLimit));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Logging
+app.use(requestLogger);
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 } else {
@@ -74,7 +82,23 @@ app.all("*", (req, _, next) => {
 // Global error handler
 app.use(customErrorHandler);
 
+process.on("uncaughtException", (err) => {
+  logger.error(`Uncaught Exception: ${err.message}`);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error(`Unhandled Rejection: ${reason}`);
+  process.exit(1);
+});
+
+process.on("SIGTERM", () => {
+  logger.info("SIGTERM received. Shutting down gracefully.");
+  process.exit(0);
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
+  logger.info(`Server started on port ${PORT} in ${process.env.NODE_ENV} mode`);
   console.log(`Server is running on port ${PORT}`);
 });

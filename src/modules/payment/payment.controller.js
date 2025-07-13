@@ -3,7 +3,6 @@ import { catchAsyncError } from "../../middlewares/catchAsyncError.js";
 import { AppError } from "../../utilities/AppError.js";
 import subscriptionModel from "../../models/subscriptionModel.js";
 import jwt from "jsonwebtoken";
-import fetch from "node-fetch";
 import axios from "axios";
 import { changeCurrence } from "../../utilities/changeCurrence.js";
 import "dotenv/config";
@@ -81,7 +80,7 @@ export const sessionCheckout = catchAsyncError(async (req, res, next) => {
   }
   const token = jwt.sign(
     { subscriptionId: req.params.id },
-    process.env.JWT_SECRET,
+    process.env.ACCESS_TOKEN_SECRET,
     {
       expiresIn: "7d",
     }
@@ -106,7 +105,7 @@ export const sessionCheckout = catchAsyncError(async (req, res, next) => {
 
 export const handleFaildPayment = catchAsyncError(async (req, res, next) => {
   const { token } = req.params;
-  jwt.verify(token, process.env.JWT_SECRET, async function (err, decoded) {
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async function (err, decoded) {
     if (err) return next(new AppError(err.message));
 
     const { subscriptionId } = decoded;
@@ -119,7 +118,7 @@ export const handleFaildPayment = catchAsyncError(async (req, res, next) => {
 });
 export const handlePendingPayment = catchAsyncError(async (req, res, next) => {
   const { token } = req.params;
-  jwt.verify(token, process.env.JWT_SECRET, async function (err, decoded) {
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async function (err, decoded) {
     if (err) return next(new AppError(err.message));
 
     const { subscriptionId } = decoded;
@@ -132,7 +131,7 @@ export const handlePendingPayment = catchAsyncError(async (req, res, next) => {
 });
 export const handleSuccessPayment = catchAsyncError(async (req, res, next) => {
   const { token } = req.params;
-  jwt.verify(token, process.env.JWT_SECRET, async function (err, decoded) {
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async function (err, decoded) {
     if (err) return next(new AppError(err.message));
 
     const { subscriptionId } = decoded;
@@ -219,7 +218,7 @@ export const fwaterk = catchAsyncError(async (req, res, next) => {
     };
     const token = jwt.sign(
       { subscriptionId: req.params.id },
-      process.env.JWT_SECRET,
+      process.env.ACCESS_TOKEN_SECRET,
       {
         expiresIn: "7d",
       }

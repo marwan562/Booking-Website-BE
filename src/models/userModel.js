@@ -41,15 +41,15 @@ schema.index({ email: 1 });
 schema.pre("save", async function (next) {
   if (this.isModified("password")) {
     this.password = await hash(this.password, 10);
-    return next();
   }
   return next();
 });
 
 schema.pre("findByIdAndUpdate", async function (next) {
-  if (this.isModified("password")) {
-    this.password = await hash(this.password, 10);
-    return next();
+  const update = this.getUpdate();
+  if (update?.password) {
+    update.password = await hash(update.password, 10);
+    this.setUpdate(update);
   }
   return next();
 });

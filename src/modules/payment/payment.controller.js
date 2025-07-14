@@ -1,167 +1,84 @@
-import stripe from "stripe";
 import { catchAsyncError } from "../../middlewares/catchAsyncError.js";
 import { AppError } from "../../utilities/AppError.js";
 import subscriptionModel from "../../models/subscriptionModel.js";
 import jwt from "jsonwebtoken";
 import axios from "axios";
-import { changeCurrence } from "../../utilities/changeCurrence.js";
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
 
-// Validate cloudinary configuration
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error(
-    "Stripe Payment configuration is missing. Please check your environment variables."
-  );
-}
-
-const stripeInstance = stripe(process.env.STRIPE_SECRET_KEY);
-console.log("Stripe has been successfully connected.");
-
-export const sessionCheckout = catchAsyncError(async (req, res, next) => {
-  const { id } = req.params;
-  const { _id } = req.user;
-  let subscription = await subscriptionModel.findOne({
-    _id: id,
-    userDetails: _id,
-  });
-
-  if (!subscription) {
-    return next(new AppError("can't find the subscription"));
-  }
-
-  if (subscription.payment == "success") {
-    return next(new AppError("The subscription has been paid"));
-  }
-
-  let { options, adultPricing, childrenPricing } = subscription;
-  let line_items = [];
-  line_items.push({
-    price_data: {
-      currency: "USD",
-      unit_amount: adultPricing.price * 100,
-      product_data: {
-        name: `Adult`,
-        images: ["https://cdn-icons-png.freepik.com/512/3787/3787951.png"],
-      },
-    },
-    quantity: adultPricing.adults,
-  });
-  if (childrenPricing.totalPrice > 0) {
-    line_items.push({
-      price_data: {
-        currency: "USD",
-        unit_amount: childrenPricing.price * 100,
-        product_data: {
-          name: "Child",
-          images: [
-            "https://toppng.com/uploads/preview/children-icon-png-11552333579xtroc64zmd.png",
-          ],
-        },
-      },
-      quantity: childrenPricing.children,
-    });
-  }
-  if (options) {
-    options.forEach((option) => {
-      line_items.push({
-        price_data: {
-          currency: "USD",
-          unit_amount: option.totalPrice * 100,
-          product_data: {
-            name: option.name,
-            images: [
-              "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRjIieaF9GiSBIqCSzhrBCyzLELknPW4SLziBBZ5yXuAw&s",
-            ],
-          },
-        },
-        quantity: 1,
-      });
-    });
-  }
-  const token = jwt.sign(
-    { subscriptionId: req.params.id },
-    process.env.ACCESS_TOKEN_SECRET,
-    {
-      expiresIn: "7d",
-    }
-  );
-  let stripeSession = await stripeInstance.checkout.sessions.create({
-    line_items,
-
-    metadata: {
-      subscriptionId: req.params.id,
-    },
-    mode: "payment",
-    customer_email: req.user.email,
-    success_url: `https://tours-b5zy.onrender.com/payment/handelPassCheckout/${token}`,
-    cancel_url: "https://www.yahoo.com/?guccounter=1",
-  });
-
-  if (!stripeSession)
-    return next(new AppError("Payment Failed, please try again!", 500));
-
-  res.json({ redirectTo: stripeSession.url, data: subscription });
-});
+const FAWATERK_URL_ENV =
+  process.env.NODE_ENV === "development" ? "staging" : "app";
 
 export const handleFaildPayment = catchAsyncError(async (req, res, next) => {
   const { token } = req.params;
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async function (err, decoded) {
-    if (err) return next(new AppError(err.message));
+  jwt.verify(
+    token,
+    process.env.PAYMENT_TOKEN_SECRET,
+    async function (err, decoded) {
+      if (err) return next(new AppError(err.message));
 
-    const { subscriptionId } = decoded;
-    const subscription = await subscriptionModel.findById(subscriptionId);
+      const { subscriptionId } = decoded;
+      const subscription = await subscriptionModel.findById(subscriptionId);
 
-    res.redirect(
-      `https://pyramidsegypttour.com/account/user/${subscription.userDetails._id}/${subscriptionId}/orderFailed`
-    );
-  });
+      res.redirect(
+        `${process.env.FRONT_END_URL}/account/user/${subscription.userDetails._id}/${subscriptionId}/orderFailed`
+      );
+    }
+  );
 });
 export const handlePendingPayment = catchAsyncError(async (req, res, next) => {
   const { token } = req.params;
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async function (err, decoded) {
-    if (err) return next(new AppError(err.message));
+  jwt.verify(
+    token,
+    process.env.PAYMENT_TOKEN_SECRET,
+    async function (err, decoded) {
+      if (err) return next(new AppError(err.message));
 
-    const { subscriptionId } = decoded;
-    const subscription = await subscriptionModel.findById(subscriptionId);
+      const { subscriptionId } = decoded;
+      const subscription = await subscriptionModel.findById(subscriptionId);
 
-    res.redirect(
-      `https://pyramidsegypttour.com/account/user/${subscription.userDetails._id}/${subscriptionId}/orderPending`
-    );
-  });
+      res.redirect(
+        `${process.env.FRONT_END_URL}/account/user/${subscription.userDetails._id}/${subscriptionId}/orderPending`
+      );
+    }
+  );
 });
 export const handleSuccessPayment = catchAsyncError(async (req, res, next) => {
   const { token } = req.params;
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async function (err, decoded) {
-    if (err) return next(new AppError(err.message));
+  jwt.verify(
+    token,
+    process.env.PAYMENT_TOKEN_SECRET,
+    async function (err, decoded) {
+      if (err) return next(new AppError(err.message));
 
-    const { subscriptionId } = decoded;
-    const subscription = await subscriptionModel.findByIdAndUpdate(
-      subscriptionId,
-      { payment: "success" },
-      { new: true }
-    );
+      const { subscriptionId } = decoded;
+      const subscription = await subscriptionModel.findByIdAndUpdate(
+        subscriptionId,
+        { payment: "success" },
+        { new: true }
+      );
 
-    res.redirect(
-      `https://pyramidsegypttour.com/account/user/${subscription.userDetails._id}/${subscriptionId}/orderConfirmed`
-    );
-  });
+      res.redirect(
+        `${process.env.FRONT_END_URL}/account/user/${subscription.userDetails._id}/${subscriptionId}/orderConfirmed`
+      );
+    }
+  );
 });
 
 export const fwaterk = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
   const { currency } = req.body;
   const { _id: userId } = req.user;
-  const response = await changeCurrence();
-  const data = await response.json();
+  const { data } = await axios.get(
+    "https://api.exchangerate-api.com/v4/latest/USD"
+  );
   const EGP = data.rates.EGP;
   const EUR = data.rates.EUR;
   let subscription = await subscriptionModel.findOne({
     _id: id,
     userDetails: userId,
   });
-  if (subscription.payment == "success") {
-    return next(new AppError("The subscription has been paid"));
-  }
+
   if (subscription) {
     let { options, adultPricing, childrenPricing, totalPrice } = subscription;
     let cartItems = [];
@@ -208,8 +125,9 @@ export const fwaterk = catchAsyncError(async (req, res, next) => {
         });
       });
     }
-    const first_name = subscription.userDetails.name.split(" ")[0];
-    const last_name = subscription.userDetails.name.split(" ")[1];
+    const [first_name, last_name = ""] =
+      subscription.userDetails.name.split(" ");
+
     const customer = {
       first_name,
       last_name,
@@ -218,9 +136,9 @@ export const fwaterk = catchAsyncError(async (req, res, next) => {
     };
     const token = jwt.sign(
       { subscriptionId: req.params.id },
-      process.env.ACCESS_TOKEN_SECRET,
+      process.env.PAYMENT_TOKEN_SECRET,
       {
-        expiresIn: "7d",
+        expiresIn: "15m",
       }
     );
 
@@ -251,132 +169,54 @@ export const fwaterk = catchAsyncError(async (req, res, next) => {
   }
 });
 
-function createInvoiceLink(
+async function createInvoiceLink(
   cartItems,
   customer,
   cartTotal,
   token,
   currency = "USD"
 ) {
-  var data = JSON.stringify({
+  const data = {
     payment_method_id: 2,
     cartTotal,
     currency,
     customer,
     redirectionUrls: {
-      successUrl: `https://pyramidsegypttour.com/api/payment/handelPassCheckout/${token}`,
-      failUrl: `https://pyramidsegypttour.com/api/payment/handelFaildPass/${token}`,
-      pendingUrl: `https://pyramidsegypttour.com/api/payment/handelPendingPass/${token}`,
+      successUrl: `${process.env.BACK_END_URL}/api/payment/handelPassCheckout/${token}`,
+      failUrl: `${process.env.BACK_END_URL}/api/payment/handelFaildPass/${token}`,
+      pendingUrl: `${process.env.BACK_END_URL}/api/payment/handelPendingPass/${token}`,
     },
     cartItems,
     sendEmail: true,
-  });
-
-  var config = {
-    method: "post",
-    url: "https://app.fawaterk.com/api/v2/invoiceInitPay",
-    headers: {
-      Authorization: `Bearer ${process.env.API_TOKEN_FWATERK}`,
-      "Content-Type": "application/json",
-    },
-    data: data,
   };
 
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axios(config);
-      resolve(response.data);
-    } catch (error) {
-      reject(error.response.data.message);
-    }
-  });
-}
-
-//=============================================================
-//=============================================================
-
-const environment = process.env.ENVIRONMENT || "sandbox";
-const client_id = process.env.CLIENT_ID;
-const client_secret = process.env.CLIENT_SECRET;
-const endpoint_url =
-  environment === "sandbox"
-    ? "https://api-m.sandbox.paypal.com"
-    : "https://api-m.paypal.com";
-
-function get_access_token() {
-  const auth = `${client_id}:${client_secret}`;
-  const data = "grant_type=client_credentials";
-  return fetch(endpoint_url + "/v1/oauth2/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(auth).toString("base64")}`,
-    },
-    body: data,
-  })
-    .then((res) => res.json())
-    .then((json) => {
-      return json.access_token;
-    });
-}
-export const createOrderPaypal = (req, res) => {
-  get_access_token()
-    .then((access_token) => {
-      let order_data_json = {
-        intent: req.body.intent.toUpperCase(),
-        purchase_units: [
-          {
-            amount: {
-              currency_code: "USD",
-              value: "1.00",
-            },
-          },
-        ],
-      };
-      const data = JSON.stringify(order_data_json);
-
-      fetch(endpoint_url + "/v2/checkout/orders", {
-        //https://developer.paypal.com/docs/api/orders/v2/#orders_create
-        method: "POST",
+  try {
+    const response = await axios.post(
+      `https://${FAWATERK_URL_ENV}.fawaterk.com/api/v2/invoiceInitPay`,
+      data,
+      {
         headers: {
+          Authorization: `Bearer ${process.env.API_TOKEN_FWATERK}`,
           "Content-Type": "application/json",
-          Authorization: `Bearer ${access_token}`,
         },
-        body: data,
-      })
-        .then((res) => res.json())
-        .then((json) => {
-          res.send(json);
-        }); //Send minimal data to client
-    })
-    .catch((err) => {
-      res.status(500).send(err);
-    });
-};
+      }
+    );
+    return response.data;
+  } catch (error) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.response?.data ||
+      error.message ||
+      "Unknown error occurred while creating the invoice.";
 
-export const completeOrder = (req, res) => {
-  get_access_token()
-    .then((access_token) => {
-      fetch(
-        endpoint_url +
-          "/v2/checkout/orders/" +
-          req.body.order_id +
-          "/" +
-          req.body.intent,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${access_token}`,
-          },
-        }
-      )
-        .then((res) => res.json())
-        .then((json) => {
-          res.send(json);
-        }); //Send minimal data to client
-    })
-    .catch((err) => {
-      res.status(500).send(err);
-    });
-};
+    console.error(
+      "Fawaterk API Error:",
+      JSON.stringify(errorMessage || error, null, 2)
+    );
+
+    throw new Error(
+      error.response?.data?.message ||
+        "Something went wrong while creating the invoice."
+    );
+  }
+}

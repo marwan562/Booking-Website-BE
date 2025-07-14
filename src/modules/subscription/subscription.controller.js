@@ -1,8 +1,8 @@
 import subscriptionModel from "../../models/subscriptionModel.js";
 import tourModel from "../../models/tourModel.js";
-import { catchAsyncError } from "../../../middlewares/catchAsyncError.js";
-import { AppError } from "../../../utilities/AppError.js";
-import { ApiFeature } from "../../../utilities/AppFeature.js";
+import { catchAsyncError } from "../../middlewares/catchAsyncError.js";
+import { AppError } from "../../utilities/AppError.js";
+import { ApiFeature } from "../../utilities/AppFeature.js";
 import { ObjectId } from "mongodb";
 import schedule from "node-schedule";
 const createSubscription = catchAsyncError(async (req, res, next) => {
@@ -73,17 +73,19 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       }
       fetchingOptions.forEach((option) => {
         options.forEach((inputOption) => {
-          if (option._id == inputOption.id) {
-            option.number = inputOption.number;
-            if (option.numberOfChildren) {
-              option.numberOfChildren = inputOption.numberOfChildren;
-              option.totalPrice += option.childPrice * option.numberOfChildren;
-            }
-            option.totalPrice = option.price * option.number;
+          if (option._id.toString() === inputOption.id) {
+            option.number = inputOption.number || 0;
+            option.numberOfChildren = inputOption.numberOfChildren || 0;
+      
+            const adultTotal = option.price * option.number;
+            const childTotal = option.childPrice * option.numberOfChildren;
+      
+            option.totalPrice = adultTotal + childTotal;
             totalPrice += option.totalPrice;
           }
         });
       });
+      
       req.body.options = fetchingOptions;
     }
 

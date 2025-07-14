@@ -5,6 +5,7 @@ import { AppError } from "../../utilities/AppError.js";
 import { ApiFeature } from "../../utilities/AppFeature.js";
 import { ObjectId } from "mongodb";
 import schedule from "node-schedule";
+
 const createSubscription = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const { id } = req.params;
@@ -18,6 +19,10 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     let { adultPricing, childrenPricing, options } = req.body;
     req.body.userDetails = _id;
     req.body.tourDetails = id;
+
+    const exists = await subscriptionModel.findOne({ userDetails: _id, tourDetails: id });
+    if (exists) return next(new AppError("You already subscribed to this tour."));
+
     let totalPrice = 0;
     if (adultPricing) {
       let fetchingAdult = await tourModel.aggregate([
@@ -115,7 +120,8 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       .fields()
       .filter()
       .sort()
-      .search();
+      .search()
+      .lean()
 
     const result = apiFeature.mongoseQuery.lean();
 
@@ -133,17 +139,21 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       .fields()
       .filter()
       .sort()
-      .search();
+      .search()
+      .lean()
 
-    const result = await apiFeature.mongoseQuery.lean();
+    const result = await apiFeature.mongoseQuery
     if (!result) {
       return next(new AppError("can't find subscriptions"));
     }
-    const cout = await subscriptionModel.find().countDocuments();
-    const pageNumber = Math.ceil(cout / 10);
+    const totalCount = await apiFeature.getTotalCount();
+    const paginationMeta = apiFeature.getPaginationMeta(totalCount);
     res.status(200).send({
       message: "success",
-      data: { page: apiFeature.page, result, pageNumber },
+      data: { 
+        subscriptions:result,
+        pagination:paginationMeta
+      },
     });
   }
 });
@@ -155,13 +165,26 @@ const getSubscriptionById = catchAsyncError(async (req, res, next) => {
     .fields()
     .filter()
     .sort()
-    .search();
+    .search()
+    .lean()
 
   const result = await apiFeature.mongoseQuery.lean();
   if (!result) {
     return next(new AppError("can't find subscription"));
   }
   res.status(200).send({ message: "success", data: result });
+});
+
+const deleteSubscription = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+
+  const subscription = await subscriptionModel.findById(id);
+  if (!subscription) {
+    return next(new AppError("Subscription not found", 404));
+  }
+
+  await subscriptionModel.findByIdAndDelete(id);
+  res.status(200).json({ message: "Subscription deleted successfully" });
 });
 
 const clearSubscription = catchAsyncError(async (req, res, next) => {
@@ -177,10 +200,13 @@ const clearSubscription = catchAsyncError(async (req, res, next) => {
     })
   );
 });
+
 schedule.scheduleJob("0 0 * * *", function () {
   clearSubscription(null, null, null);
 });
+
 export {
+  deleteSubscription,
   createSubscription,
   getAllSubscription,
   clearSubscription,

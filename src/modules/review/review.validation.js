@@ -1,16 +1,24 @@
-import joi from "joi";
-export const createReviewSchema = joi.object({
-  id: joi.string().hex().length(24).required(),
-  rating: joi.number().min(1).max(5).required(),
-  comment: joi.string().max(7000),
-  time: joi.string(),
+import Joi from "joi";
+
+export const createReviewSchema = Joi.object({
+  id: Joi.string().hex().length(24).required(),
+  rating: Joi.number().min(1).max(5).required().messages({
+    "number.base": "Rating must be a number between 1 and 5",
+    "number.min": "Rating must be a number between 1 and 5",
+    "number.max": "Rating must be a number between 1 and 5",
+    "any.required": "Rating is required",
+  }),
+  comment: Joi.string().max(7000),
 });
-export const editReviewSchmea = joi.object({
-  id: joi.string().hex().length(24).required(),
-  rating: joi.number().min(1).max(5),
-  comment: joi.string().max(7000),
-  time: joi.string(),
+
+export const editReviewSchema = Joi.object({
+  id: Joi.string().hex().length(24).required(),
+  rating: Joi.number().min(1).max(5).messages({
+    "number.base": "Rating must be a number between 1 and 5",
+  }),
+  comment: Joi.string().max(7000),
 });
-export const ReviewSchmea = joi.object({
-  id: joi.string().hex().length(24).required(),
+
+export const reviewSchema = Joi.object({
+  id: Joi.string().hex().length(24).required(),
 });

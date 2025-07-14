@@ -9,7 +9,7 @@ const schema = new Schema(
   { timestamps: true }
 );
 
-schema.pre(/^find/, async function (next) {
+schema.pre("find", async function (next) {
   this.populate([
     { path: "user", select: "avatar name" },
     { path: "tour", select: "mainImg title description" },

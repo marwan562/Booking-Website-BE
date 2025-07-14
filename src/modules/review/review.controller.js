@@ -13,10 +13,6 @@ export const createReview = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Comment and rating are required", 400));
   }
 
-  if (typeof rating !== "number" || rating < 1 || rating > 5) {
-    return next(new AppError("Rating must be a number between 1 and 5", 400));
-  }
-
   if (comment.length < 10 || comment.length > 1000) {
     return next(
       new AppError("Comment must be between 10 and 1000 characters", 400)

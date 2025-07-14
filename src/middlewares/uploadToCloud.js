@@ -1,24 +1,31 @@
 import { v2 as cloudinary } from "cloudinary";
 import { AppError } from "../utilities/AppError.js";
 import convertToWebp from "../utilities/convertToWebp.js";
+import dotenv from "dotenv";
+import path from "path";
 
-// Validate cloudinary configuration
-if (
-  !process.env.CLOUDINARY_NAME ||
-  !process.env.API_KEY_CLOUDINARY ||
-  !process.env.API_SECRET_CLOUDINARY
-) {
-  throw new Error(
-    "Cloudinary configuration is missing. Please check your environment variables."
-  );
-}
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_NAME,
-  api_key: process.env.API_KEY_CLOUDINARY,
-  api_secret: process.env.API_SECRET_CLOUDINARY,
+const envPath = path.resolve(process.cwd(), `.env.${process.env.NODE_ENV}`);
+dotenv.config({
+  path:envPath
 });
-console.log("Cloudinary has been successfully connected.");
+
+let cloud_name = process.env.CLOUDINARY_NAME,
+  api_key = process.env.API_KEY_CLOUDINARY,
+  api_secret = process.env.API_SECRET_CLOUDINARY;
+
+if (cloud_name && api_key && api_secret) {
+  cloudinary.config({
+    cloud_name,
+    api_key,
+    api_secret,
+  });
+  console.log("Cloudinary has been successfully connected.");
+} else {
+  console.warn(
+    "Cloudinary configuration is missing. File uploads will be disabled."
+  );
+  process.exit(1);
+}
 
 export const saveImg = async (req, res, next) => {
   function uploadToCloudinary(buffer, folderName) {

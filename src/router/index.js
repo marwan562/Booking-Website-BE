@@ -1,5 +1,5 @@
 import express from "express";
-import subscriptionRouter from "../modules/payment/payment.router.js";
+import subscriptionRouter from "../modules/subscription/subscription.router.js";
 import tourRouter from "../modules/tour/tour.router.js";
 import userRouter from "../modules/user/user.router.js";
 import testimonialRouter from "../modules/testimonial/testimonial.router.js";

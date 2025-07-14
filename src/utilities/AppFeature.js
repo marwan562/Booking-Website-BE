@@ -15,36 +15,58 @@ export class ApiFeature {
 
   filter() {
     let filterobj = { ...this.queryString };
-    const excludeQuary = ["page", "sort", "fields", "keyword"];
+    const excludeQuary = ["page", "sort", "fields", "keyword", "limit"];
     excludeQuary.forEach((q) => {
       delete filterobj[q];
     });
-    filterobj = JSON.stringify(filterobj);
-    filterobj = filterobj.replace(/\b(gt|gte|lt|lte)\b/g, (math) => `$${math}`);
-    filterobj = JSON.parse(filterobj);
-    this.mongoseQuery.find(filterobj);
 
+    filterobj = JSON.stringify(filterobj);
+    filterobj = filterobj.replace(
+      /\b(gt|gte|lt|lte|in|nin|exists|regex)\b/g,
+      (math) => `$${math}`
+    );
+    filterobj = JSON.parse(filterobj);
+
+    // Add date range filtering if provided
+    if (this.queryString.dateFrom || this.queryString.dateTo) {
+      filterobj.createdAt = {};
+      if (this.queryString.dateFrom) {
+        filterobj.createdAt.$gte = new Date(this.queryString.dateFrom);
+      }
+      if (this.queryString.dateTo) {
+        filterobj.createdAt.$lte = new Date(this.queryString.dateTo);
+      }
+    }
+
+    this.mongoseQuery.find(filterobj);
     return this;
   }
+
   sort() {
     if (this.queryString.sort) {
       let sortedBy = this.queryString.sort.split(",").join(" ");
       this.mongoseQuery.sort(sortedBy);
     } else {
-      // If no sort criteria is provided, sort by default field (e.g., createdAt)
-      this.mongoseQuery.sort({ index: 1 }); // Or 'asc' depending on your preference
+      // Optimized default sorting
+      this.mongoseQuery.sort({ createdAt: -1, index: 1 });
     }
     return this;
   }
 
   search() {
     if (this.queryString.keyword) {
-      this.mongoseQuery.find({
+      const keyword = this.queryString.keyword;
+
+      const searchQuery = {
         $or: [
-          { title: { $regex: this.queryString.keyword, $options: "i" } },
-          { description: { $regex: this.queryString.keyword, $options: "i" } },
+          { title: { $regex: keyword, $options: "i" } },
+          { description: { $regex: keyword, $options: "i" } },
+          { category: { $regex: keyword, $options: "i" } },
+          { tags: { $in: [new RegExp(keyword, "i")] } },
         ],
-      });
+      };
+
+      this.mongoseQuery.find(searchQuery);
     }
     return this;
   }
@@ -55,5 +77,46 @@ export class ApiFeature {
       this.mongoseQuery.select(fields);
     }
     return this;
+  }
+
+  // Add lean query optimization
+  lean() {
+    this.mongoseQuery.lean();
+    return this;
+  }
+
+  async getTotalCount() {
+    const countQuery = this.mongoseQuery.model.find();
+
+    if (this.queryString.keyword) {
+      const keyword = this.queryString.keyword;
+      countQuery.find({
+        $or: [
+          { title: { $regex: keyword, $options: "i" } },
+          { description: { $regex: keyword, $options: "i" } },
+          { category: { $regex: keyword, $options: "i" } },
+          { tags: { $in: [new RegExp(keyword, "i")] } },
+        ],
+      });
+    }
+
+    return await countQuery.countDocuments();
+  }
+
+  getPaginationMeta(totalCount) {
+    const totalPages = Math.ceil(totalCount / this.limit);
+    const hasNextPage = this.page < totalPages;
+    const hasPrevPage = this.page > 1;
+
+    return {
+      currentPage: this.page,
+      totalPages,
+      totalItems: totalCount,
+      itemsPerPage: this.limit,
+      hasNextPage,
+      hasPrevPage,
+      nextPage: hasNextPage ? this.page + 1 : null,
+      prevPage: hasPrevPage ? this.page - 1 : null,
+    };
   }
 }

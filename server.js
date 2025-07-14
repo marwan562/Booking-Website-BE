@@ -14,11 +14,12 @@ import {
 } from "./src/middlewares/security.js";
 import logger from "./logs/logger.js";
 import { AppError } from "./src/utilities/AppError.js";
-import { dirname } from "./src/utilities/getDirName.js";
-import dotenv from "dotenv";
 import customErrorHandler from "./src/middlewares/customErrorHandler.js";
+import path from "path";
+import dotenv from "dotenv";
 
-dotenv.config({ path: `${dirname}/.env` });
+const envPath = path.resolve(`.env.${process.env.NODE_ENV}`);
+dotenv.config({ path: envPath });
 
 const app = express();
 
@@ -32,8 +33,20 @@ try {
   logger.error(`Database connection failed: ${err.message}`);
 }
 
-// compression middleware
-app.use(compression());
+app.use(
+  compression({
+    level: 6,
+    threshold: 1024,
+    filter: (req, res) => {
+      // Don't compress if client doesn't support it
+      if (req.headers["x-no-compression"]) {
+        return false;
+      }
+      // Use compression for all other responses
+      return compression.filter(req, res);
+    },
+  })
+);
 
 // Security middleware (order matters!)
 app.use(securityHeaders);
@@ -49,7 +62,7 @@ app.use(cookieParser());
 app.use(express.json(requestSizeLimit));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Logging
+// Logging with performance optimization
 const stream = {
   write: (message) => logger.info(message.trim()),
 };
@@ -66,7 +79,6 @@ app.use("/api", apiLimiter);
 // Routes
 app.use("/api", router);
 
-// Health check endpoint
 app.get("/health", (_, res) => {
   res.status(200).json({
     status: "success",
@@ -84,13 +96,15 @@ app.all("*", (req, _, next) => {
 // Global error handler
 app.use(customErrorHandler);
 
+// Enhanced process event handlers
 process.on("uncaughtException", (err) => {
   logger.error(`Uncaught Exception: ${err.message}`);
+  logger.error(`Stack: ${err.stack}`);
   process.exit(1);
 });
 
-process.on("unhandledRejection", (reason) => {
-  logger.error(`Unhandled Rejection: ${reason}`);
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
   process.exit(1);
 });
 

@@ -137,23 +137,23 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
     .fields()
     .filter()
     .search()
-    .sort();
+    .sort()
+    .lean();
 
-  const result = await apiFeature.mongoseQuery.lean();
-  const countTours = await tourModel.find().countDocuments();
-  const pageNumber = Math.ceil(countTours / 10);
+  const result = await apiFeature.mongoseQuery;
+  
+  const totalCount = await apiFeature.getTotalCount();
+  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
 
-  if (!result) {
+  if (!result || result.length === 0) {
     return next(new AppError("No tours found", 404));
   }
 
   res.status(200).json({
     status: "success",
     data: {
-      page: apiFeature.page,
-      result,
-      pageNumber,
-      total: countTours,
+      tours:result,
+      pagination:paginationMeta
     },
   });
 });
@@ -166,7 +166,8 @@ const getTourById = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Invalid tour ID", 400));
   }
 
-  const tour = await tourModel.findById(id);
+  // Use optimized query with lean
+  const tour = await tourModel.findById(id).lean();
 
   if (!tour) {
     return next(new AppError("Tour not found", 404));
@@ -199,47 +200,154 @@ const orderTour = catchAsyncError(async (req, res, next) => {
   }
 
   // Validate each tour object
-  for (const item of req.body) {
-    if (!item._id || !item.index) {
+  for (const tourOrder of req.body) {
+    if (!tourOrder.id || !tourOrder.quantity) {
       return next(
-        new AppError("Each tour object must have _id and index", 400)
+        new AppError("Each tour order must have 'id' and 'quantity' fields", 400)
       );
     }
 
-    // Validate ObjectId
-    if (!ObjectId.isValid(item._id)) {
-      return next(new AppError(`Invalid tour ID: ${item._id}`, 400));
+    // Validate tour ID format
+    if (tourOrder.id.length !== 24) {
+      return next(new AppError("Invalid tour ID format", 400));
     }
 
-    // Validate index
-    if (typeof item.index !== "number" || item.index < 0) {
-      return next(new AppError(`Invalid index for tour ${item._id}`, 400));
+    // Validate quantity
+    if (tourOrder.quantity <= 0) {
+      return next(new AppError("Quantity must be greater than 0", 400));
     }
   }
 
-  // Update tours in batch
-  const updatePromises = req.body.map((item) => {
-    const objectId = new ObjectId(item._id);
-    return tourModel.updateOne(
-      { _id: objectId },
-      { $set: { index: item.index } }
-    );
+  // Use bulk operations for better performance
+  const tourIds = req.body.map(order => new ObjectId(order.id));
+  
+  // Fetch tours in bulk
+  const tours = await tourModel.find({
+    _id: { $in: tourIds }
+  }).lean();
+
+  if (tours.length !== req.body.length) {
+    return next(new AppError("One or more tours not found", 404));
+  }
+
+  // Process orders
+  const processedOrders = req.body.map(order => {
+    const tour = tours.find(t => t._id.toString() === order.id);
+    return {
+      tourId: order.id,
+      tourTitle: tour.title,
+      quantity: order.quantity,
+      price: tour.price,
+      totalPrice: tour.price * order.quantity
+    };
   });
 
-  await Promise.all(updatePromises);
+  const totalAmount = processedOrders.reduce((sum, order) => sum + order.totalPrice, 0);
 
   res.status(200).json({
     status: "success",
-    message: "Tour order updated successfully",
+    data: {
+      orders: processedOrders,
+      totalAmount,
+      orderCount: processedOrders.length
+    },
+  });
+});
+
+const getToursByCategory = catchAsyncError(async (req, res, next) => {
+  const { category } = req.params;
+  const { limit = 10, page = 1 } = req.query;
+
+  const apiFeature = new ApiFeature(
+    tourModel.find({ category: { $regex: category, $options: 'i' } }), 
+    { limit, page }
+  )
+    .paginate()
+    .sort()
+    .lean();
+
+  const result = await apiFeature.mongoseQuery;
+  const totalCount = await tourModel.countDocuments({ 
+    category: { $regex: category, $options: 'i' } 
+  });
+  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      tours: result,
+      pagination: paginationMeta,
+      category
+    },
+  });
+});
+
+const getToursWithOffers = catchAsyncError(async (req, res, next) => {
+  const { limit = 10, page = 1 } = req.query;
+
+  const apiFeature = new ApiFeature(
+    tourModel.find({ hasOffer: true }), 
+    { limit, page }
+  )
+    .paginate()
+    .sort()
+    .lean();
+
+  const result = await apiFeature.mongoseQuery;
+  const totalCount = await tourModel.countDocuments({ hasOffer: true });
+  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      tours: result,
+      pagination: paginationMeta
+    },
+  });
+});
+
+const searchTours = catchAsyncError(async (req, res, next) => {
+  const { q, limit = 10, page = 1 } = req.query;
+
+  if (!q) {
+    return next(new AppError("Search query is required", 400));
+  }
+
+  const apiFeature = new ApiFeature(
+    tourModel.find({
+      $text: { $search: q }
+    }), 
+    { limit, page }
+  )
+    .paginate()
+    .sort({ score: { $meta: "textScore" } })
+    .lean();
+
+  const result = await apiFeature.mongoseQuery;
+  const totalCount = await tourModel.countDocuments({
+    $text: { $search: q }
+  });
+  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      tours: result,
+      pagination: paginationMeta,
+      searchQuery: q
+    },
   });
 });
 
 export {
-  orderTour,
-  getAllTour,
   createTour,
-  getTourById,
   deleteTour,
   updateTour,
+  getAllTour,
+  getTourById,
   deleteAllTour,
+  orderTour,
+  getToursByCategory,
+  getToursWithOffers,
+  searchTours
 };

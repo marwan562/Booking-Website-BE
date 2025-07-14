@@ -66,12 +66,13 @@ const getAllUsers = catchAsyncError(async (req, res, next) => {
     .fields()
     .filter()
     .sort()
-    .search();
+    .search()
+    .lean()
 
-  const result = await apiFeature.mongoseQuery.lean();
+  const result = await apiFeature.mongoseQuery
 
-  const count = await userModel.find().countDocuments();
-  const pageNumber = Math.ceil(count / 10);
+  const totalCount = await apiFeature.getTotalCount();
+  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
 
   if (!result) {
     return next(new AppError("Can't find users", 404));
@@ -79,9 +80,10 @@ const getAllUsers = catchAsyncError(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    data: result,
-    pageNumber,
-    page: apiFeature.page,
+    data: {
+      users:result,
+      pagination:paginationMeta
+    }
   });
 });
 

@@ -32,19 +32,30 @@ const schema = new Schema(
       default: "user",
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    // Enable optimistic concurrency control
+    optimisticConcurrency: true,
+    // Add collection-level options for better performance
+    collection: "users",
+  }
 );
 
-// Add index for email to improve query performance
+// Performance indexes for common queries
 schema.index({ email: 1 });
+schema.index({ createdAt: -1 });
 
+// Pre-save middleware for password hashing
 schema.pre("save", async function (next) {
-  if (this.isModified("password")) {
-    this.password = await hash(this.password, 10);
+  const update = this.getUpdate();
+  if (update?.password) {
+    update.password = await hash(update.password, 10);
+    this.setUpdate(update);
   }
   return next();
 });
 
+// Pre-update middleware for password hashing
 schema.pre("findByIdAndUpdate", async function (next) {
   const update = this.getUpdate();
   if (update?.password) {
@@ -97,6 +108,19 @@ schema.methods.generateRefreshToken = async function () {
 
 schema.methods.comparePassword = async function (password) {
   return await compare(password, this.password);
+};
+
+// Static methods for optimized queries
+schema.statics.findByEmailOptimized = function (email) {
+  return this.findOne({ email }).select("+password").lean();
+};
+
+schema.statics.findOptimized = function (query = {}, options = {}) {
+  const defaultOptions = {
+    lean: true,
+    ...options,
+  };
+  return this.find(query, null, defaultOptions);
 };
 
 const userModel = mongoose.model("user", schema);

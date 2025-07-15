@@ -78,7 +78,9 @@ export const fwaterk = catchAsyncError(async (req, res, next) => {
     _id: id,
     userDetails: userId,
   });
-
+  if (subscription.payment == "success") {
+    return next(new AppError("The subscription has been paid", 200));
+  }
   if (subscription) {
     let { options, adultPricing, childrenPricing, totalPrice } = subscription;
     let cartItems = [];

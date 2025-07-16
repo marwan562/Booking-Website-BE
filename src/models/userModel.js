@@ -20,6 +20,7 @@ const schema = new Schema(
     wishList: [{ type: Types.ObjectId, ref: "tour" }],
     code: {
       type: String,
+      select:false,
       validate: {
         validator: (val) => /^\d{4}$/.test(val),
         message: "Code must be a 4-digit number",

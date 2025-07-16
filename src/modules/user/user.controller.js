@@ -249,9 +249,9 @@ const sendCode = catchAsyncError(async (req, res, next) => {
 
 const checkCode = catchAsyncError(async (req, res, next) => {
   const { code, email } = req.body;
-  const result = await userModel.findOne({ email, code });
-  if (!result) {
-    return next(new AppError("correct email or code"));
+  const result = await userModel.findOne({ email, code }).select('+code');
+  if (!result || result.code !== code) {
+    return next(new AppError("Incorrect email or code", 400));
   }
   res.status(200).send({ message: "success", data: "correct code" });
 });

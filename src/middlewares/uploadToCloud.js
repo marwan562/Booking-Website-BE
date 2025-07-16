@@ -1,13 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import { AppError } from "../utilities/AppError.js";
 import convertToWebp from "../utilities/convertToWebp.js";
-import dotenv from "dotenv";
-import path from "path";
-
-const envPath = path.resolve(process.cwd(), `.env.${process.env.NODE_ENV}`);
-dotenv.config({
-  path:envPath
-});
+import "dotenv/config"
 
 let cloud_name = process.env.CLOUDINARY_NAME,
   api_key = process.env.API_KEY_CLOUDINARY,

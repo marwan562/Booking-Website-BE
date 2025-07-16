@@ -47,22 +47,21 @@ schema.index({ createdAt: -1 });
 
 // Pre-save middleware for password hashing
 schema.pre("save", async function (next) {
-  const update = this.getUpdate();
-  if (update?.password) {
-    update.password = await hash(update.password, 10);
-    this.setUpdate(update);
+  if (!this.isModified("password")) {
+    return next();
   }
-  return next();
-});
 
+  this.password = await hash(this.password, 10);
+  next();
+});
 // Pre-update middleware for password hashing
 schema.pre("findByIdAndUpdate", async function (next) {
-  const update = this.getUpdate();
-  if (update?.password) {
-    update.password = await hash(update.password, 10);
-    this.setUpdate(update);
+  if (!this.isModified("password")) {
+    return next();
   }
-  return next();
+
+  this.password = await hash(this.password, 10);
+  next();
 });
 
 schema.pre(/^find/, async function (next) {

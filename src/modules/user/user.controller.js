@@ -2,11 +2,11 @@ import { hash } from "bcrypt";
 import userModel from "../../models/userModel.js";
 import { catchAsyncError } from "../../middlewares/catchAsyncError.js";
 import { removeImage } from "../../middlewares/deleteImg.js";
-import { AppError } from "../../utilities/AppError.js";
 import sendEmail from "../../utilities/Emails/sendEmail.js";
 import { ApiFeature } from "../../utilities/AppFeature.js";
 import jwt from "jsonwebtoken";
 import tourModel from "../../models/tourModel.js";
+import { AppError } from "../../utilities/AppError.js";
 
 const register = catchAsyncError(async (req, res, next) => {
   const {

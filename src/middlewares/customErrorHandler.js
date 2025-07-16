@@ -1,4 +1,5 @@
 import logger from "../../logs/logger.js";
+import { AppError } from "../utilities/AppError.js";
 
 const customErrorHandler = (err, req, res, next) => {
   let error = { ...err };

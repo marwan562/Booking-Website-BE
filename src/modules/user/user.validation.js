@@ -130,17 +130,21 @@ const changePasswordSchema = joi.object({
     "any.required": "Current password is required",
   }),
   newPassword: joi
-    .string()
-    .min(8)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .required()
-    .messages({
-      "string.min": "Password must be at least 8 characters long",
-      "string.pattern.base":
-        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
-      "any.required": "New password is required",
-    }),
-  reNewPassword: joi.string().valid(joi.ref("password")).required().messages({
+  .string()
+  .min(8)
+  .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+  .required()
+  .messages({
+    "string.min": "Password must be at least 8 characters long",
+    "string.pattern.base":
+      "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+    "any.required": "Password is required",
+  }),
+reNewPassword: joi
+  .string()
+  .valid(joi.ref("newPassword"))
+  .required()
+  .messages({
     "any.only": "Passwords do not match",
     "string.empty": "Confirm password is required",
   }),

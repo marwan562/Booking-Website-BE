@@ -106,6 +106,7 @@ schema.methods.generateRefreshToken = async function () {
 };
 
 schema.methods.comparePassword = async function (password) {
+
   return await compare(password, this.password);
 };
 

@@ -277,7 +277,7 @@ const forgetPassword = catchAsyncError(async (req, res, next) => {
 const changePassword = catchAsyncError(async (req, res, next) => {
   const { newPassword, password } = req.body;
   const { _id } = req.user;
-  const user = await userModel.findByIdAndUpdate(_id).select("+password");
+  const user = await userModel.findById(_id).select("+password");
   if (!(await user.comparePassword(password))) {
     return next(new AppError("incorrect password"));
   }

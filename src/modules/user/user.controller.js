@@ -179,7 +179,13 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
   const tour = await tourModel.findById(id);
   if (!tour) return next(new AppError("Tour not found!", 404));
 
-  const user = await userModel
+  const user = await userModel.findById(_id).select("wishList");
+  if (!user) return next(new AppError("User not found!", 404));
+
+  const isInWishlist = user.wishList.some((wishId) => wishId.toString() === id);
+  if (!isInWishlist) return next(new AppError("Tour is not in wishlist", 400));
+
+  const updatedUser = await userModel
     .findByIdAndUpdate(
       _id,
       {
@@ -189,18 +195,13 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
     )
     .populate({
       path: "wishList",
-      select: "title description mainImg adultPricing", // Corrected field name to description
-      populate: {
-        path: "createdBy",
-        select: "-password",
-      },
+      select: "title description mainImg adultPricing",
     })
     .lean();
 
-  if (!user) return next(new AppError("User not found!", 404));
-
-  res.status(200).send({ message: "success", data: user.wishList });
+  res.status(200).send({ message: "success", data: updatedUser.wishList });
 });
+
 
 const getWishlist = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;

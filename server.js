@@ -15,11 +15,7 @@ import {
 import logger from "./logs/logger.js";
 import { AppError } from "./src/utilities/AppError.js";
 import customErrorHandler from "./src/middlewares/customErrorHandler.js";
-import path from "path";
-import dotenv from "dotenv";
-
-const envPath = path.resolve(`.env.${process.env.NODE_ENV}`);
-dotenv.config({ path: envPath });
+import "dotenv/config"
 
 const app = express();
 

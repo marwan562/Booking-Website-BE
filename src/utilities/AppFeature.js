@@ -81,7 +81,7 @@ export class ApiFeature {
 
   // Add lean query optimization
   lean() {
-    this.mongoseQuery.lean();
+    this.mongoseQuery = this.mongoseQuery.lean();
     return this;
   }
 

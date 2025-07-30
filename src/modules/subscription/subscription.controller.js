@@ -120,7 +120,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       .search()
       .lean()
 
-    const result = apiFeature.mongoseQuery.lean();
+    const result = await apiFeature.mongoseQuery.exec();
 
     if (!result) {
       return next(new AppError("can't find subscriptions"));

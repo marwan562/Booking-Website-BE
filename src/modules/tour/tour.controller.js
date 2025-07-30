@@ -131,6 +131,17 @@ const updateTour = catchAsyncError(async (req, res, next) => {
   });
 });
 
+export const getTourBySlug = async (req, res, next) => {
+  try {
+    const slug = req.params.slug;
+    const tour = await tourModel.findOne({ slug });
+    if (!tour) return next(new AppError("Tour not found", 404));
+    res.status(200).json({ status: "success", tour });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getAllTour = catchAsyncError(async (req, res, next) => {
   const apiFeature = new ApiFeature(tourModel.find(), req.query)
     .paginate()
@@ -141,7 +152,7 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
     .lean();
 
   const result = await apiFeature.mongoseQuery;
-  
+
   const totalCount = await apiFeature.getTotalCount();
   const paginationMeta = apiFeature.getPaginationMeta(totalCount);
 
@@ -152,8 +163,8 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: {
-      tours:result,
-      pagination:paginationMeta
+      tours: result,
+      pagination: paginationMeta,
     },
   });
 });
@@ -203,7 +214,10 @@ const orderTour = catchAsyncError(async (req, res, next) => {
   for (const tourOrder of req.body) {
     if (!tourOrder.id || !tourOrder.quantity) {
       return next(
-        new AppError("Each tour order must have 'id' and 'quantity' fields", 400)
+        new AppError(
+          "Each tour order must have 'id' and 'quantity' fields",
+          400
+        )
       );
     }
 
@@ -219,37 +233,42 @@ const orderTour = catchAsyncError(async (req, res, next) => {
   }
 
   // Use bulk operations for better performance
-  const tourIds = req.body.map(order => new ObjectId(order.id));
-  
+  const tourIds = req.body.map((order) => new ObjectId(order.id));
+
   // Fetch tours in bulk
-  const tours = await tourModel.find({
-    _id: { $in: tourIds }
-  }).lean();
+  const tours = await tourModel
+    .find({
+      _id: { $in: tourIds },
+    })
+    .lean();
 
   if (tours.length !== req.body.length) {
     return next(new AppError("One or more tours not found", 404));
   }
 
   // Process orders
-  const processedOrders = req.body.map(order => {
-    const tour = tours.find(t => t._id.toString() === order.id);
+  const processedOrders = req.body.map((order) => {
+    const tour = tours.find((t) => t._id.toString() === order.id);
     return {
       tourId: order.id,
       tourTitle: tour.title,
       quantity: order.quantity,
       price: tour.price,
-      totalPrice: tour.price * order.quantity
+      totalPrice: tour.price * order.quantity,
     };
   });
 
-  const totalAmount = processedOrders.reduce((sum, order) => sum + order.totalPrice, 0);
+  const totalAmount = processedOrders.reduce(
+    (sum, order) => sum + order.totalPrice,
+    0
+  );
 
   res.status(200).json({
     status: "success",
     data: {
       orders: processedOrders,
       totalAmount,
-      orderCount: processedOrders.length
+      orderCount: processedOrders.length,
     },
   });
 });
@@ -259,7 +278,7 @@ const getToursByCategory = catchAsyncError(async (req, res, next) => {
   const { limit = 10, page = 1 } = req.query;
 
   const apiFeature = new ApiFeature(
-    tourModel.find({ category: { $regex: category, $options: 'i' } }), 
+    tourModel.find({ category: { $regex: category, $options: "i" } }),
     { limit, page }
   )
     .paginate()
@@ -267,8 +286,8 @@ const getToursByCategory = catchAsyncError(async (req, res, next) => {
     .lean();
 
   const result = await apiFeature.mongoseQuery;
-  const totalCount = await tourModel.countDocuments({ 
-    category: { $regex: category, $options: 'i' } 
+  const totalCount = await tourModel.countDocuments({
+    category: { $regex: category, $options: "i" },
   });
   const paginationMeta = apiFeature.getPaginationMeta(totalCount);
 
@@ -277,7 +296,7 @@ const getToursByCategory = catchAsyncError(async (req, res, next) => {
     data: {
       tours: result,
       pagination: paginationMeta,
-      category
+      category,
     },
   });
 });
@@ -285,10 +304,10 @@ const getToursByCategory = catchAsyncError(async (req, res, next) => {
 const getToursWithOffers = catchAsyncError(async (req, res, next) => {
   const { limit = 10, page = 1 } = req.query;
 
-  const apiFeature = new ApiFeature(
-    tourModel.find({ hasOffer: true }), 
-    { limit, page }
-  )
+  const apiFeature = new ApiFeature(tourModel.find({ hasOffer: true }), {
+    limit,
+    page,
+  })
     .paginate()
     .sort()
     .lean();
@@ -301,7 +320,7 @@ const getToursWithOffers = catchAsyncError(async (req, res, next) => {
     status: "success",
     data: {
       tours: result,
-      pagination: paginationMeta
+      pagination: paginationMeta,
     },
   });
 });
@@ -315,8 +334,8 @@ const searchTours = catchAsyncError(async (req, res, next) => {
 
   const apiFeature = new ApiFeature(
     tourModel.find({
-      $text: { $search: q }
-    }), 
+      $text: { $search: q },
+    }),
     { limit, page }
   )
     .paginate()
@@ -325,7 +344,7 @@ const searchTours = catchAsyncError(async (req, res, next) => {
 
   const result = await apiFeature.mongoseQuery;
   const totalCount = await tourModel.countDocuments({
-    $text: { $search: q }
+    $text: { $search: q },
   });
   const paginationMeta = apiFeature.getPaginationMeta(totalCount);
 
@@ -334,7 +353,7 @@ const searchTours = catchAsyncError(async (req, res, next) => {
     data: {
       tours: result,
       pagination: paginationMeta,
-      searchQuery: q
+      searchQuery: q,
     },
   });
 });
@@ -349,5 +368,5 @@ export {
   orderTour,
   getToursByCategory,
   getToursWithOffers,
-  searchTours
+  searchTours,
 };

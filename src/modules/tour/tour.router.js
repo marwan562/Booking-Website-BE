@@ -26,7 +26,7 @@ tourRouter
   .delete(auth, allowedTo("admin"), Tour.deleteAllTour);
 
 tourRouter
-  .route("/:id")
+  .get(tourRouter.get("/:slug", Tour.getTourBySlug))
   .get(Tour.getTourById)
   .delete(auth, allowedTo("admin"), Tour.deleteTour)
   .patch(

@@ -1,7 +1,9 @@
 import mongoose, { Schema } from "mongoose";
+import slugify from "slugify";
 
 const schema = new Schema({
   title: { type: String, required: true },
+  slug: { type: String, unique: true },
   description: { type: String, required: true },
   mainImg: {
     type: {
@@ -93,7 +95,20 @@ const schema = new Schema({
 schema.index({ title: 'text', description: 'text' });
 
 // Pre-save middleware for price calculation
-schema.pre("save", function (next) {
+schema.pre("save", async function (next) {
+   if (this.isModified("title")) {
+    let baseSlug = slugify(this.title, { lower: true, strict: true });
+    let slug = baseSlug;
+    let count = 1;
+
+    while (await this.constructor.findOne({ slug })) {
+      slug = `${baseSlug}-${count}`;
+      count++;
+    }
+
+    this.slug = slug;
+  }
+
   if (!this.price && this.adultPricing && this.adultPricing.length > 0) {
     // Calculate the price based on adultPricing
     this.price = this.adultPricing[0].totalPrice;

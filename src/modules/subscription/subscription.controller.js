@@ -20,9 +20,6 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     req.body.userDetails = _id;
     req.body.tourDetails = id;
 
-    const exists = await subscriptionModel.findOne({ userDetails: _id, tourDetails: id });
-    if (exists) return next(new AppError("You already subscribed to this tour."));
-
     let totalPrice = 0;
     if (adultPricing) {
       let fetchingAdult = await tourModel.aggregate([

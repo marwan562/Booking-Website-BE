@@ -86,7 +86,12 @@ const schema = new Schema({
     type: Number,
   },
   duration: { type: String },
-  itinerary: { type: String },
+  itinerary: [
+    {
+      title: { type: String, required: true },
+      subtitle: { type: String, required: true },
+    }
+  ],
   historyBrief: { type: String, min: 2 },
 }, {
   timestamps: true,

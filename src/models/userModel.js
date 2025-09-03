@@ -7,7 +7,13 @@ const schema = new Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true, select: false },
-    phone: { type: Number, required: true },
+    phone: {
+      type: {
+        code: { type: String, required: true },
+        number: { type: String, required: true },
+      },
+      required: true,
+    },
     age: { type: Number, required: true },
     avatar: { url: { type: String }, public_id: { type: String } },
     nationality: { type: String, required: true },
@@ -20,13 +26,14 @@ const schema = new Schema(
     wishList: [{ type: Types.ObjectId, ref: "tour" }],
     code: {
       type: String,
-      select:false,
+      select: false,
       validate: {
         validator: (val) => /^\d{4}$/.test(val),
         message: "Code must be a 4-digit number",
       },
     },
     confirmedEmail: { type: Boolean, default: false, required: true },
+    verified: { type: Boolean, default: false },
     role: {
       type: String,
       enum: ["user", "admin"],
@@ -86,14 +93,30 @@ schema.set("toObject", {
   },
 });
 
+schema.methods.generateVerificationToken = async function () {
+  if (!process.env.VERIFICATION_TOKEN_SECRET) {
+    throw new Error(
+      "VERIFICATION_TOKEN_SECRET environment variable is not set"
+    );
+  }
+
+  return jwt.sign({ id: this._id }, process.env.VERIFICATION_TOKEN_SECRET, {
+    expiresIn: "15m",
+  });
+};
+
 schema.methods.generateAccessToken = async function () {
   if (!process.env.ACCESS_TOKEN_SECRET) {
     throw new Error("ACCESS_TOKEN_SECRET environment variable is not set");
   }
 
-  return jwt.sign({ id: this._id }, process.env.ACCESS_TOKEN_SECRET, {
-    expiresIn: "7d",
-  });
+  return jwt.sign(
+    { id: this._id, role: this.role },
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: "7d",
+    }
+  );
 };
 
 schema.methods.generateRefreshToken = async function () {
@@ -101,13 +124,16 @@ schema.methods.generateRefreshToken = async function () {
     throw new Error("REFRESH_TOKEN_SECRET environment variable is not set");
   }
 
-  return jwt.sign({ id: this._id }, process.env.REFRESH_TOKEN_SECRET, {
-    expiresIn: "7d",
-  });
+  return jwt.sign(
+    { id: this._id, role: this.role },
+    process.env.REFRESH_TOKEN_SECRET,
+    {
+      expiresIn: "7d",
+    }
+  );
 };
 
 schema.methods.comparePassword = async function (password) {
-
   return await compare(password, this.password);
 };
 

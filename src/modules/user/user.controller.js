@@ -8,6 +8,56 @@ import jwt from "jsonwebtoken";
 import tourModel from "../../models/tourModel.js";
 import { AppError } from "../../utilities/AppError.js";
 
+const checkEmail = catchAsyncError(async (req, res, next) => {
+  const { email } = req.body;
+  if (!email) return next(new AppError("Email is required", 400));
+  const user = await userModel.findOne({ email });
+  if (user)
+    return res
+      .status(200)
+      .send({ message: "Email is already in use", isEmail: true });
+  res.status(200).send({ message: "Email is not in use", isEmail: false });
+});
+
+const verifyUser = catchAsyncError(async (req, res, next) => {
+  const { token } = req.params;
+  jwt.verify(
+    token,
+    process.env.VERIFICATION_TOKEN_SECRET,
+    async (err, decoded) => {
+      if (err) return next(new AppError("Invalid token please try again", 400));
+
+      const { id } = decoded;
+      const user = await userModel.findOne({ _id: id });
+
+      if (user.verified)
+        return next(new AppError("User already verified", 200));
+
+      user.verified = true;
+      await user.save();
+
+      // refreshToken in HttpOnly cookie
+      const accessToken = await user.generateAccessToken();
+      const refreshToken = await user.generateRefreshToken();
+
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      res.status(200).send({
+        status: "success",
+        data: {
+          user,
+          accessToken,
+        },
+      });
+    }
+  );
+});
+
 const register = catchAsyncError(async (req, res, next) => {
   const {
     name,
@@ -30,33 +80,22 @@ const register = catchAsyncError(async (req, res, next) => {
 
   const user = await userModel.create({
     name,
-    password,
     email,
-    phone,
+    password,
     age,
-    avatar,
     nationality,
+    avatar,
+    phone,
     gender,
   });
 
-  const accessToken = await user.generateAccessToken();
+  const accessToken = await user.generateVerificationToken();
 
-  const refreshToken = await user.generateRefreshToken();
-
-  // refreshToken in HttpOnly cookie
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  });
+  sendEmail({ email, id: accessToken });
 
   res.status(201).json({
     status: "success",
-    data: {
-      user,
-      accessToken,
-    },
+    message: "Please check your email to verify your account",
   });
 });
 
@@ -67,9 +106,9 @@ const getAllUsers = catchAsyncError(async (req, res, next) => {
     .filter()
     .sort()
     .search()
-    .lean()
+    .lean();
 
-  const result = await apiFeature.mongoseQuery
+  const result = await apiFeature.mongoseQuery;
 
   const totalCount = await apiFeature.getTotalCount();
   const paginationMeta = apiFeature.getPaginationMeta(totalCount);
@@ -81,9 +120,9 @@ const getAllUsers = catchAsyncError(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: {
-      users:result,
-      pagination:paginationMeta
-    }
+      users: result,
+      pagination: paginationMeta,
+    },
   });
 });
 
@@ -94,8 +133,13 @@ const login = catchAsyncError(async (req, res, next) => {
   if (!user || !(await user.comparePassword(password))) {
     return next(new AppError("Invalid email or password", 401));
   }
-  const accessToken = await user.generateAccessToken();
+  if (!user.verified) {
+    const accessToken = await user.generateVerificationToken();
+    await sendEmail({ email, id: accessToken });
+    return next(new AppError("Please verify your account", 401));
+  }
 
+  const accessToken = await user.generateAccessToken();
   const refreshToken = await user.generateRefreshToken();
 
   res.cookie("refreshToken", refreshToken, {
@@ -202,7 +246,6 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
   res.status(200).send({ message: "success", data: updatedUser.wishList });
 });
 
-
 const getWishlist = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const user = await userModel.findById(_id).populate({
@@ -249,7 +292,7 @@ const sendCode = catchAsyncError(async (req, res, next) => {
 
 const checkCode = catchAsyncError(async (req, res, next) => {
   const { code, email } = req.body;
-  const result = await userModel.findOne({ email, code }).select('+code');
+  const result = await userModel.findOne({ email, code }).select("+code");
   if (!result || result.code !== code) {
     return next(new AppError("Incorrect email or code", 400));
   }
@@ -257,7 +300,7 @@ const checkCode = catchAsyncError(async (req, res, next) => {
 });
 const forgetPassword = catchAsyncError(async (req, res, next) => {
   const { email, code, newPassword, reNewPassword } = req.body;
-
+  console.log("forget password", newPassword, reNewPassword);
   if (newPassword !== reNewPassword) {
     return next(new AppError("Passwords do not match!", 400));
   }
@@ -314,4 +357,6 @@ export {
   authorization,
   getWishlist,
   refreshToken,
+  checkEmail,
+  verifyUser,
 };

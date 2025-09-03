@@ -8,9 +8,9 @@ import router from "./src/router/index.js";
 import {
   securityHeaders,
   sanitizeData,
-  corsOptions,
   requestSizeLimit,
   apiLimiter,
+  corsOptions,
 } from "./src/middlewares/security.js";
 import logger from "./logs/logger.js";
 import { AppError } from "./src/utilities/AppError.js";
@@ -49,7 +49,7 @@ app.use(securityHeaders);
 app.use(sanitizeData);
 
 // CORS configuration
-// app.use(cors(corsOptions));
+app.use(cors(corsOptions));
 
 // Request parsing cookies
 app.use(cookieParser());

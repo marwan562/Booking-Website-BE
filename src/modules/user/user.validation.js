@@ -1,5 +1,29 @@
 import joi from "joi";
 
+const phoneSchema = joi.object({
+  code: joi
+    .string()
+    .required()
+    .messages({
+      "string.base": "Country code must be a string",
+      "string.empty": "Country code cannot be empty",
+      "string.pattern.base": "Country code must contain only digits (no '+')",
+      "any.required": "Country code is required",
+    }),
+  number: joi
+    .string()
+    .length(10)
+    .pattern(/^\d+$/)
+    .required()
+    .messages({
+      "string.base": "Phone number must be a string",
+      "string.empty": "Phone number cannot be empty",
+      "string.length": "Phone number must be exactly 10 digits",
+      "string.pattern.base": "Phone number must contain only digits",
+      "any.required": "Phone number is required",
+    }),
+});
+
 const userSchemaLogin = joi.object({
   email: joi
     .string()
@@ -64,9 +88,7 @@ const userSchemaCreate = joi.object({
   }),
   age: joi.number().min(17).max(100),
   nationality: joi.string(),
-  phone: joi.string().required().messages({
-    "any.required": "Phone number is required",
-  }),
+  phone: phoneSchema,
   gender: joi.string().valid("male", "female", "other").required(),
 });
 
@@ -123,10 +145,14 @@ const forgetPasswordSchema = joi.object({
         "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
       "any.required": "New password is required",
     }),
-  reNewPassword: joi.string().valid(joi.ref("password")).required().messages({
-    "any.only": "Passwords do not match",
-    "string.empty": "Confirm password is required",
-  }),
+  reNewPassword: joi
+    .string()
+    .valid(joi.ref("newPassword"))
+    .required()
+    .messages({
+      "any.only": "Passwords do not match",
+      "string.empty": "Confirm password is required",
+    }),
 });
 
 const changePasswordSchema = joi.object({

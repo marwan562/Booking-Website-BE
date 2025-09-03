@@ -4,6 +4,7 @@ import subscriptionModel from "../../models/subscriptionModel.js";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import dotenv from "dotenv";
+import tourModel from "../../models/tourModel.js";
 dotenv.config();
 
 const FAWATERK_URL_ENV =
@@ -56,7 +57,24 @@ export const handleSuccessPayment = catchAsyncError(async (req, res, next) => {
         subscriptionId,
         { payment: "success" },
         { new: true }
-      );
+      ).populate("tourDetails");
+
+      if ( subscription.payment == "success") {
+        return next(new AppError("The subscription has been paid", 200));
+      }
+      if (!subscription) return next(new AppError("Subscription not found", 404));
+      const adults = subscription.adultPricing?.adults || 0;
+      const children = subscription.childrenPricing?.children || 0;
+
+      const optionsTotal =
+        subscription.options?.reduce((sum, opt) => {
+          return sum + (opt.number || 0) + (opt.numberOfChildren || 0);
+        }, 0) || 0;
+
+      const totalTravelers = adults + children + optionsTotal;
+      await tourModel.findByIdAndUpdate(subscription.tourDetails._id, {
+        $inc: { totalTravelers },
+      });
 
       res.redirect(
         `${process.env.FRONT_END_URL}/account/user/${subscription.userDetails._id}/${subscriptionId}/orderConfirmed`

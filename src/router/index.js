@@ -5,10 +5,12 @@ import userRouter from "../modules/user/user.router.js";
 import testimonialRouter from "../modules/testimonial/testimonial.router.js";
 import reviewRouter from "../modules/review/review.router.js";
 import paymentRouter from "../modules/payment/payment.router.js";
+import destinationRouter from "../modules/destination/destination.router.js";
 
 const router = express.Router();
 
 router.use("/user", userRouter);
+router.use("/destination", destinationRouter);
 router.use("/tour", tourRouter);
 router.use("/payment", paymentRouter);
 router.use("/subscription", subscriptionRouter);

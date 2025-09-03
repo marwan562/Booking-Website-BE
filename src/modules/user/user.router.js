@@ -13,6 +13,8 @@ import {
 const userRouter = Router();
 
 // Public routes with rate limiting
+userRouter.route("/check-user-email").post(registerLimiter, User.checkEmail);
+
 userRouter
   .route("/register")
   .post(
@@ -23,13 +25,15 @@ userRouter
     User.register
   );
 
+userRouter.route("/verifyEmail/:token").get(strictLimiter, User.verifyUser);
+
 userRouter
   .route("/login")
   .post(loginLimiter, validation(UserValidation.userSchemaLogin), User.login);
 
 userRouter.route("/refreshToken").get(strictLimiter, User.refreshToken);
 
-userRouter.route("/sendCode").put(strictLimiter, User.sendCode);
+userRouter.route("/sendCode").post(strictLimiter, User.sendCode);
 
 userRouter.route("/checkCode").put(strictLimiter, User.checkCode);
 

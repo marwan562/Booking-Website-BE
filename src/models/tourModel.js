@@ -5,6 +5,7 @@ const schema = new Schema({
   title: { type: String, required: true },
   slug: { type: String, unique: true },
   description: { type: String, required: true },
+  destination: { type: mongoose.Schema.Types.ObjectId, ref: "destination", required: true },
   mainImg: {
     type: {
       url: { type: String, required: true },
@@ -93,6 +94,11 @@ const schema = new Schema({
     }
   ],
   historyBrief: { type: String, min: 2 },
+  ratingSum: { type: Number, default: 0 },
+ averageRating: { type: Number, default: 0 },
+ totalReviews: { type: Number, default: 0 },
+ ratingSum: { type: Number, default: 0 }, 
+ totalTravelers: { type: Number, default: 0 },
 }, {
   timestamps: true,
 });

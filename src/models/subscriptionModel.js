@@ -1,4 +1,5 @@
 import mongoose, { Schema, Types } from "mongoose";
+import tourModel from "./tourModel.js";
 
 const schema = new Schema(
   {
@@ -74,6 +75,29 @@ schema.pre("save", async function (next) {
     next();
   } catch (error) {
     next(error); // Pass the error to the next middleware
+  }
+});
+
+// After a booking is saved, increment totalTravelers in the tour
+schema.post("save", async function () {
+  if (this.payment === "success") {
+    try {
+      const adults = this.adultPricing?.adults || 0;
+      const children = this.childrenPricing?.children || 0;
+
+      const optionsTotal =
+        this.options?.reduce((sum, opt) => {
+          return sum + (opt.number || 0) + (opt.numberOfChildren || 0);
+        }, 0) || 0;
+
+      const totalTravelers = adults + children + optionsTotal;
+
+      await tourModel.findByIdAndUpdate(this.tourDetails, {
+        $inc: { totalTravelers },
+      });
+    } catch (err) {
+      next(err);
+    }
   }
 });
 

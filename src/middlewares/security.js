@@ -3,6 +3,7 @@ import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import xss from "xss-clean";
 import hpp from "hpp";
+import "dotenv/config"
 
 // Rate limiting for login attempts
 export const loginLimiter = rateLimit({
@@ -39,7 +40,7 @@ export const apiLimiter = rateLimit({
 // Register rate limiting
 export const registerLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
+  max: 10, // limit each IP to 5 requests per windowMs
   message: {
     status: "error",
     statusCode: 429,
@@ -53,7 +54,7 @@ export const registerLimiter = rateLimit({
 // Strict rate limiting for sensitive operations
 export const strictLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // limit each IP to 10 requests per windowMs
+  max: 40, // limit each IP to 10 requests per windowMs
   message: {
     status: "error",
     statusCode: 429,
@@ -94,9 +95,7 @@ export const sanitizeData = [
 // CORS configuration
 export const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [
-      process.env.FRONT_END_URL,
-    ];
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [process.env.FRONT_END_URL];
 
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);

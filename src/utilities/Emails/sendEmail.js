@@ -5,7 +5,7 @@ import forgetPasswordHTML from "./ForgetPasswordTemplete.js";
 const transporter = nodemailer.createTransport({
   service: "gmail",
   host: "smtp.gmail.com",
-  port: 465,
+  port: process.env.NODE_ENV === "development" ? 587 : 465,
   secure: true,
   auth: {
     user: process.env.EMAIL_USER,
@@ -16,9 +16,9 @@ const transporter = nodemailer.createTransport({
 let sendEmail = async (option) => {
   // send mail with defined transport object
   const mailOptions = {
-    from: "f365",
+    from: '"Yalla Egipto" <noreply@yallaegipto.com>',
     to: `${option.email}`,
-    subject: `${option.id ? "f365 Verify Email" : "f365 forget password"}`,
+    subject: `${option.id ? "Verify Email" : "forget password"}`,
 
     html: `${
       option.id ? verifyEmailHTML(option.id) : forgetPasswordHTML(option.code)

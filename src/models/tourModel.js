@@ -138,7 +138,7 @@ schema.index({
   createdAt: -1,
 });
 
-// Pre-save middleware for price calculation
+// Pre-save middleware for price and duration calculation
 schema.pre("save", async function (next) {
   if (this.isModified("title")) {
     let baseSlug = slugify(this.title, { lower: true, strict: true });
@@ -157,6 +157,14 @@ schema.pre("save", async function (next) {
     // Calculate the price based on adultPricing
     this.price = this.adultPricing[0].totalPrice;
   }
+
+  // Calculate durationInDays from durationInMinutes if not set
+  if (this.isModified("durationInMinutes") || !this.durationInDays) {
+    if (this.durationInMinutes) {
+      this.durationInDays = Math.ceil(this.durationInMinutes / (24 * 60)); // Convert minutes to days, rounded up
+    }
+  }
+
   next();
 });
 

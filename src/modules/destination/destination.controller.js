@@ -192,6 +192,29 @@ const getDestination = catchAsyncError(async (req, res, next) => {
 
   const destinationLower = destination.toLowerCase().trim();
 
+  console.log(`Request for destination: ${destinationLower}`, {
+    query: req.query,
+    sortBy,
+  });
+
+  const validSortOptions = [
+    "popularity",
+    "best-rated",
+    "price-low",
+    "price-high",
+    "new",
+    "duration-short",
+    "duration-long",
+  ];
+  const effectiveSortBy = validSortOptions.includes(sortBy)
+    ? sortBy
+    : "popularity";
+  if (sortBy !== effectiveSortBy) {
+    console.log(
+      `Invalid sortBy value: ${sortBy}. Defaulting to: ${effectiveSortBy}`
+    );
+  }
+
   const destinationData = await destinationModel
     .findOne({
       $or: [
@@ -213,11 +236,14 @@ const getDestination = catchAsyncError(async (req, res, next) => {
   const matchedDestination = destinationData;
 
   if (matchedDestination.city?.toLowerCase() === destinationLower) {
+    // Build query filters for tours
     let matchStage = { destination: matchedDestination._id };
 
     if (category) {
       matchStage.category = {
-        $in: Array.isArray(category) ? category : category.split(",").map((c) => c.trim()),
+        $in: Array.isArray(category)
+          ? category
+          : category.split(",").map((c) => c.trim()),
       };
     }
 
@@ -261,12 +287,19 @@ const getDestination = catchAsyncError(async (req, res, next) => {
               isRepeated: true,
               repeatDays: {
                 $in: [
-                  tomorrowDay === 1 ? "Sunday" :
-                  tomorrowDay === 2 ? "Monday" :
-                  tomorrowDay === 3 ? "Tuesday" :
-                  tomorrowDay === 4 ? "Wednesday" :
-                  tomorrowDay === 5 ? "Thursday" :
-                  tomorrowDay === 6 ? "Friday" : "Saturday"
+                  tomorrowDay === 1
+                    ? "Sunday"
+                    : tomorrowDay === 2
+                    ? "Monday"
+                    : tomorrowDay === 3
+                    ? "Tuesday"
+                    : tomorrowDay === 4
+                    ? "Wednesday"
+                    : tomorrowDay === 5
+                    ? "Thursday"
+                    : tomorrowDay === 6
+                    ? "Friday"
+                    : "Saturday",
                 ],
               },
             },
@@ -311,7 +344,12 @@ const getDestination = catchAsyncError(async (req, res, next) => {
                       startMinutes,
                       {
                         $add: [
-                          { $multiply: [{ $toInt: { $substr: ["$$this", 0, 2] } }, 60] },
+                          {
+                            $multiply: [
+                              { $toInt: { $substr: ["$$this", 0, 2] } },
+                              60,
+                            ],
+                          },
                           { $toInt: { $substr: ["$$this", 3, 2] } },
                         ],
                       },
@@ -326,22 +364,35 @@ const getDestination = catchAsyncError(async (req, res, next) => {
       }
     }
 
+    const sortStage = (() => {
+      switch (effectiveSortBy) {
+        case "popularity":
+          return { totalTravelers: -1, averageRating: -1 };
+        case "best-rated":
+          return { averageRating: -1, totalReviews: -1 };
+        case "price-low":
+          return { price: 1 };
+        case "price-high":
+          return { price: -1 };
+        case "new":
+          return { createdAt: -1 };
+        case "duration-short-long":
+          return { durationInMinutes: 1 };
+        case "duration-long-short":
+          return { durationInMinutes: -1 };
+        default:
+          return { totalTravelers: -1, averageRating: -1 }; // Fallback
+      }
+    })();
+
+    // Updated aggregation pipeline section for your getDestination controller
+
     const aggregationPipeline = [
       { $match: matchStage },
       {
         $facet: {
           tours: [
-            {
-              $sort: {
-                ...(sortBy === "popularity" && { totalTravelers: -1, averageRating: -1 }),
-                ...(sortBy === "best-rated" && { averageRating: -1, totalReviews: -1 }),
-                ...(sortBy === "price-low" && { price: 1 }),
-                ...(sortBy === "price-high" && { price: -1 }),
-                ...(sortBy === "new" && { createdAt: -1 }),
-                ...(sortBy === "duration-short" && { durationInMinutes: 1 }),
-                ...(sortBy === "duration-long" && { durationInMinutes: -1 }),
-              },
-            },
+            { $sort: sortStage },
             { $skip: (parseInt(page) - 1) * parseInt(limit) },
             { $limit: parseInt(limit) },
             {
@@ -379,7 +430,139 @@ const getDestination = catchAsyncError(async (req, res, next) => {
             { $sort: { category: 1 } },
           ],
           features: [
-            { $match: { features: { $exists: true, $ne: [], $not: { $size: 0 } } } },
+            {
+              $match: {
+                features: { $exists: true, $ne: [], $not: { $size: 0 } },
+              },
+            },
+            { $unwind: "$features" },
+            {
+              $group: {
+                _id: "$features",
+                count: { $sum: 1 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                feature: "$_id",
+                count: 1,
+              },
+            },
+            { $sort: { feature: 1 } },
+          ],
+          maxPriceAndDuration: [
+            {
+              $addFields: {
+                // Calculate durationInDays if it doesn't exist
+                calculatedDurationInDays: {
+                  $cond: {
+                    if: { $ifNull: ["$durationInDays", false] },
+                    then: "$durationInDays",
+                    else: {
+                      $cond: {
+                        if: { $ifNull: ["$durationInMinutes", false] },
+                        then: {
+                          $ceil: {
+                            $divide: [
+                              "$durationInMinutes",
+                              { $multiply: [24, 60] },
+                            ],
+                          },
+                        },
+                        else: 1, // Default to 1 day if no duration data
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                maxPrice: { $max: "$price" },
+                maxDurationInDays: { $max: "$calculatedDurationInDays" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                maxPrice: 1,
+                maxDurationInDays: 1,
+              },
+            },
+          ],
+        },
+      },
+    ];
+
+    // Alternative simpler approach if you prefer
+    const alternativeAggregationPipeline = [
+      { $match: matchStage },
+      {
+        $addFields: {
+          // Ensure durationInDays exists for all documents
+          effectiveDurationInDays: {
+            $cond: {
+              if: { $gt: ["$durationInDays", 0] },
+              then: "$durationInDays",
+              else: {
+                $cond: {
+                  if: { $gt: ["$durationInMinutes", 0] },
+                  then: { $ceil: { $divide: ["$durationInMinutes", 1440] } }, // 1440 = 24*60 minutes in a day
+                  else: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $facet: {
+          tours: [
+            { $sort: sortStage },
+            { $skip: (parseInt(page) - 1) * parseInt(limit) },
+            { $limit: parseInt(limit) },
+            {
+              $project: {
+                _id: 1,
+                title: 1,
+                description: 1,
+                price: 1,
+                discountPercent: 1,
+                averageRating: 1,
+                totalReviews: 1,
+                totalTravelers: 1,
+                duration: 1,
+                category: 1,
+                features: 1,
+                slug: 1,
+              },
+            },
+          ],
+          totalCount: [{ $count: "total" }],
+          categories: [
+            {
+              $group: {
+                _id: "$category",
+                count: { $sum: 1 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                category: "$_id",
+                count: 1,
+              },
+            },
+            { $sort: { category: 1 } },
+          ],
+          features: [
+            {
+              $match: {
+                features: { $exists: true, $ne: [], $not: { $size: 0 } },
+              },
+            },
             { $unwind: "$features" },
             {
               $group: {
@@ -401,7 +584,7 @@ const getDestination = catchAsyncError(async (req, res, next) => {
               $group: {
                 _id: null,
                 maxPrice: { $max: "$price" },
-                maxDurationInDays: { $max: "$durationInDays" },
+                maxDurationInDays: { $max: "$effectiveDurationInDays" },
               },
             },
             {
@@ -423,7 +606,8 @@ const getDestination = catchAsyncError(async (req, res, next) => {
     const categories = results[0].categories || [];
     const features = results[0].features || [];
     const maxPrice = results[0].maxPriceAndDuration[0]?.maxPrice || 0;
-    const maxDurationInDays = results[0].maxPriceAndDuration[0]?.maxDurationInDays || 0;
+    const maxDurationInDays =
+      results[0].maxPriceAndDuration[0]?.maxDurationInDays || 0;
 
     const totalPages = Math.ceil(totalCount / parseInt(limit));
     const hasNextPage = parseInt(page) < totalPages;
@@ -453,7 +637,7 @@ const getDestination = catchAsyncError(async (req, res, next) => {
         priceMax,
         durationMin,
         durationMax,
-        sortBy,
+        sortBy: effectiveSortBy,
       },
       data: {
         tours,
@@ -467,7 +651,9 @@ const getDestination = catchAsyncError(async (req, res, next) => {
   }
 
   if (matchedDestination.country?.toLowerCase() === destinationLower) {
-    const filter = { country: { $regex: `^${destinationLower}$`, $options: "i" } };
+    const filter = {
+      country: { $regex: `^${destinationLower}$`, $options: "i" },
+    };
     const apiFeature = new ApiFeature(destinationModel.find(filter), {
       limit,
       page,
@@ -494,7 +680,8 @@ const getDestination = catchAsyncError(async (req, res, next) => {
 
     const averageRating =
       cities.length > 0
-        ? cities.reduce((sum, city) => sum + (city.averageRating || 0), 0) / cities.length
+        ? cities.reduce((sum, city) => sum + (city.averageRating || 0), 0) /
+          cities.length
         : 0;
     const averageRatingRounded = Math.round(averageRating * 10) / 10;
 
@@ -518,7 +705,6 @@ const getDestination = catchAsyncError(async (req, res, next) => {
 
   return next(new AppError("No matching city or country found", 404));
 });
-
 const deleteAllDestinations = catchAsyncError(async (req, res, next) => {
   const destinationsWithTours = await tourModel.distinct("destination");
 

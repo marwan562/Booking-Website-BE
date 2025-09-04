@@ -55,6 +55,7 @@ const location = joi.object({
 export const createTourSchema = joi.object({
   title: joi.string().min(3).max(100).required(),
   description: joi.string().min(10).max(20000).required(),
+  destination: joi.string().hex().length(24).required(),
   mainImg: imgSchema.required(),
   images: joi.array().items(imgSchema),
   category: joi.string().required(),

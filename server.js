@@ -9,7 +9,7 @@ import {
   securityHeaders,
   sanitizeData,
   requestSizeLimit,
-  apiLimiter,
+  // apiLimiter,
   corsOptions,
 } from "./src/middlewares/security.js";
 import logger from "./logs/logger.js";
@@ -70,7 +70,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Global rate limiting
-app.use("/api", apiLimiter);
+// app.use("/api", apiLimiter);
 
 // Routes
 app.use("/api", router);

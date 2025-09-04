@@ -2,7 +2,7 @@ import multer from "multer";
 import { AppError } from "../utilities/AppError.js";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
 const DANGEROUS_EXTENSIONS = [".exe", ".bat", ".cmd", ".com", ".pif", ".scr", ".vbs", ".js"];
 
 const storage = multer.memoryStorage();

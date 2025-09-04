@@ -2,14 +2,18 @@ export class ApiFeature {
   constructor(mongoseQuery, queryString) {
     this.mongoseQuery = mongoseQuery;
     this.queryString = queryString;
+    // Set default limit and ensure it's a number
+    this.limit = parseInt(this.queryString.limit) || 10;
+    this.page = parseInt(this.queryString.page) || 1;
   }
 
   paginate() {
-    let page = this.queryString.page * 1 || 1;
+    let page = this.page;
     if (page <= 0) page = 1;
     this.page = page;
-    const skip = (page - 1) * 10;
-    this.mongoseQuery.skip(skip).limit(10);
+    
+    const skip = (page - 1) * this.limit;
+    this.mongoseQuery.skip(skip).limit(this.limit);
     return this;
   }
 
@@ -42,10 +46,13 @@ export class ApiFeature {
     return this;
   }
 
-  sort() {
+  sort(defaultSort) {
     if (this.queryString.sort) {
       let sortedBy = this.queryString.sort.split(",").join(" ");
       this.mongoseQuery.sort(sortedBy);
+    } else if (defaultSort) {
+      // Allow custom default sorting
+      this.mongoseQuery.sort(defaultSort);
     } else {
       // Optimized default sorting
       this.mongoseQuery.sort({ createdAt: -1, index: 1 });

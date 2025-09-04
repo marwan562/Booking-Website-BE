@@ -27,22 +27,23 @@ destinationRouter
   )
   .delete(auth, allowedTo("admin"), Destination.deleteAllDestinations);
 
+destinationRouter.route("/:destination").get(Destination.getDestination);
+
 destinationRouter
   .route("/:id")
-  .get(Destination.getDestinationById)
   .delete(auth, allowedTo("admin"), Destination.deleteDestination)
   .patch(
     auth,
     allowedTo("admin"),
-    uploadMixfile([
-      { name: "mainImg", maxCount: 1 },
-    ]),
+    uploadMixfile([{ name: "mainImg", maxCount: 1 }]),
     saveImg,
     validation(updatedDestinationSchema),
     Destination.updateDestination
   );
 
-destinationRouter.route("/:id/tours").get(Destination.getDestinationTours);
+destinationRouter
+  .route("/:destination/tours")
+  .get(Destination.getDestinationTours);
 destinationRouter.route("/:id/stats").get(Destination.getDestinationStats);
 destinationRouter
   .route("/category/:category")

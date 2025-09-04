@@ -25,17 +25,17 @@ export const loginLimiter = rateLimit({
 });
 
 // General API rate limiting
-export const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 150, // limit each IP to 150 requests per windowMs
-  message: {
-    status: "error",
-    statusCode: 429,
-    message: "Too many requests from this IP, please try again later",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// export const de = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 200, // limit each IP to 150 requests per windowMs
+//   message: {
+//     status: "error",
+//     statusCode: 429,
+//     message: "Too many requests from this IP, please try again later",
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
 
 // Register rate limiting
 export const registerLimiter = rateLimit({

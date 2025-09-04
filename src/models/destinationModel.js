@@ -24,7 +24,11 @@ export default mongoose.model("destination", schema);
 // Add index to ensure uniqueness of city within country
 schema.index({ country: 1, city: 1 }, { unique: true });
 
-schema.pre("save", function(next) {
+schema.index({ city: 1 });
+schema.index({ country: 1 });
+
+
+schema.pre("save", function (next) {
   this.country = this.country.trim().toLowerCase();
   this.city = this.city.trim().toLowerCase();
   next();

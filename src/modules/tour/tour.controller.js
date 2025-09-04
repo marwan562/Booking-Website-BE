@@ -4,10 +4,45 @@ import { removeImage } from "../../middlewares/deleteImg.js";
 import { AppError } from "../../utilities/AppError.js";
 import { ApiFeature } from "../../utilities/AppFeature.js";
 import { ObjectId } from "mongodb";
+import destinationModel from "../../models/destinationModel.js";
+
+const getCategories = catchAsyncError(async (req, res) => {
+  try {
+    const categories = await tourModel.aggregate([
+      {
+        $group: {
+          _id: "$category",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          category: "$_id",
+          count: 1,
+        },
+      },
+      {
+        $sort: { category: 1 },
+      },
+    ]);
+
+    res.status(200).json(categories);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch categories", error });
+  }
+});
 
 const createTour = catchAsyncError(async (req, res, next) => {
   // Validate required fields
-  const { title, description, category, location } = req.body;
+  const {
+    title,
+    description,
+    category,
+    location,
+    destination,
+    discountPercent,
+  } = req.body;
 
   if (!title || !description || !category || !location) {
     return next(
@@ -16,6 +51,10 @@ const createTour = catchAsyncError(async (req, res, next) => {
         400
       )
     );
+  }
+
+  if (discountPercent > 0) {
+    req.body.hasOffer = true;
   }
 
   // Validate location object
@@ -34,6 +73,12 @@ const createTour = catchAsyncError(async (req, res, next) => {
     return next(
       new AppError("At least one adult pricing option is required", 400)
     );
+  }
+
+  const destinationExists = await destinationModel.findById(destination);
+
+  if (!destinationExists) {
+    return next(new AppError("Destination not found", 404));
   }
 
   const tour = await tourModel.create(req.body);
@@ -359,6 +404,7 @@ const searchTours = catchAsyncError(async (req, res, next) => {
 });
 
 export {
+  getCategories,
   createTour,
   deleteTour,
   updateTour,

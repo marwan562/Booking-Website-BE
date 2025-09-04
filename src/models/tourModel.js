@@ -1,113 +1,128 @@
 import mongoose, { Schema } from "mongoose";
 import slugify from "slugify";
 
-const schema = new Schema({
-  title: { type: String, required: true },
-  slug: { type: String, unique: true },
-  description: { type: String, required: true },
-  destination: { type: mongoose.Schema.Types.ObjectId, ref: "destination", required: true },
-  mainImg: {
-    type: {
-      url: { type: String, required: true },
-      public_id: { type: String, required: true },
+const schema = new Schema(
+  {
+    title: { type: String, required: true },
+    slug: { type: String, unique: true, required: true },
+    description: { type: String, required: true },
+    destination: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "destination",
+      required: true,
     },
-    required: true,
-  },
-  images: [
-    {
-      url: { type: String },
-      public_id: { type: String },
+    mainImg: {
+      type: {
+        url: { type: String, required: true },
+        public_id: { type: String, required: true },
+      },
+      required: true,
     },
-  ],
-  index: { type: Number, default: -1 },
+    images: [
+      {
+        url: { type: String },
+        public_id: { type: String },
+      },
+    ],
+    index: { type: Number, default: -1 },
 
-  options: [
-    {
-      name: { type: String },
-      price: { type: Number },
-      childPrice: {
-        type: Number,
-        default: function () {
-          return this.price * 0.5;
-        },
-      },
+    date: {
+      from: { type: Date },
+      to: { type: Date },
     },
-  ],
-  isRepeated: { type: Boolean, default: true },
-  repeatTime: [{ type: String }],
-  repeatDays: [
-    {
-      type: String,
-      enum: [
-        "Sunday",
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-      ],
-    },
-  ],
-  category: { type: String, required: true },
-  tags: [{ type: String, min: 2, max: 50 }],
-  mapDetails: { type: String },
-  hasOffer: { type: Boolean, default: false },
-  location: {
-    from: { type: String, required: true },
-    to: { type: String, required: true },
-  },
-  inclusions: [{ type: String }],
-  exclusions: [{ type: String }],
-  adultPricing: [
-    {
-      adults: { type: Number, required: true },
-      price: { type: Number, required: true },
-      totalPrice: {
-        type: Number,
-        default: function () {
-          return this.adults * this.price;
-        },
-      },
-    },
-  ],
-  childrenPricing: [
-    {
-      children: { type: Number, required: true },
-      price: { type: Number, required: true },
-      totalPrice: {
-        type: Number,
-        default: function () {
-          return this.children * this.price;
-        },
-      },
-    },
-  ],
-  price: {
-    type: Number,
-  },
-  duration: { type: String },
-  itinerary: [
-    {
-      title: { type: String, required: true },
-      subtitle: { type: String, required: true },
-    }
-  ],
-  historyBrief: { type: String, min: 2 },
-  ratingSum: { type: Number, default: 0 },
- averageRating: { type: Number, default: 0 },
- totalReviews: { type: Number, default: 0 },
- ratingSum: { type: Number, default: 0 }, 
- totalTravelers: { type: Number, default: 0 },
-}, {
-  timestamps: true,
-});
 
-schema.index({ title: 'text', description: 'text' });
+    features: [{ type: String }],
+    includes: [{ type: String }],
+    notIncludes: [{ type: String }],
+
+    options: [
+      {
+        name: { type: String },
+        price: { type: Number },
+        childPrice: {
+          type: Number,
+          default: function () {
+            return this.price * 0.5;
+          },
+        },
+      },
+    ],
+    isRepeated: { type: Boolean, default: true },
+    repeatTime: [{ type: String }],
+    repeatDays: [
+      {
+        type: String,
+        enum: [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ],
+      },
+    ],
+    category: { type: String, required: true },
+    tags: [{ type: String, min: 2, max: 50 }],
+    mapDetails: { type: String },
+    discountPercent: { type: Number, default: 0, min: 0, max: 100 },
+    hasOffer: { type: Boolean, default: false },
+
+    location: {
+      from: { type: String, required: true },
+      to: { type: String, required: true },
+    },
+    adultPricing: [
+      {
+        adults: { type: Number, required: true },
+        price: { type: Number, required: true },
+        totalPrice: {
+          type: Number,
+          default: function () {
+            return this.adults * this.price;
+          },
+        },
+      },
+    ],
+    childrenPricing: [
+      {
+        children: { type: Number, required: true },
+        price: { type: Number, required: true },
+        totalPrice: {
+          type: Number,
+          default: function () {
+            return this.children * this.price;
+          },
+        },
+      },
+    ],
+    price: {
+      type: Number,
+    },
+    duration: { type: String },
+    itinerary: [
+      {
+        title: { type: String, required: true },
+        subtitle: { type: String, required: true },
+      },
+    ],
+    historyBrief: { type: String, min: 2 },
+    averageRating: { type: Number, default: 0 },
+    totalReviews: { type: Number, default: 0 },
+    ratingSum: { type: Number, default: 0 },
+    totalTravelers: { type: Number, default: 0 },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+schema.index({ title: "text", description: "text" });
 
 // Pre-save middleware for price calculation
 schema.pre("save", async function (next) {
-   if (this.isModified("title")) {
+  if (this.isModified("title")) {
     let baseSlug = slugify(this.title, { lower: true, strict: true });
     let slug = baseSlug;
     let count = 1;
@@ -128,16 +143,16 @@ schema.pre("save", async function (next) {
 });
 
 // Add lean query optimization
-schema.statics.findOptimized = function(query = {}, options = {}) {
+schema.statics.findOptimized = function (query = {}, options = {}) {
   const defaultOptions = {
     lean: true,
-    ...options
+    ...options,
   };
   return this.find(query, null, defaultOptions);
 };
 
 // Add aggregation helper for complex queries
-schema.statics.aggregateOptimized = function(pipeline) {
+schema.statics.aggregateOptimized = function (pipeline) {
   return this.aggregate(pipeline).allowDiskUse(true);
 };
 

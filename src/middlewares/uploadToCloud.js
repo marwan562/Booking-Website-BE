@@ -1,7 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import { AppError } from "../utilities/AppError.js";
 import convertToWebp from "../utilities/convertToWebp.js";
-import "dotenv/config"
+import "dotenv/config";
 
 let cloud_name = process.env.CLOUDINARY_NAME,
   api_key = process.env.API_KEY_CLOUDINARY,
@@ -29,7 +29,7 @@ export const saveImg = async (req, res, next) => {
           {
             folder: folderName,
             resource_type: "image",
-            allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"],
+            allowed_formats: ["jpg", "jpeg", "png", "webp", "gif", "avif"],
             transformation: [{ quality: "auto:good" }],
           },
           (error, result) => {

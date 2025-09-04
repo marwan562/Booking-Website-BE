@@ -25,6 +25,9 @@ tourRouter
   )
   .delete(auth, allowedTo("admin"), Tour.deleteAllTour);
 
+tourRouter.route("/search", Tour.searchTours);
+tourRouter.route("/categories").get(Tour.getCategories);
+
 tourRouter
   .get(tourRouter.get("/:slug", Tour.getTourBySlug))
   .get(Tour.getTourById)

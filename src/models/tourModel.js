@@ -69,6 +69,9 @@ const schema = new Schema(
     discountPercent: { type: Number, default: 0, min: 0, max: 100 },
     hasOffer: { type: Boolean, default: false },
 
+    durationInMinutes: { type: Number, index: true },
+    durationInDays: { type: Number, index: true },
+
     location: {
       from: { type: String, required: true },
       to: { type: String, required: true },
@@ -118,7 +121,22 @@ const schema = new Schema(
   }
 );
 
-schema.index({ title: "text", description: "text" });
+schema.index({
+  title: "text",
+  description: "text",
+  category: 1,
+  features: 1,
+  price: 1,
+  durationInMinutes: 1,
+  isRepeated: 1,
+  "date.from": 1,
+  "date.to": 1,
+  repeatDays: 1,
+  repeatTime: 1,
+  totalTravelers: -1,
+  averageRating: -1,
+  createdAt: -1,
+});
 
 // Pre-save middleware for price calculation
 schema.pre("save", async function (next) {

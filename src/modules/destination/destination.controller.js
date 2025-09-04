@@ -177,10 +177,8 @@ const getDestination = catchAsyncError(async (req, res, next) => {
     dateFrom,
     dateTo,
     startTime,
-    minActivityHour,
-    maxActivityHour,
     category,
-    features,
+    features: queryFeatures,
     priceMin,
     priceMax,
     durationMin,
@@ -192,398 +190,58 @@ const getDestination = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Destination parameter is required", 400));
   }
 
-  const destinationLower = destination.toLowerCase();
+  const destinationLower = destination.toLowerCase().trim();
 
-  const destinationData = await destinationModel.find({
-    $or: [
-      { city: { $regex: `^${destination}$`, $options: "i" } },
-      { country: { $regex: `^${destination}$`, $options: "i" } },
-    ],
-  });
+  const destinationData = await destinationModel
+    .findOne({
+      $or: [
+        { city: { $regex: `^${destinationLower}$`, $options: "i" } },
+        { country: { $regex: `^${destinationLower}$`, $options: "i" } },
+      ],
+    })
+    .lean();
 
-  if (!destinationData || destinationData.length === 0) {
+  if (!destinationData) {
+    console.log(`No destination found for: ${destinationLower}`);
+    console.log(
+      `Available cities: ${await destinationModel.distinct("city")}`,
+      `Available countries: ${await destinationModel.distinct("country")}`
+    );
     return next(new AppError("Destination not found", 404));
   }
 
-  const matchedDestination = destinationData[0];
+  const matchedDestination = destinationData;
 
   if (matchedDestination.city?.toLowerCase() === destinationLower) {
-    // Category aggregation
-    const categoryAggregation = await tourModel.aggregate([
-      { $match: { destination: matchedDestination._id } },
-      {
-        $group: {
-          _id: "$category",
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          category: "$_id",
-          count: 1,
-        },
-      },
-      { $sort: { category: 1 } },
-    ]);
-
-    // Features aggregation
-    const featuresAggregation = await tourModel.aggregate([
-      { $match: { destination: matchedDestination._id } },
-      {
-        $match: {
-          features: { $exists: true, $ne: null, $not: { $size: 0 } },
-        },
-      },
-      {
-        $unwind: {
-          path: "$features",
-        },
-      },
-      {
-        $group: {
-          _id: "$features",
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          feature: "$_id",
-          count: 1,
-        },
-      },
-      { $sort: { feature: 1 } },
-    ]);
-
-    // New aggregation for max price and max duration
-    const maxPriceAndDurationAggregation = await tourModel.aggregate([
-      { $match: { destination: matchedDestination._id } },
-      {
-        $addFields: {
-          durationInDays: {
-            $cond: {
-              if: {
-                $and: [
-                  { $ne: ["$duration", null] },
-                  { $ne: ["$duration", ""] },
-                  { $ifNull: ["$duration", false] },
-                  {
-                    $regexMatch: {
-                      input: "$duration",
-                      regex: "^(\\d+d)?(\\d+h)?(\\d+m)?$",
-                    },
-                  },
-                ],
-              },
-              then: {
-                $let: {
-                  vars: {
-                    durationParts: {
-                      $regexFind: {
-                        input: "$duration",
-                        regex: "^(\\d+)?d?(\\d+)?h?(\\d+)?m?$",
-                      },
-                    },
-                  },
-                  in: {
-                    $add: [
-                      {
-                        $convert: {
-                          input: {
-                            $arrayElemAt: ["$$durationParts.captures", 0],
-                          },
-                          to: "double",
-                          onError: 0,
-                          onNull: 0,
-                        },
-                      },
-                      {
-                        $divide: [
-                          {
-                            $convert: {
-                              input: {
-                                $arrayElemAt: ["$$durationParts.captures", 1],
-                              },
-                              to: "double",
-                              onError: 0,
-                              onNull: 0,
-                            },
-                          },
-                          24, // Convert hours to days
-                        ],
-                      },
-                      {
-                        $divide: [
-                          {
-                            $convert: {
-                              input: {
-                                $arrayElemAt: ["$$durationParts.captures", 2],
-                              },
-                              to: "double",
-                              onError: 0,
-                              onNull: 0,
-                            },
-                          },
-                          1440, // Convert minutes to days (1440 minutes = 1 day)
-                        ],
-                      },
-                    ],
-                  },
-                },
-              },
-              else: 0,
-            },
-          },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          maxPrice: { $max: "$price" },
-          maxDurationInDays: { $max: "$durationInDays" },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          maxPrice: 1,
-          maxDurationInDays: 1,
-        },
-      },
-    ]);
-
-    // Build query filters for tours
-    let tourQuery = { destination: matchedDestination._id };
-    let aggregationPipeline = [];
-
-    aggregationPipeline.push({ $match: tourQuery });
+    let matchStage = { destination: matchedDestination._id };
 
     if (category) {
-      aggregationPipeline.push({
-        $match: { category: { $regex: category, $options: "i" } },
-      });
+      matchStage.category = {
+        $in: Array.isArray(category) ? category : category.split(",").map((c) => c.trim()),
+      };
     }
 
-    if (features) {
-      const featuresArray = Array.isArray(features)
-        ? features
-        : features.split(",");
-      aggregationPipeline.push({
-        $match: { features: { $all: featuresArray } }, // Changed to $all for stricter matching
-      });
+    if (queryFeatures) {
+      const featuresArray = Array.isArray(queryFeatures)
+        ? queryFeatures
+        : queryFeatures.split(",").map((f) => f.trim());
+      matchStage.features = { $all: featuresArray };
     }
 
     if (priceMin || priceMax) {
-      const priceFilter = {};
-      if (priceMin) priceFilter.$gte = parseFloat(priceMin);
-      if (priceMax) priceFilter.$lte = parseFloat(priceMax);
-      aggregationPipeline.push({
-        $match: { price: priceFilter },
-      });
+      matchStage.price = {};
+      if (priceMin && !isNaN(parseFloat(priceMin)))
+        matchStage.price.$gte = parseFloat(priceMin);
+      if (priceMax && !isNaN(parseFloat(priceMax)))
+        matchStage.price.$lte = parseFloat(priceMax);
     }
 
-    aggregationPipeline.push({
-      $addFields: {
-        durationInHours: {
-          $cond: {
-            if: {
-              $and: [
-                { $ne: ["$duration", null] },
-                { $ne: ["$duration", ""] },
-                { $ifNull: ["$duration", false] },
-                {
-                  $regexMatch: {
-                    input: "$duration",
-                    regex: "^(\\d+d)?(\\d+h)?(\\d+m)?$",
-                  },
-                },
-              ],
-            },
-            then: {
-              $let: {
-                vars: {
-                  durationParts: {
-                    $regexFind: {
-                      input: "$duration",
-                      regex: "^(\\d+)?d?(\\d+)?h?(\\d+)?m?$",
-                    },
-                  },
-                },
-                in: {
-                  $add: [
-                    {
-                      $multiply: [
-                        {
-                          $convert: {
-                            input: {
-                              $arrayElemAt: ["$$durationParts.captures", 0],
-                            },
-                            to: "double",
-                            onError: 0,
-                            onNull: 0,
-                          },
-                        },
-                        24,
-                      ],
-                    },
-                    {
-                      $convert: {
-                        input: {
-                          $arrayElemAt: ["$$durationParts.captures", 1],
-                        },
-                        to: "double",
-                        onError: 0,
-                        onNull: 0,
-                      },
-                    },
-                    {
-                      $divide: [
-                        {
-                          $convert: {
-                            input: {
-                              $arrayElemAt: ["$$durationParts.captures", 2],
-                            },
-                            to: "double",
-                            onError: 0,
-                            onNull: 0,
-                          },
-                        },
-                        60,
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-            else: 0,
-          },
-        },
-        durationInMinutes: {
-          $multiply: [
-            {
-              $cond: {
-                if: {
-                  $and: [
-                    { $ne: ["$duration", null] },
-                    { $ne: ["$duration", ""] },
-                    { $ifNull: ["$duration", false] },
-                    {
-                      $regexMatch: {
-                        input: "$duration",
-                        regex: "^(\\d+d)?(\\d+h)?(\\d+m)?$",
-                      },
-                    },
-                  ],
-                },
-                then: {
-                  $let: {
-                    vars: {
-                      durationParts: {
-                        $regexFind: {
-                          input: "$duration",
-                          regex: "^(\\d+)?d?(\\d+)?h?(\\d+)?m?$",
-                        },
-                      },
-                    },
-                    in: {
-                      $add: [
-                        {
-                          $multiply: [
-                            {
-                              $convert: {
-                                input: {
-                                  $arrayElemAt: ["$$durationParts.captures", 0],
-                                },
-                                to: "double",
-                                onError: 0,
-                                onNull: 0,
-                              },
-                            },
-                            24 * 60,
-                          ],
-                        },
-                        {
-                          $multiply: [
-                            {
-                              $convert: {
-                                input: {
-                                  $arrayElemAt: ["$$durationParts.captures", 1],
-                                },
-                                to: "double",
-                                onError: 0,
-                                onNull: 0,
-                              },
-                            },
-                            60,
-                          ],
-                        },
-                        {
-                          $convert: {
-                            input: {
-                              $arrayElemAt: ["$$durationParts.captures", 2],
-                            },
-                            to: "double",
-                            onError: 0,
-                            onNull: 0,
-                          },
-                        },
-                      ],
-                    },
-                  },
-                },
-                else: 0,
-              },
-            },
-            1,
-          ],
-        },
-        isAvailableToday: {
-          $cond: {
-            if: "$isRepeated",
-            then: {
-              $in: [
-                { $dayOfWeek: new Date() },
-                {
-                  $map: {
-                    input: "$repeatDays",
-                    as: "day",
-                    in: {
-                      $switch: {
-                        branches: [
-                          { case: { $eq: ["$$day", "Sunday"] }, then: 1 },
-                          { case: { $eq: ["$$day", "Monday"] }, then: 2 },
-                          { case: { $eq: ["$$day", "Tuesday"] }, then: 3 },
-                          { case: { $eq: ["$$day", "Wednesday"] }, then: 4 },
-                          { case: { $eq: ["$$day", "Thursday"] }, then: 5 },
-                          { case: { $eq: ["$$day", "Friday"] }, then: 6 },
-                          { case: { $eq: ["$$day", "Saturday"] }, then: 7 },
-                        ],
-                        default: 0,
-                      },
-                    },
-                  },
-                },
-              ],
-            },
-            else: {
-              $and: [
-                { $lte: ["$date.from", new Date()] },
-                { $gte: ["$date.to", new Date()] },
-              ],
-            },
-          },
-        },
-      },
-    });
-
     if (durationMin || durationMax) {
-      const durationFilter = {};
-      if (durationMin) durationFilter.$gte = parseInt(durationMin) * 60;
-      if (durationMax) durationFilter.$lte = parseInt(durationMax) * 60;
-      aggregationPipeline.push({
-        $match: { durationInMinutes: durationFilter },
-      });
+      matchStage.durationInMinutes = {};
+      if (durationMin && !isNaN(parseInt(durationMin)))
+        matchStage.durationInMinutes.$gte = parseInt(durationMin) * 60;
+      if (durationMax && !isNaN(parseInt(durationMax)))
+        matchStage.durationInMinutes.$lte = parseInt(durationMax) * 60;
     }
 
     if (availability) {
@@ -593,191 +251,180 @@ const getDestination = catchAsyncError(async (req, res, next) => {
       switch (availability) {
         case "today":
           targetDate = now;
-          aggregationPipeline.push({ $match: { isAvailableToday: true } });
+          matchStage.isAvailableToday = true;
           break;
         case "tomorrow":
           targetDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
           const tomorrowDay = targetDate.getDay() + 1;
-          aggregationPipeline.push({
-            $match: {
-              $expr: {
-                $or: [
-                  {
-                    $and: [
-                      { $eq: ["$isRepeated", true] },
-                      {
-                        $in: [
-                          tomorrowDay,
-                          {
-                            $map: {
-                              input: "$repeatDays",
-                              as: "day",
-                              in: {
-                                $switch: {
-                                  branches: [
-                                    {
-                                      case: { $eq: ["$$day", "Sunday"] },
-                                      then: 1,
-                                    },
-                                    {
-                                      case: { $eq: ["$$day", "Monday"] },
-                                      then: 2,
-                                    },
-                                    {
-                                      case: { $eq: ["$$day", "Tuesday"] },
-                                      then: 3,
-                                    },
-                                    {
-                                      case: { $eq: ["$$day", "Wednesday"] },
-                                      then: 4,
-                                    },
-                                    {
-                                      case: { $eq: ["$$day", "Thursday"] },
-                                      then: 5,
-                                    },
-                                    {
-                                      case: { $eq: ["$$day", "Friday"] },
-                                      then: 6,
-                                    },
-                                    {
-                                      case: { $eq: ["$$day", "Saturday"] },
-                                      then: 7,
-                                    },
-                                  ],
-                                  default: 0,
-                                },
-                              },
-                            },
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                  {
-                    $and: [
-                      { $eq: ["$isRepeated", false] },
-                      { $lte: ["$date.from", targetDate] },
-                      { $gte: ["$date.to", targetDate] },
-                    ],
-                  },
+          matchStage.$or = [
+            {
+              isRepeated: true,
+              repeatDays: {
+                $in: [
+                  tomorrowDay === 1 ? "Sunday" :
+                  tomorrowDay === 2 ? "Monday" :
+                  tomorrowDay === 3 ? "Tuesday" :
+                  tomorrowDay === 4 ? "Wednesday" :
+                  tomorrowDay === 5 ? "Thursday" :
+                  tomorrowDay === 6 ? "Friday" : "Saturday"
                 ],
               },
             },
-          });
+            {
+              isRepeated: false,
+              "date.from": { $lte: targetDate },
+              "date.to": { $gte: targetDate },
+            },
+          ];
           break;
+        default:
+          console.log(`Invalid availability value: ${availability}`);
       }
     }
 
     if (dateFrom && dateTo) {
       const fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
-
-      aggregationPipeline.push({
-        $match: {
-          $or: [
-            { isRepeated: true },
-            {
-              isRepeated: false,
-              $and: [
-                { "date.from": { $lte: toDate } },
-                { "date.to": { $gte: fromDate } },
-              ],
-            },
-          ],
-        },
-      });
-    }
-
-    if (minActivityHour || maxActivityHour || startTime) {
-      const timeFilter = {};
-
-      if (startTime) {
-        const [hours, minutes] = startTime.split(":").map(Number);
-        const startMinutes = hours * 60 + (minutes || 0);
-
-        aggregationPipeline.push({
-          $match: {
-            $or: [
-              { repeatTime: { $exists: false } },
-              { repeatTime: { $size: 0 } },
-              {
-                repeatTime: {
-                  $elemMatch: {
-                    $expr: {
-                      $lte: [
-                        {
-                          $abs: {
-                            $subtract: [
-                              startMinutes,
-                              {
-                                $add: [
-                                  {
-                                    $multiply: [
-                                      { $toInt: { $substr: ["$$this", 0, 2] } },
-                                      60,
-                                    ],
-                                  },
-                                  { $toInt: { $substr: ["$$this", 3, 2] } },
-                                ],
-                              },
-                            ],
-                          },
-                        },
-                        60,
-                      ],
-                    },
-                  },
-                },
-              },
-            ],
+      if (!isNaN(fromDate) && !isNaN(toDate)) {
+        matchStage.$or = [
+          { isRepeated: true },
+          {
+            isRepeated: false,
+            "date.from": { $lte: toDate },
+            "date.to": { $gte: fromDate },
           },
-        });
+        ];
       }
     }
 
-    let sortStage = {};
-    switch (sortBy) {
-      case "popularity":
-        sortStage = { totalTravelers: -1, averageRating: -1 };
-        break;
-      case "best-rated":
-        sortStage = { averageRating: -1, totalReviews: -1 };
-        break;
-      case "price-low":
-        sortStage = { price: 1 };
-        break;
-      case "price-high":
-        sortStage = { price: -1 };
-        break;
-      case "new":
-        sortStage = { createdAt: -1 };
-        break;
-      case "duration-short":
-        sortStage = { durationInMinutes: 1 };
-        break;
-      case "duration-long":
-        sortStage = { durationInMinutes: -1 };
-        break;
-      default:
-        sortStage = { totalTravelers: -1, averageRating: -1 };
+    if (startTime) {
+      const [hours, minutes] = startTime.split(":").map(Number);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        const startMinutes = hours * 60 + (minutes || 0);
+        matchStage.repeatTime = {
+          $elemMatch: {
+            $expr: {
+              $lte: [
+                {
+                  $abs: {
+                    $subtract: [
+                      startMinutes,
+                      {
+                        $add: [
+                          { $multiply: [{ $toInt: { $substr: ["$$this", 0, 2] } }, 60] },
+                          { $toInt: { $substr: ["$$this", 3, 2] } },
+                        ],
+                      },
+                    ],
+                  },
+                },
+                60,
+              ],
+            },
+          },
+        };
+      }
     }
 
-    aggregationPipeline.push({ $sort: sortStage });
+    const aggregationPipeline = [
+      { $match: matchStage },
+      {
+        $facet: {
+          tours: [
+            {
+              $sort: {
+                ...(sortBy === "popularity" && { totalTravelers: -1, averageRating: -1 }),
+                ...(sortBy === "best-rated" && { averageRating: -1, totalReviews: -1 }),
+                ...(sortBy === "price-low" && { price: 1 }),
+                ...(sortBy === "price-high" && { price: -1 }),
+                ...(sortBy === "new" && { createdAt: -1 }),
+                ...(sortBy === "duration-short" && { durationInMinutes: 1 }),
+                ...(sortBy === "duration-long" && { durationInMinutes: -1 }),
+              },
+            },
+            { $skip: (parseInt(page) - 1) * parseInt(limit) },
+            { $limit: parseInt(limit) },
+            {
+              $project: {
+                _id: 1,
+                title: 1,
+                description: 1,
+                price: 1,
+                discountPercent: 1,
+                averageRating: 1,
+                totalReviews: 1,
+                totalTravelers: 1,
+                duration: 1,
+                category: 1,
+                features: 1,
+                slug: 1,
+              },
+            },
+          ],
+          totalCount: [{ $count: "total" }],
+          categories: [
+            {
+              $group: {
+                _id: "$category",
+                count: { $sum: 1 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                category: "$_id",
+                count: 1,
+              },
+            },
+            { $sort: { category: 1 } },
+          ],
+          features: [
+            { $match: { features: { $exists: true, $ne: [], $not: { $size: 0 } } } },
+            { $unwind: "$features" },
+            {
+              $group: {
+                _id: "$features",
+                count: { $sum: 1 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                feature: "$_id",
+                count: 1,
+              },
+            },
+            { $sort: { feature: 1 } },
+          ],
+          maxPriceAndDuration: [
+            {
+              $group: {
+                _id: null,
+                maxPrice: { $max: "$price" },
+                maxDurationInDays: { $max: "$durationInDays" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                maxPrice: 1,
+                maxDurationInDays: 1,
+              },
+            },
+          ],
+        },
+      },
+    ];
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    aggregationPipeline.push({ $skip: skip });
-    aggregationPipeline.push({ $limit: parseInt(limit) });
+    const results = await tourModel.aggregate(aggregationPipeline);
 
-    const tours = await tourModel.aggregate(aggregationPipeline);
+    const tours = results[0].tours || [];
+    const totalCount = results[0].totalCount[0]?.total || 0;
+    const categories = results[0].categories || [];
+    const features = results[0].features || [];
+    const maxPrice = results[0].maxPriceAndDuration[0]?.maxPrice || 0;
+    const maxDurationInDays = results[0].maxPriceAndDuration[0]?.maxDurationInDays || 0;
 
-    const countPipeline = aggregationPipeline.slice(0, -2);
-    const totalCountResult = await tourModel.aggregate([
-      ...countPipeline,
-      { $count: "total" },
-    ]);
-
-    const totalCount =
-      totalCountResult.length > 0 ? totalCountResult[0].total : 0;
     const totalPages = Math.ceil(totalCount / parseInt(limit));
     const hasNextPage = parseInt(page) < totalPages;
     const hasPrevPage = parseInt(page) > 1;
@@ -801,7 +448,7 @@ const getDestination = catchAsyncError(async (req, res, next) => {
         dateTo,
         startTime,
         category,
-        features,
+        features: queryFeatures,
         priceMin,
         priceMax,
         durationMin,
@@ -811,18 +458,16 @@ const getDestination = catchAsyncError(async (req, res, next) => {
       data: {
         tours,
         pagination: paginationMeta,
-        categories: categoryAggregation,
-        features: featuresAggregation,
-        maxPrice: maxPriceAndDurationAggregation[0]?.maxPrice || 0,
-        maxDurationInDays:
-          maxPriceAndDurationAggregation[0]?.maxDurationInDays || 0,
+        categories,
+        features,
+        maxPrice,
+        maxDurationInDays,
       },
     });
   }
 
   if (matchedDestination.country?.toLowerCase() === destinationLower) {
-    const filter = { country: { $regex: `^${destination}$`, $options: "i" } };
-
+    const filter = { country: { $regex: `^${destinationLower}$`, $options: "i" } };
     const apiFeature = new ApiFeature(destinationModel.find(filter), {
       limit,
       page,
@@ -832,7 +477,6 @@ const getDestination = catchAsyncError(async (req, res, next) => {
       .lean();
 
     const cities = await apiFeature.mongoseQuery;
-
     const totalCities = await destinationModel.countDocuments(filter);
 
     const totalTravelers = cities.reduce(
@@ -850,8 +494,7 @@ const getDestination = catchAsyncError(async (req, res, next) => {
 
     const averageRating =
       cities.length > 0
-        ? cities.reduce((sum, city) => sum + (city.averageRating || 0), 0) /
-          cities.length
+        ? cities.reduce((sum, city) => sum + (city.averageRating || 0), 0) / cities.length
         : 0;
     const averageRatingRounded = Math.round(averageRating * 10) / 10;
 
@@ -875,6 +518,7 @@ const getDestination = catchAsyncError(async (req, res, next) => {
 
   return next(new AppError("No matching city or country found", 404));
 });
+
 const deleteAllDestinations = catchAsyncError(async (req, res, next) => {
   const destinationsWithTours = await tourModel.distinct("destination");
 

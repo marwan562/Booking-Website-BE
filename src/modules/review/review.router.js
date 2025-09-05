@@ -13,11 +13,19 @@ import {
 } from "./review.validation.js";
 import { validation } from "../../middlewares/validation.js";
 import { auth } from "../../middlewares/auth.js";
+import { saveImg } from "../../middlewares/uploadToCloud.js";
+import { uploadMixfile } from "../../middlewares/fileUpload.js";
 const reviewRouter = Router();
 
 reviewRouter
   .route("/:id")
-  .post(auth, validation(createReviewSchema), createReview)
+  .post(
+    auth,
+    uploadMixfile([{ name: "images", maxCount: 5 }]),
+    saveImg,
+    validation(createReviewSchema),
+    createReview
+  )
   .patch(auth, validation(editReviewSchema), editReview)
   .delete(auth, validation(reviewSchema), deleteReview)
   .get(validation(reviewSchema), getAllReviews);

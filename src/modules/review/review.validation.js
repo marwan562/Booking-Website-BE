@@ -1,5 +1,11 @@
 import Joi from "joi";
 
+const imgSchema = Joi.object({
+  url: Joi.string(),
+  public_id: Joi.string()
+});
+
+
 export const createReviewSchema = Joi.object({
   id: Joi.string().hex().length(24).required(),
   rating: Joi.number().min(1).max(5).required().messages({
@@ -9,6 +15,7 @@ export const createReviewSchema = Joi.object({
     "any.required": "Rating is required",
   }),
   comment: Joi.string().max(7000),
+  images: Joi.array().items(imgSchema).optional(),
 });
 
 export const editReviewSchema = Joi.object({

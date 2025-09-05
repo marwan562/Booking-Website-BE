@@ -6,7 +6,7 @@ import { AppError } from "../../utilities/AppError.js";
 export const createReview = catchAsyncError(async (req, res, next) => {
   const { _id: userId } = req.user;
   const { id: tourId } = req.params;
-  const { comment, rating } = req.body;
+  const { comment, rating, images } = req.body;
 
   // Validate input
   if (!comment || !rating) {
@@ -161,7 +161,8 @@ export const getAllReviews = catchAsyncError(async (req, res, next) => {
 
   const reviews = await reviewModel
     .find({ tour: tourId })
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
 
   if (!reviews || reviews.length === 0) {
     return next(new AppError("No reviews found for this tour", 404));

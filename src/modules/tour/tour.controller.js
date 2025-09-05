@@ -179,7 +179,10 @@ const updateTour = catchAsyncError(async (req, res, next) => {
 export const getTourBySlug = async (req, res, next) => {
   try {
     const slug = req.params.slug;
-    const tour = await tourModel.findOne({ slug });
+    const tour = await tourModel.findOne({ slug }).populate({
+      path: "destination",
+      select: "city country",
+    });
     if (!tour) return next(new AppError("Tour not found", 404));
     res.status(200).json({ status: "success", tour });
   } catch (error) {

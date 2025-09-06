@@ -203,14 +203,9 @@ const getAllCart = catchAsyncError(async (req, res, next) => {
 
 const deleteTourFromCart = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
-  const { _id } = req.user;
   const result = await subscriptionModel.findByIdAndDelete(id).populate({
     path: "userDetails",
-    select: "_id",
   });
-  if (_id !== result.userDetails) {
-    return next(new AppError("You can't delete this tour"));
-  }
   if (!result) {
     return next(new AppError("can't find subscription"));
   }

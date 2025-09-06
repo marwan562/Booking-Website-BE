@@ -110,7 +110,7 @@ process.on("SIGTERM", () => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT , () => {
   logger.info(`Server started on port ${PORT} in ${process.env.NODE_ENV} mode`);
   console.log(`Server is running on port ${PORT}`);
 });

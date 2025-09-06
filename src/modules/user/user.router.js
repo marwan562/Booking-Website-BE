@@ -29,7 +29,7 @@ userRouter.route("/verifyEmail/:token").get(strictLimiter, User.verifyUser);
 
 userRouter
   .route("/login")
-  .post(loginLimiter, validation(UserValidation.userSchemaLogin), User.login);
+  .post(validation(UserValidation.userSchemaLogin), User.login);
 
 userRouter.route("/refreshToken").get(strictLimiter, User.refreshToken);
 

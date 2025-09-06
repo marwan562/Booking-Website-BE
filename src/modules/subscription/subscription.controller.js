@@ -20,7 +20,11 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     req.body.userDetails = _id;
     req.body.tourDetails = id;
 
+    let subtotalPrice = 0;
     let totalPrice = 0;
+    let discountAmount = 0;
+    let discountPercent = 0;
+
     if (adultPricing) {
       let fetchingAdult = await tourModel.aggregate([
         { $match: { _id: new ObjectId(id) } },
@@ -31,10 +35,12 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
         { $project: { adultPricing: 1, _id: 0 } },
         { $replaceRoot: { newRoot: "$adultPricing" } },
       ]);
+
       if (!fetchingAdult[0]) {
-        next(new AppError("can't find adultPricing"));
+        return next(new AppError("Can't find adultPricing", 404));
       }
-      totalPrice = fetchingAdult[0].totalPrice;
+
+      subtotalPrice += fetchingAdult[0].totalPrice;
       req.body.adultPricing = fetchingAdult[0];
     }
 
@@ -48,13 +54,16 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
         { $project: { childrenPricing: 1, _id: 0 } },
         { $replaceRoot: { newRoot: "$childrenPricing" } },
       ]);
-      if (!childrenPricing[0]) {
-        next(new AppError("can't find childrenPricing"));
+
+      if (!fetchingChildren[0]) {
+        return next(new AppError("Can't find childrenPricing", 404));
       }
+
       req.body.childrenPricing = fetchingChildren[0];
-      totalPrice += fetchingChildren[0].totalPrice;
+      subtotalPrice += fetchingChildren[0].totalPrice;
     }
-    if (options) {
+
+    if (options && options.length > 0) {
       let fetchingOptions = await tourModel.aggregate([
         { $match: { _id: new ObjectId(id) } },
         { $unwind: "$options" },
@@ -70,39 +79,53 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
           $replaceRoot: { newRoot: "$options" },
         },
       ]);
-      if (!fetchingOptions[0]) {
-        next(new AppError("can't find options"));
+
+      if (!fetchingOptions || fetchingOptions.length === 0) {
+        return next(new AppError("Can't find options", 404));
       }
+
       fetchingOptions.forEach((option) => {
         options.forEach((inputOption) => {
           if (option._id.toString() === inputOption.id) {
             option.number = inputOption.number || 0;
             option.numberOfChildren = inputOption.numberOfChildren || 0;
-      
+
             const adultTotal = option.price * option.number;
             const childTotal = option.childPrice * option.numberOfChildren;
-      
+
             option.totalPrice = adultTotal + childTotal;
-            totalPrice += option.totalPrice;
+            subtotalPrice += option.totalPrice;
           }
         });
       });
-      
+
       req.body.options = fetchingOptions;
+    }
+
+    if (tour.hasOffer && tour.discountPercent && tour.discountPercent > 0) {
+      discountPercent = tour.discountPercent;
+      discountAmount = Math.round((subtotalPrice * discountPercent) / 100);
+      totalPrice = subtotalPrice - discountAmount;
     }
 
     req.body.totalPrice = totalPrice;
 
     const resultOfSubscription = new subscriptionModel(req.body);
     await resultOfSubscription.save();
+    const subscriptionObj = resultOfSubscription.toObject();
+
+    delete subscriptionObj.payment;
+    delete subscriptionObj.userDetails;
+
     res.status(200).json({
       message: "Subscription created successfully",
-      data: resultOfSubscription,
+      data: subscriptionObj,
     });
   } catch (error) {
-    // Handle errors here
     console.error("Error in createSubscription:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
   }
 });
 
@@ -110,7 +133,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
   const { role, _id } = req.user;
   if (role == "user") {
     const apiFeature = new ApiFeature(
-      subscriptionModel.find({ userDetails: _id }),
+      subscriptionModel.find({ userDetails: _id, payment: "pending" }),
       req.query
     )
       .paginate()
@@ -118,7 +141,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       .filter()
       .sort()
       .search()
-      .lean()
+      .lean();
 
     const result = await apiFeature.mongoseQuery.exec();
 
@@ -137,9 +160,9 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       .filter()
       .sort()
       .search()
-      .lean()
+      .lean();
 
-    const result = await apiFeature.mongoseQuery
+    const result = await apiFeature.mongoseQuery;
     if (!result) {
       return next(new AppError("can't find subscriptions"));
     }
@@ -147,12 +170,63 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
     const paginationMeta = apiFeature.getPaginationMeta(totalCount);
     res.status(200).send({
       message: "success",
-      data: { 
-        subscriptions:result,
-        pagination:paginationMeta
+      data: {
+        subscriptions: result,
+        pagination: paginationMeta,
       },
     });
   }
+});
+
+const getAllCart = catchAsyncError(async (req, res, next) => {
+  const { _id } = req.user;
+
+  const apiFeature = new ApiFeature(
+    subscriptionModel
+      .find({ userDetails: _id, payment: "pending" })
+      .select("-payment -userDetails"),
+    req.query
+  )
+    .paginate()
+    .fields()
+    .filter()
+    .sort()
+    .search()
+    .lean();
+
+  const result = await apiFeature.mongoseQuery.lean();
+  if (!result) {
+    return next(new AppError("can't find subscriptions"));
+  }
+  res.status(200).send({ message: "success", data: result });
+});
+
+const deleteTourFromCart = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+  const { _id } = req.user;
+  const result = await subscriptionModel.findByIdAndDelete(id).populate({
+    path: "userDetails",
+    select: "_id",
+  });
+  if (_id !== result.userDetails) {
+    return next(new AppError("You can't delete this tour"));
+  }
+  if (!result) {
+    return next(new AppError("can't find subscription"));
+  }
+  res.status(200).send({ message: "success", data: result });
+});
+
+const deleteAllToursInCart = catchAsyncError(async (req, res, next) => {
+  const { _id } = req.user;
+  const result = await subscriptionModel.deleteMany({
+    userDetails: _id,
+    payment: "pending",
+  });
+  if (!result) {
+    return next(new AppError("can't find subscription"));
+  }
+  res.status(200).send({ message: "success", data: result });
 });
 
 const getSubscriptionById = catchAsyncError(async (req, res, next) => {
@@ -163,7 +237,7 @@ const getSubscriptionById = catchAsyncError(async (req, res, next) => {
     .filter()
     .sort()
     .search()
-    .lean()
+    .lean();
 
   const result = await apiFeature.mongoseQuery.lean();
   if (!result) {
@@ -203,6 +277,9 @@ schedule.scheduleJob("0 0 * * *", function () {
 });
 
 export {
+  getAllCart,
+  deleteAllToursInCart,
+  deleteTourFromCart,
   deleteSubscription,
   createSubscription,
   getAllSubscription,

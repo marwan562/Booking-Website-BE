@@ -50,10 +50,7 @@ schema.pre(/^find/, async function (next) {
     this.populate({
       path: "tourDetails",
       select: "mainImg title description",
-    }).populate({
-      path: "userDetails",
-      select: "avatar name email nationality phone",
-    });
+    })
     next();
   } catch (error) {
     next(error);

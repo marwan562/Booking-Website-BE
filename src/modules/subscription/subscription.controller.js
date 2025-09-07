@@ -104,8 +104,10 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
 
     if (tour.hasOffer && tour.discountPercent && tour.discountPercent > 0) {
       discountPercent = tour.discountPercent;
-      discountAmount = Math.round((subtotalPrice * discountPercent) / 100);
-      totalPrice = subtotalPrice - discountAmount;
+      discountAmount = +((subtotalPrice * discountPercent) / 100).toFixed(2);
+      totalPrice = +(subtotalPrice - discountAmount).toFixed(2);
+    } else {
+      totalPrice = subtotalPrice;
     }
 
     req.body.totalPrice = totalPrice;
@@ -127,6 +129,18 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       message: "Internal Server Error",
     });
   }
+});
+
+const updateTourInCart = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+
+  const subscription = await subscriptionModel.findById(id);
+  if (!subscription) {
+    return next(new AppError("can't find subscription"));
+  }
+
+  await subscriptionModel.findByIdAndUpdate(id, req.body, { new: true });
+  res.status(200).json({ message: "Subscription updated successfully" });
 });
 
 const getAllSubscription = catchAsyncError(async (req, res, next) => {
@@ -253,6 +267,48 @@ const deleteSubscription = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ message: "Subscription deleted successfully" });
 });
 
+/**
+ * data: {
+    tourId: string;
+    passengers: {
+        name: string;
+        lastName: string;
+        dateOfBirth: string;
+        nationality: string;
+        passport?: string | undefined;
+    }[];
+}[]
+ */
+
+const updateToursWithPersonalDetails = catchAsyncError(async (req, res, next) => {
+  const { _id } = req.user;
+  const { tours } = req.body;
+
+  const subscriptions = await subscriptionModel.find({
+    userDetails: _id,
+    payment: "pending",
+  });
+
+  if (!subscriptions || subscriptions.length === 0) {
+    return next(new AppError("Can't find any pending subscriptions", 404));
+  }
+
+  for (const tour of tours) {
+    for (const sub of subscriptions) {
+      if (String(sub.tourDetails) === String(tour.tourId)) {
+        sub.passengers = tour.passengers;
+        await sub.save();
+      }
+    }
+  }
+
+  res.status(200).send({
+    message: "Success",
+    data: subscriptions,
+  });
+});
+
+
 const clearSubscription = catchAsyncError(async (req, res, next) => {
   const subscriptions = await subscriptionModel.find({ payment: "pending" });
   const now = new Date();
@@ -272,6 +328,7 @@ schedule.scheduleJob("0 0 * * *", function () {
 });
 
 export {
+  updateTourInCart,
   getAllCart,
   deleteAllToursInCart,
   deleteTourFromCart,
@@ -280,4 +337,5 @@ export {
   getAllSubscription,
   clearSubscription,
   getSubscriptionById,
+  updateToursWithPersonalDetails,
 };

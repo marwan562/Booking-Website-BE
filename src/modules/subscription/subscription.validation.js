@@ -16,12 +16,46 @@ export const subscriptionSchema = joi.object({
       "Friday",
       "Saturday"
     ),
-  options: joi.array().items(
-    joi.object({
-      id: joi.string().hex().length(24),
-      number: joi.number().min(1).max(500),
-      numberOfChildren: joi.number(),
-      price: joi.number().required()
-    })
-  ).optional()
+  options: joi
+    .array()
+    .items(
+      joi.object({
+        id: joi.string().hex().length(24),
+        number: joi.number().min(1).max(500),
+        numberOfChildren: joi.number(),
+        price: joi.number().required(),
+      })
+    )
+    .optional(),
+});
+
+export const updateCartSchema = joi.object({
+  id: joi.string().hex().length(24).required(),
+  time: joi.string().optional(),
+  date: joi.string().optional(),
+  day: joi
+    .string()
+    .valid(
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    )
+    .optional(),
+  options: joi
+    .array()
+    .items(
+      joi.object({
+        id: joi.string().hex().length(24),
+        number: joi.number().min(1).max(500),
+        numberOfChildren: joi.number(),
+        price: joi.number().required(),
+      })
+    )
+    .optional(),
+  adultPricing: joi.string().hex().length(24).optional(),
+  childrenPricing: joi.string().hex().length(24).optional(),
 });

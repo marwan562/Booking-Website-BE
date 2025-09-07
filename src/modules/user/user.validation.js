@@ -95,6 +95,7 @@ const userSchemaCreate = joi.object({
 const userSchemaUpdate = joi.object({
   id: joi.string().hex().length(24),
   name: joi.string().min(2).max(15),
+  lastname: joi.string().min(2).max(15),
   email: joi.string().email({ tlds: { allow: false } }),
   password: joi
     .string()
@@ -111,7 +112,7 @@ const userSchemaUpdate = joi.object({
     .min(2)
     .max(50)
     .pattern(/^[a-zA-Z\s]+$/),
-  phone: joi.number().integer().positive(),
+  phone: phoneSchema.optional(),
   country: joi.string(),
   gender: joi.string().valid("male", "female", "other").messages({
     "any.only": "Gender must be one of Male, Female, or Other",

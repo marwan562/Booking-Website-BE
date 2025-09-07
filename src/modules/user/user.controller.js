@@ -185,9 +185,9 @@ const getUserById = catchAsyncError(async (req, res, next) => {
 
 const updateUserProfile = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
-  const { avatar } = await userModel.findByIdAndUpdate(_id, req.body);
-  removeImage(avatar.public_id);
-  res.status(200).send({ message: "success" });
+  const user = await userModel.findByIdAndUpdate(_id, req.body);
+  removeImage(user.avatar.public_id);
+  res.status(200).send({ message: "success", data: user });
 });
 
 const addToWishList = catchAsyncError(async (req, res, next) => {

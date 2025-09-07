@@ -1,6 +1,14 @@
 import mongoose, { Schema, Types } from "mongoose";
 import tourModel from "./tourModel.js";
 
+const passengerSchema = new Schema({
+  name: { type: String, required: true },
+  lastName: { type: String, required: true },
+  passport: { type: String },
+  dateOfBirth: { type: String, required: true },
+  nationality: { type: String, required: true },
+});
+
 const schema = new Schema(
   {
     tourDetails: { type: Types.ObjectId, required: true, ref: "tour" },
@@ -20,37 +28,74 @@ const schema = new Schema(
       ],
     },
     adultPricing: {
-      adults: { type: Number },
-      price: { type: Number },
-      totalPrice: { type: Number },
+      adults: { type: Number, default: 0 },
+      price: { type: Number, default: 0 },
+      totalPrice: { type: Number, default: 0 },
     },
     childrenPricing: {
-      children: { type: Number },
-      price: { type: Number },
-      totalPrice: { type: Number },
+      children: { type: Number, default: 0 },
+      price: { type: Number, default: 0 },
+      totalPrice: { type: Number, default: 0 },
     },
     options: [
       {
         name: { type: String },
-        number: { type: Number },
-        numberOfChildren: { type: Number },
-        childPrice: { type: Number },
-        price: { type: Number },
-        totalPrice: { type: Number },
+        number: { type: Number, default: 0 },
+        numberOfChildren: { type: Number, default: 0 },
+        childPrice: { type: Number, default: 0 },
+        price: { type: Number, default: 0 },
+        totalPrice: { type: Number, default: 0 },
       },
     ],
+    passengers: [passengerSchema],
     totalPrice: { type: Number, required: true },
-    payment: { type: String, enum: ["pending", "success"], default: "pending" },
+    payment: {
+      type: String,
+      enum: ["pending", "success"],
+      default: "pending",
+    },
+    specialRequests: { type: String },
+    bookingReference: {
+      type: String,
+      unique: true,
+      default: function () {
+        return (
+          "BK" +
+          Date.now() +
+          Math.random().toString(36).substr(2, 5).toUpperCase()
+        );
+      },
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    indexes: [
+      { bookingReference: 1 },
+      { userDetails: 1, createdAt: -1 },
+      { payment: 1 },
+    ],
+  }
 );
+
+schema.methods.getFormattedReference = function () {
+  return this.bookingReference;
+};
+
+schema.methods.getTotalPassengers = function () {
+  return this.passengers?.length || 0;
+};
+
+schema.statics.findByReference = function (reference) {
+  return this.findOne({ bookingReference: reference });
+};
 
 schema.pre(/^find/, async function (next) {
   try {
     this.populate({
       path: "tourDetails",
-      select: "mainImg title description",
-    })
+      select:
+        "mainImg title totalReviews features averageRating hasOffer discountPercent",
+    });
     next();
   } catch (error) {
     next(error);
@@ -62,7 +107,8 @@ schema.pre("save", async function (next) {
     await this.populate([
       {
         path: "tourDetails",
-        select: "mainImg title description",
+        select:
+          "mainImg title totalReviews features averageRating hasOffer discountPercent",
       },
       {
         path: "userDetails",

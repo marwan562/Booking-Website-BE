@@ -8,14 +8,26 @@ import {
   getAllCart,
   deleteTourFromCart,
   deleteAllToursInCart,
+  updateTourInCart,
+  updateToursWithPersonalDetails,
 } from "./subscription.controller.js";
 import { validation } from "../../middlewares/validation.js";
-import { subscriptionSchema } from "./subscription.validation.js";
+import {
+  subscriptionSchema,
+  updateCartSchema,
+} from "./subscription.validation.js";
 const subscriptionRouter = Router();
 
 subscriptionRouter.route("/cart").get(auth, getAllCart);
-subscriptionRouter.route("/cart/:id").delete(auth, deleteTourFromCart);
+subscriptionRouter
+  .route("/cart/:id")
+  .patch(auth, validation(updateCartSchema), updateTourInCart)
+  .delete(auth, deleteTourFromCart);
 subscriptionRouter.route("/clear").delete(auth, deleteAllToursInCart);
+
+subscriptionRouter
+  .route("/personal-details")
+  .put(auth, updateToursWithPersonalDetails);
 
 subscriptionRouter
   .route("/:id")

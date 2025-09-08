@@ -94,7 +94,7 @@ schema.pre(/^find/, async function (next) {
     this.populate({
       path: "tourDetails",
       select:
-        "mainImg title totalReviews features averageRating hasOffer discountPercent",
+        "mainImg slug title totalReviews features averageRating hasOffer discountPercent",
     });
     next();
   } catch (error) {
@@ -108,7 +108,7 @@ schema.pre("save", async function (next) {
       {
         path: "tourDetails",
         select:
-          "mainImg title totalReviews features averageRating hasOffer discountPercent",
+          "mainImg slug title totalReviews features averageRating hasOffer discountPercent",
       },
       {
         path: "userDetails",

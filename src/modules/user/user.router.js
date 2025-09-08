@@ -57,7 +57,7 @@ userRouter
     saveImg,
     validation(UserValidation.userSchemaUpdate),
     User.updateUserProfile
-  );
+  )
 
 userRouter.route("/authentication").get(auth, User.authentication);
 

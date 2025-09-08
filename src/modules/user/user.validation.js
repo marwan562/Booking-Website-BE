@@ -113,10 +113,13 @@ const userSchemaUpdate = joi.object({
     .max(50)
     .pattern(/^[a-zA-Z\s]+$/),
   phone: phoneSchema.optional(),
-  country: joi.string(),
+  nationality: joi.string(),
   gender: joi.string().valid("male", "female", "other").messages({
     "any.only": "Gender must be one of Male, Female, or Other",
   }),
+  instagram: joi.string(),
+  city: joi.string(),
+  removeAvatar: joi.boolean(),
 });
 
 const forgetPasswordSchema = joi.object({

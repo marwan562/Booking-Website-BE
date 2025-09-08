@@ -5,6 +5,15 @@ import jwt from "jsonwebtoken";
 import axios from "axios";
 import dotenv from "dotenv";
 import tourModel from "../../models/tourModel.js";
+import Stripe from "stripe";
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("STRIPE_SECRET_KEY is not defined");
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2022-11-15",
+});
+
 dotenv.config();
 
 const FAWATERK_URL_ENV =
@@ -53,16 +62,19 @@ export const handleSuccessPayment = catchAsyncError(async (req, res, next) => {
       if (err) return next(new AppError(err.message));
 
       const { subscriptionId } = decoded;
-      const subscription = await subscriptionModel.findByIdAndUpdate(
-        subscriptionId,
-        { payment: "success" },
-        { new: true }
-      ).populate("tourDetails");
+      const subscription = await subscriptionModel
+        .findByIdAndUpdate(
+          subscriptionId,
+          { payment: "success" },
+          { new: true }
+        )
+        .populate("tourDetails");
 
-      if ( subscription.payment == "success") {
+      if (subscription.payment == "success") {
         return next(new AppError("The subscription has been paid", 200));
       }
-      if (!subscription) return next(new AppError("Subscription not found", 404));
+      if (!subscription)
+        return next(new AppError("Subscription not found", 404));
       const adults = subscription.adultPricing?.adults || 0;
       const children = subscription.childrenPricing?.children || 0;
 
@@ -240,3 +252,65 @@ async function createInvoiceLink(
     );
   }
 }
+
+export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
+  const sig = req.headers["stripe-signature"];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    console.error("⚠️ Webhook signature verification failed.", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === "payment_intent.succeeded") {
+    const paymentIntent = event.data.object;
+    const userId = paymentIntent.metadata.userId;
+    const bookingIdsString = paymentIntent.metadata.bookingIds;
+
+    if (!bookingIdsString) {
+      console.error("No bookingIds found in payment intent metadata");
+      return res.status(400).json({ error: "No bookingIds found" });
+    }
+
+    const bookingIdsArray = bookingIdsString
+      .split(",")
+      .filter((id) => id.trim());
+
+    if (bookingIdsArray.length === 0) {
+      console.error("No valid bookingIds found");
+      return res.status(400).json({ error: "No valid bookingIds found" });
+    }
+
+    try {
+      const subscriptions = await subscriptionModel.find({
+        userDetails: userId,
+        payment: "pending",
+        _id: { $in: bookingIdsArray },
+      });
+
+      if (subscriptions.length === 0) {
+        console.warn("No pending subscriptions found for user:", userId);
+        return res.json({
+          received: true,
+          message: "No matching subscriptions found",
+        });
+      }
+
+      const updatePromises = subscriptions.map(async (subscription) => {
+        subscription.payment = "success";
+        return subscription.save();
+      });
+
+      await Promise.all(updatePromises);
+    } catch (dbError) {
+      console.error("Database error:", dbError);
+      return res.status(500).json({ error: "Database update failed" });
+    }
+  }
+
+  res.json({ received: true });
+});

@@ -185,9 +185,16 @@ const getUserById = catchAsyncError(async (req, res, next) => {
 
 const updateUserProfile = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
-  const user = await userModel.findByIdAndUpdate(_id, req.body);
-  removeImage(user.avatar.public_id);
-  res.status(200).send({ message: "success", data: user });
+
+  const user = await userModel.findById(_id);
+
+  if (req.body.removeAvatar === true && user.avatar?.public_id) {
+    await removeImage(user.avatar.public_id);
+    user.avatar = undefined;
+  }
+  Object.assign(user, req.body);
+  await user.save();
+  res.status(200).send({ message: "Profile updated successfully", data: user });
 });
 
 const addToWishList = catchAsyncError(async (req, res, next) => {
@@ -201,13 +208,19 @@ const addToWishList = catchAsyncError(async (req, res, next) => {
     .findByIdAndUpdate(
       _id,
       {
-        $addToSet: { wishList: id }, // Corrected field name to wishList
+        $addToSet: { wishList: id },
       },
       { new: true }
     )
     .populate({
       path: "wishList",
-      select: "title description mainImg adultPricing", // Corrected field name to description
+      select:
+        "mainImg slug title description adultPricing averageRating totalReviews price hasOffer discountPercent destination",
+      populate: {
+        path: "destination",
+        model: "destination",
+        select: "city country",
+      },
     })
     .lean();
 
@@ -250,7 +263,13 @@ const getWishlist = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const user = await userModel.findById(_id).populate({
     path: "wishList",
-    select: "mainImg title description adultPricing",
+    select:
+      "mainImg slug title description adultPricing averageRating totalReviews price hasOffer discountPercent destination",
+    populate: {
+      path: "destination",
+      model: "destination",
+      select: "city country",
+    },
   });
 
   if (!user) {

@@ -287,7 +287,7 @@ const updateToursWithPersonalDetails = catchAsyncError(async (req, res, next) =>
   const subscriptions = await subscriptionModel.find({
     userDetails: _id,
     payment: "pending",
-  });
+  }).select("-payment -userDetails")
 
   if (!subscriptions || subscriptions.length === 0) {
     return next(new AppError("Can't find any pending subscriptions", 404));
@@ -295,7 +295,8 @@ const updateToursWithPersonalDetails = catchAsyncError(async (req, res, next) =>
 
   for (const tour of tours) {
     for (const sub of subscriptions) {
-      if (String(sub.tourDetails) === String(tour.tourId)) {
+      if (String(sub._id) === String(tour.tourId)) {
+        
         sub.passengers = tour.passengers;
         await sub.save();
       }

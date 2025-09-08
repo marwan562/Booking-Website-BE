@@ -15,9 +15,17 @@ import {
 import logger from "./logs/logger.js";
 import { AppError } from "./src/utilities/AppError.js";
 import customErrorHandler from "./src/middlewares/customErrorHandler.js";
-import "dotenv/config"
+import "dotenv/config";
+import paymentRouter from "./src/modules/payment/payment.router.js";
 
 const app = express();
+
+// Stripe webhook
+app.use(
+  "/api/payment/webhook",
+  express.raw({ type: "application/json" }),
+  paymentRouter
+);
 
 console.log("Loaded ENV:", process.env.NODE_ENV);
 
@@ -110,7 +118,7 @@ process.on("SIGTERM", () => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT , () => {
+app.listen(PORT, () => {
   logger.info(`Server started on port ${PORT} in ${process.env.NODE_ENV} mode`);
   console.log(`Server is running on port ${PORT}`);
 });

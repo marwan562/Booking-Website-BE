@@ -16,6 +16,8 @@ const schema = new Schema(
       },
       required: true,
     },
+    city: { type: String, required: false },
+    instagram: { type: String, required: false },
     age: { type: Number, required: true },
     avatar: { url: { type: String }, public_id: { type: String } },
     nationality: { type: String, required: true },

@@ -401,6 +401,7 @@ const getDestination = catchAsyncError(async (req, res, next) => {
                 title: 1,
                 description: 1,
                 price: 1,
+                destination:1,
                 discountPercent: 1,
                 averageRating: 1,
                 totalReviews: 1,

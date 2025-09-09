@@ -10,6 +10,8 @@ import {
   deleteAllToursInCart,
   updateTourInCart,
   updateToursWithPersonalDetails,
+  upcomingBookings,
+  getSubscriptionsByRefs,
 } from "./subscription.controller.js";
 import { validation } from "../../middlewares/validation.js";
 import {
@@ -18,12 +20,18 @@ import {
 } from "./subscription.validation.js";
 const subscriptionRouter = Router();
 
+subscriptionRouter.route("/by-refs").get(auth, getSubscriptionsByRefs);
+
+
 subscriptionRouter.route("/cart").get(auth, getAllCart);
 subscriptionRouter
   .route("/cart/:id")
   .patch(auth, validation(updateCartSchema), updateTourInCart)
   .delete(auth, deleteTourFromCart);
 subscriptionRouter.route("/clear").delete(auth, deleteAllToursInCart);
+
+
+subscriptionRouter.route("/upcoming-bookings").get(auth, upcomingBookings);
 
 subscriptionRouter
   .route("/personal-details")

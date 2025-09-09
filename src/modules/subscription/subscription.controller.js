@@ -280,35 +280,95 @@ const deleteSubscription = catchAsyncError(async (req, res, next) => {
 }[]
  */
 
-const updateToursWithPersonalDetails = catchAsyncError(async (req, res, next) => {
-  const { _id } = req.user;
-  const { tours } = req.body;
+const updateToursWithPersonalDetails = catchAsyncError(
+  async (req, res, next) => {
+    const { _id } = req.user;
+    const { tours } = req.body;
 
-  const subscriptions = await subscriptionModel.find({
-    userDetails: _id,
-    payment: "pending",
-  }).select("-payment -userDetails")
+    const subscriptions = await subscriptionModel
+      .find({
+        userDetails: _id,
+        payment: "pending",
+      })
+      .select("-payment -userDetails");
 
-  if (!subscriptions || subscriptions.length === 0) {
-    return next(new AppError("Can't find any pending subscriptions", 404));
-  }
+    if (!subscriptions || subscriptions.length === 0) {
+      return next(new AppError("Can't find any pending subscriptions", 404));
+    }
 
-  for (const tour of tours) {
-    for (const sub of subscriptions) {
-      if (String(sub._id) === String(tour.tourId)) {
-        
-        sub.passengers = tour.passengers;
-        await sub.save();
+    for (const tour of tours) {
+      for (const sub of subscriptions) {
+        if (String(sub._id) === String(tour.tourId)) {
+          sub.passengers = tour.passengers;
+          await sub.save();
+        }
       }
     }
+
+    res.status(200).send({
+      message: "Success",
+      data: subscriptions,
+    });
+  }
+);
+
+const upcomingBookings = catchAsyncError(async (req, res, next) => {
+  const { _id } = req.user;
+
+  const bookings = await subscriptionModel
+    .find({
+      userDetails: _id,
+      payment: "pending",
+      passengers: { $exists: true, $not: { $size: 0 } },
+    })
+    .populate("tourDetails").sort({ createdAt: -1 });
+
+  if (!bookings || bookings.length === 0) {
+    return next(
+      new AppError(
+        "No upcoming bookings with pending payment and passengers found.",
+        404
+      )
+    );
   }
 
   res.status(200).send({
     message: "Success",
-    data: subscriptions,
+    data: bookings,
   });
 });
 
+ const getSubscriptionsByRefs = async (req, res) => {
+  try {
+    const refsParam = req.query.refs;
+console.log(refsParam,"refsParam")
+
+    if (!refsParam) {
+      return res
+        .status(400)
+        .json({ error: "Missing bookingRefs query parameter" });
+    }
+
+    const refsArray = refsParam
+      .split(",")
+      .map((ref) => ref.trim())
+      .filter(Boolean);
+
+    if (refsArray.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "No valid booking references provided" });
+    }
+
+    const subscriptions = await subscriptionModel.find({
+      bookingReference: { $in: refsArray },
+    });
+
+    return res.status(200).json({ subscriptions });
+  } catch (error) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 const clearSubscription = catchAsyncError(async (req, res, next) => {
   const subscriptions = await subscriptionModel.find({ payment: "pending" });
@@ -329,6 +389,8 @@ schedule.scheduleJob("0 0 * * *", function () {
 });
 
 export {
+  getSubscriptionsByRefs,
+  upcomingBookings,
   updateTourInCart,
   getAllCart,
   deleteAllToursInCart,

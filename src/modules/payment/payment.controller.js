@@ -268,28 +268,30 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
 
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object;
-    const userId = paymentIntent.metadata.userId;
-    const bookingIdsString = paymentIntent.metadata.bookingIds;
 
-    if (!bookingIdsString) {
-      console.error("No bookingIds found in payment intent metadata");
-      return res.status(400).json({ error: "No bookingIds found" });
+    const userId = paymentIntent.metadata.userId;
+    const bookingRefsString = paymentIntent.metadata.bookingRefs;
+
+    if (!bookingRefsString) {
+      console.error("No bookingRefs found in payment intent metadata");
+      return res.status(400).json({ error: "No bookingRefs found" });
     }
 
-    const bookingIdsArray = bookingIdsString
+    const bookingRefsArray = bookingRefsString
       .split(",")
-      .filter((id) => id.trim());
+      .map((ref) => ref.trim())
+      .filter(Boolean);
 
-    if (bookingIdsArray.length === 0) {
-      console.error("No valid bookingIds found");
-      return res.status(400).json({ error: "No valid bookingIds found" });
+    if (bookingRefsArray.length === 0) {
+      console.error("No valid bookingRefs found");
+      return res.status(400).json({ error: "No valid bookingRefs found" });
     }
 
     try {
       const subscriptions = await subscriptionModel.find({
         userDetails: userId,
         payment: "pending",
-        _id: { $in: bookingIdsArray },
+        bookingReference: { $in: bookingRefsArray },
       });
 
       if (subscriptions.length === 0) {
@@ -300,17 +302,17 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
         });
       }
 
-      const updatePromises = subscriptions.map(async (subscription) => {
-        subscription.payment = "success";
-        return subscription.save();
-      });
-
-      await Promise.all(updatePromises);
+      await Promise.all(
+        subscriptions.map((subscription) => {
+          subscription.payment = "success";
+          return subscription.save();
+        })
+      );
     } catch (dbError) {
-      console.error("Database error:", dbError);
       return res.status(500).json({ error: "Database update failed" });
     }
   }
 
   res.json({ received: true });
 });
+

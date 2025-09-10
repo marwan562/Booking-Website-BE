@@ -6,7 +6,7 @@ import { AppError } from "../../utilities/AppError.js";
 export const createReview = catchAsyncError(async (req, res, next) => {
   const { _id: userId } = req.user;
   const { id: tourId } = req.params;
-  const { comment, rating, images } = req.body;
+  const { comment, rating } = req.body;
 
   // Validate input
   if (!comment || !rating) {
@@ -25,13 +25,12 @@ export const createReview = catchAsyncError(async (req, res, next) => {
   }
 
   const currentDate = new Date();
-
-  // Check if user has a valid subscription for this tour
   const subscription = await subscriptionModel.findOne({
     userDetails: userId,
     tourDetails: tourId,
     payment: "success",
   });
+  console.log(subscription);
 
   if (!subscription) {
     return next(

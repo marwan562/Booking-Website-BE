@@ -21,7 +21,7 @@ reviewRouter
   .route("/:id")
   .post(
     auth,
-    uploadMixfile([{ name: "images", maxCount: 5 }]),
+    uploadMixfile([{ name: "images", maxCount: 10 }]),
     saveImg,
     validation(createReviewSchema),
     createReview

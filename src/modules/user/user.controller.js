@@ -252,7 +252,13 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
     )
     .populate({
       path: "wishList",
-      select: "title description mainImg adultPricing",
+      select:
+        "mainImg slug title description category duration adultPricing averageRating totalReviews price hasOffer discountPercent destination",
+      populate: {
+        path: "destination",
+        model: "destination",
+        select: "city country",
+      },
     })
     .lean();
 
@@ -261,16 +267,19 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
 
 const getWishlist = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
-  const user = await userModel.findById(_id).populate({
-    path: "wishList",
-    select:
-      "mainImg slug title description adultPricing averageRating totalReviews price hasOffer discountPercent destination",
-    populate: {
-      path: "destination",
-      model: "destination",
-      select: "city country",
-    },
-  });
+  const user = await userModel
+    .findById(_id)
+    .populate({
+      path: "wishList",
+      select:
+        "mainImg slug title description category duration adultPricing averageRating totalReviews price hasOffer discountPercent destination",
+      populate: {
+        path: "destination",
+        model: "destination",
+        select: "city country",
+      },
+    })
+    .lean();
 
   if (!user) {
     return next(new AppError("can't find user"));

@@ -5,6 +5,7 @@ import { AppError } from "../../utilities/AppError.js";
 import { ApiFeature } from "../../utilities/AppFeature.js";
 import { ObjectId } from "mongodb";
 import schedule from "node-schedule";
+import mongoose from "mongoose";
 
 const createSubscription = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
@@ -147,7 +148,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
   const { role, _id } = req.user;
   if (role == "user") {
     const apiFeature = new ApiFeature(
-      subscriptionModel.find({ userDetails: _id, payment: "pending" }),
+      subscriptionModel.find({ userDetails: _id, payment: "success" }),
       req.query
     )
       .paginate()
@@ -165,7 +166,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
 
     res
       .status(200)
-      .send({ message: "success", data: { page: apiFeature.page, result } });
+      .send({ message: "success", data: { pagination: apiFeature.page, result } });
   }
   if (role == "admin") {
     const apiFeature = new ApiFeature(subscriptionModel.find(), req.query)
@@ -185,7 +186,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
     res.status(200).send({
       message: "success",
       data: {
-        subscriptions: result,
+        result: result,
         pagination: paginationMeta,
       },
     });
@@ -311,9 +312,106 @@ const updateToursWithPersonalDetails = catchAsyncError(
     });
   }
 );
-
 const upcomingBookings = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
+  const { sortby } = req.query;
+
+  if (sortby === "by-destination") {
+    const result = await subscriptionModel.aggregate([
+      {
+        $match: {
+          userDetails: new mongoose.Types.ObjectId(_id),
+          payment: "pending",
+          passengers: { $exists: true, $not: { $size: 0 } },
+        },
+      },
+      {
+        $lookup: {
+          from: "tours",
+          localField: "tourDetails",
+          foreignField: "_id",
+          as: "tourDetails",
+        },
+      },
+      { $unwind: "$tourDetails" },
+      {
+        $lookup: {
+          from: "destinations",
+          localField: "tourDetails.destination",
+          foreignField: "_id",
+          as: "destination",
+        },
+      },
+      { $unwind: "$destination" },
+      {
+        $group: {
+          _id: {
+            country: "$destination.country",
+            city: "$destination.city",
+          },
+          destination: { $first: "$destination" },
+          bookings: {
+            $push: {
+              _id: "$_id",
+              bookingReference: "$bookingReference",
+              date: "$date",
+              time: "$time",
+              day: "$day",
+              passengers: "$passengers",
+              adultPricing: "$adultPricing",
+              childrenPricing: "$childrenPricing",
+              totalPrice: "$totalPrice",
+              options: "$options",
+              payment: "$payment",
+              specialRequests: "$specialRequests",
+              tourDetails: {
+                _id: "$tourDetails._id",
+                title: "$tourDetails.title",
+                slug: "$tourDetails.slug",
+                mainImg: "$tourDetails.mainImg",
+                features: "$tourDetails.features",
+                discountPercent: "$tourDetails.discountPercent",
+                hasOffer: "$tourDetails.hasOffer",
+                totalReviews: "$tourDetails.totalReviews",
+                averageRating: "$tourDetails.averageRating",
+                price: "$tourDetails.price",
+                duration: "$tourDetails.duration",
+                date: "$tourDetails.date",
+              },
+              createdAt: "$createdAt",
+              updatedAt: "$updatedAt",
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          country: "$_id.country",
+          city: "$_id.city",
+          destination: 1,
+          bookings: 1,
+        },
+      },
+      {
+        $sort: {
+          country: 1,
+          city: 1,
+        },
+      },
+    ]);
+
+    if (!result || result.length === 0) {
+      return next(
+        new AppError("No upcoming bookings found.", 404)
+      );
+    }
+
+    return res.status(200).json({
+      message: "Success",
+      data: result,
+    });
+  }
 
   const bookings = await subscriptionModel
     .find({
@@ -321,7 +419,8 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
       payment: "pending",
       passengers: { $exists: true, $not: { $size: 0 } },
     })
-    .populate("tourDetails").sort({ createdAt: -1 });
+    .populate("tourDetails")
+    .sort({ createdAt: -1 });
 
   if (!bookings || bookings.length === 0) {
     return next(
@@ -337,6 +436,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
     data: bookings,
   });
 });
+
 
  const getSubscriptionsByRefs = async (req, res) => {
   try {

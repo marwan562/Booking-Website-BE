@@ -77,7 +77,6 @@ schema.pre("findByIdAndUpdate", async function (next) {
 });
 
 schema.pre(/^find/, async function (next) {
-  this.select("-wishList");
   next();
 });
 

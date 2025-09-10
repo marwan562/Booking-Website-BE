@@ -191,7 +191,10 @@ export const getTourBySlug = async (req, res, next) => {
 };
 
 const getAllTour = catchAsyncError(async (req, res, next) => {
-  const apiFeature = new ApiFeature(tourModel.find(), req.query)
+  const apiFeature = new ApiFeature(
+    tourModel.find().populate({ path: "destination", select: "city country" }),
+    req.query
+  )
     .paginate()
     .fields()
     .filter()
@@ -381,9 +384,14 @@ const searchTours = catchAsyncError(async (req, res, next) => {
   }
 
   const apiFeature = new ApiFeature(
-    tourModel.find({
-      $text: { $search: q },
-    }),
+    tourModel
+      .find({
+        $or: [
+          { title: { $regex: `^${q}$`, $options: "i" } },
+          { description: { $regex: `^${q}$`, $options: "i" } },
+        ],
+      })
+      .populate("destination", "city country"),
     { limit, page }
   )
     .paginate()
@@ -392,7 +400,10 @@ const searchTours = catchAsyncError(async (req, res, next) => {
 
   const result = await apiFeature.mongoseQuery;
   const totalCount = await tourModel.countDocuments({
-    $text: { $search: q },
+    $or: [
+      { title: { $regex: `^${q}$`, $options: "i" } },
+      { description: { $regex: `^${q}$`, $options: "i" } },
+    ],
   });
   const paginationMeta = apiFeature.getPaginationMeta(totalCount);
 

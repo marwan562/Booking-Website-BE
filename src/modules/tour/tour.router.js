@@ -31,17 +31,18 @@ tourRouter.route("/categories").get(Tour.getCategories);
 tourRouter
   .get(tourRouter.get("/:slug", Tour.getTourBySlug))
   .get(Tour.getTourById)
-  .delete(auth, allowedTo("admin"), Tour.deleteTour)
-  .patch(
-    auth,
-    allowedTo("admin"),
-    uploadMixfile([
-      { name: "mainImg", maxCount: 1 },
-      { name: "images", maxCount: 10 },
-    ]),
-    saveImg,
-    validation(updatedTourSchema),
-    Tour.updateTour
-  );
+  .delete(auth, allowedTo("admin"), Tour.deleteTour);
+
+tourRouter.route("/:id").patch(
+  auth,
+  allowedTo("admin"),
+  uploadMixfile([
+    { name: "mainImg", maxCount: 1 },
+    { name: "images", maxCount: 10 },
+  ]),
+  saveImg,
+  validation(updatedTourSchema),
+  Tour.updateTour
+);
 
 export default tourRouter;

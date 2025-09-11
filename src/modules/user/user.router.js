@@ -57,7 +57,7 @@ userRouter
     saveImg,
     validation(UserValidation.userSchemaUpdate),
     User.updateUserProfile
-  )
+  );
 
 userRouter.route("/authentication").get(auth, User.authentication);
 
@@ -78,6 +78,14 @@ userRouter.route("/removeWishlist/:id").patch(auth, User.removeFromWishList);
 // Admin only routes
 userRouter.route("/").get(auth, allowedTo("admin"), User.getAllUsers);
 
-userRouter.route("/:id").get(auth, allowedTo("admin"), User.getUserById);
+userRouter
+  .route("/:id")
+  .get(auth, allowedTo("admin"), User.getUserById)
+  .patch(
+    auth,
+    allowedTo("admin"),
+    validation(UserValidation.userSchemaUpdate),
+    User.updateUser
+  );
 
 export default userRouter;

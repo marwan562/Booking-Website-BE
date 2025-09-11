@@ -9,6 +9,8 @@ const tourRouter = Router();
 
 tourRouter.route("/order").patch(auth, Tour.orderTour);
 
+tourRouter.route("/by-id/:id").get(Tour.getTourById);
+
 tourRouter
   .route("/")
   .get(Tour.getAllTour)
@@ -29,8 +31,8 @@ tourRouter.route("/search", Tour.searchTours);
 tourRouter.route("/categories").get(Tour.getCategories);
 
 tourRouter
-  .get(tourRouter.get("/:slug", Tour.getTourBySlug))
-  .get(Tour.getTourById)
+  .route("/:slug")
+  .get(Tour.getTourBySlug)
   .delete(auth, allowedTo("admin"), Tour.deleteTour);
 
 tourRouter.route("/:id").patch(
@@ -44,5 +46,6 @@ tourRouter.route("/:id").patch(
   validation(updatedTourSchema),
   Tour.updateTour
 );
+
 
 export default tourRouter;

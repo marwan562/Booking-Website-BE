@@ -102,12 +102,14 @@ const userSchemaUpdate = joi.object({
     public_id: joi.string(),
   }),
   age: joi.number().integer().min(1).max(120),
+  role: joi.string().valid("user", "admin").optional(),
   nationality: joi
     .string()
     .min(2)
     .max(50)
     .pattern(/^[a-zA-Z\s]+$/),
   phone: phoneSchema.optional(),
+  verified: joi.boolean().optional(),
   nationality: joi.string(),
   gender: joi.string().valid("male", "female", "other").messages({
     "any.only": "Gender must be one of Male, Female, or Other",

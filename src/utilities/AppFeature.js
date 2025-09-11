@@ -11,7 +11,7 @@ export class ApiFeature {
     let page = this.page;
     if (page <= 0) page = 1;
     this.page = page;
-    
+
     const skip = (page - 1) * this.limit;
     this.mongoseQuery.skip(skip).limit(this.limit);
     return this;
@@ -69,7 +69,9 @@ export class ApiFeature {
           { title: { $regex: keyword, $options: "i" } },
           { description: { $regex: keyword, $options: "i" } },
           { category: { $regex: keyword, $options: "i" } },
-          { tags: { $in: [new RegExp(keyword, "i")] } },
+          { bookingReference: { $regex: keyword, $options: "i" } },
+          { country: { $regex: keyword, $options: "i" } },
+          { city: { $regex: keyword, $options: "i" } },
         ],
       };
 

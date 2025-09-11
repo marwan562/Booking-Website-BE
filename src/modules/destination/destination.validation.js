@@ -28,19 +28,12 @@ export const createDestinationSchema = joi.object({
     "any.required": "Main image is required",
   }),
 
-  images: joi.array().items(imageSchema).optional(),
-
-  description: joi.string().min(10).max(2000).optional().messages({
-    "string.min": "Description must be at least 10 characters long",
+  description: joi.string().min(2).max(2000).messages({
+    "string.min": "Description must be at least 2 characters long",
     "string.max": "Description cannot exceed 2000 characters",
-  }),
+  }).optional(),
 
   popular: joi.boolean().optional(),
-
-  totalTravelers: joi.number().integer().min(0).optional(),
-  totalTours: joi.number().integer().min(0).optional(),
-  totalReviews: joi.number().integer().min(0).optional(),
-  averageRating: joi.number().min(0).max(5).optional(),
 });
 
 export const updatedDestinationSchema = joi.object({

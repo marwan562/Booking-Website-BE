@@ -30,7 +30,6 @@ export const createReview = catchAsyncError(async (req, res, next) => {
     tourDetails: tourId,
     payment: "success",
   });
-  console.log(subscription);
 
   if (!subscription) {
     return next(
@@ -79,21 +78,8 @@ export const createReview = catchAsyncError(async (req, res, next) => {
 export const editReview = catchAsyncError(async (req, res, next) => {
   const { id: reviewId } = req.params;
   const { _id: userId } = req.user;
-  const { comment, rating } = req.body;
-
-  // Validate input
-  if (comment !== undefined && (comment.length < 10 || comment.length > 1000)) {
-    return next(
-      new AppError("Comment must be between 10 and 1000 characters", 400)
-    );
-  }
-
-  if (
-    rating !== undefined &&
-    (typeof rating !== "number" || rating < 1 || rating > 5)
-  ) {
-    return next(new AppError("Rating must be a number between 1 and 5", 400));
-  }
+  const { comment, rating, images } = req.body;
+  req.body.images = JSON.parse(req.body.images);
 
   // Validate review ID
   if (!reviewId || reviewId.length !== 24) {

@@ -26,7 +26,12 @@ reviewRouter
     validation(createReviewSchema),
     createReview
   )
-  .patch(auth, validation(editReviewSchema), editReview)
+  .patch(
+    auth,
+    uploadMixfile([{ name: "images", maxCount: 10 }]),
+    saveImg,
+    editReview
+  )
   .delete(auth, validation(reviewSchema), deleteReview)
   .get(validation(reviewSchema), getAllReviews);
 

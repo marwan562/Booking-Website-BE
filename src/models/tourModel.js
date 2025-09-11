@@ -4,7 +4,7 @@ import slugify from "slugify";
 const schema = new Schema(
   {
     title: { type: String, required: true },
-    slug: { type: String, unique: true, required: true },
+    slug: { type: String, unique: true },
     description: { type: String, required: true },
     destination: {
       type: mongoose.Schema.Types.ObjectId,
@@ -64,7 +64,7 @@ const schema = new Schema(
       },
     ],
     category: { type: String, required: true },
-    tags: [{ type: String, min: 2, max: 50 }],
+    tags: [{ type: String, min: 1, max: 50 }],
     mapDetails: { type: String },
     discountPercent: { type: Number, default: 0, min: 0, max: 100 },
     hasOffer: { type: Boolean, default: false },
@@ -110,6 +110,10 @@ const schema = new Schema(
         subtitle: { type: String, required: true },
       },
     ],
+    date: {
+      from: { type: Date },
+      to: { type: Date },
+    },
     historyBrief: { type: String, min: 2 },
     averageRating: { type: Number, default: 0 },
     totalReviews: { type: Number, default: 0 },

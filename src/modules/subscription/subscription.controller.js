@@ -164,12 +164,17 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       return next(new AppError("can't find subscriptions"));
     }
 
-    res
-      .status(200)
-      .send({ message: "success", data: { pagination: apiFeature.page, result } });
+    res.status(200).send({
+      message: "success",
+      data: { pagination: apiFeature.page, result },
+    });
   }
   if (role == "admin") {
-    const apiFeature = new ApiFeature(subscriptionModel.find(), req.query)
+    // Normal query for result and pagination
+    const apiFeature = new ApiFeature(
+      subscriptionModel.find({}).populate("userDetails"),
+      req.query
+    )
       .paginate()
       .fields()
       .filter()
@@ -181,13 +186,60 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
     if (!result) {
       return next(new AppError("can't find subscriptions"));
     }
+
     const totalCount = await apiFeature.getTotalCount();
     const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+    const aggregationResult = await subscriptionModel.aggregate([
+      {
+        $facet: {
+          totalRevenue: [
+            { $match: { payment: "success" } },
+            { $group: { _id: null, total: { $sum: "$totalPrice" } } },
+          ],
+          successPayments: [
+            { $match: { payment: "success" } },
+            { $count: "count" },
+          ],
+          pendingPayments: [
+            { $match: { payment: "pending" } },
+            { $count: "count" },
+          ],
+        },
+      },
+    ]);
+
+    let totalRevenue = 0;
+    let totalSuccessPayments = 0;
+    let totalPendingPayments = 0;
+
+    if (aggregationResult.length) {
+      const facet = aggregationResult[0];
+
+      if (facet.totalRevenue.length > 0) {
+        totalRevenue = facet.totalRevenue[0].total;
+      }
+
+      if (facet.successPayments.length > 0) {
+        totalSuccessPayments = facet.successPayments[0].count;
+      }
+
+      if (facet.pendingPayments.length > 0) {
+        totalPendingPayments = facet.pendingPayments[0].count;
+      }
+    }
+
+    // Send full response
     res.status(200).send({
       message: "success",
       data: {
-        result: result,
+        result,
         pagination: paginationMeta,
+        metrics: {
+          totalRevenue,
+          totalSuccessPayments,
+          totalPendingPayments,
+        },
       },
     });
   }
@@ -241,7 +293,7 @@ const deleteAllToursInCart = catchAsyncError(async (req, res, next) => {
 
 const getSubscriptionById = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
-  const apiFeature = new ApiFeature(subscriptionModel.findById(id), req.query)
+  const apiFeature = new ApiFeature(subscriptionModel.find({userDetails:id}), req.query)
     .paginate()
     .fields()
     .filter()
@@ -402,9 +454,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
     ]);
 
     if (!result || result.length === 0) {
-      return next(
-        new AppError("No upcoming bookings found.", 404)
-      );
+      return next(new AppError("No upcoming bookings found.", 404));
     }
 
     return res.status(200).json({
@@ -437,11 +487,10 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
   });
 });
 
-
- const getSubscriptionsByRefs = async (req, res) => {
+const getSubscriptionsByRefs = async (req, res) => {
   try {
     const refsParam = req.query.refs;
-console.log(refsParam,"refsParam")
+    console.log(refsParam, "refsParam");
 
     if (!refsParam) {
       return res

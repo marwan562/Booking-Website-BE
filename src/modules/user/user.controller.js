@@ -197,6 +197,14 @@ const updateUserProfile = catchAsyncError(async (req, res, next) => {
   res.status(200).send({ message: "Profile updated successfully", data: user });
 });
 
+export const updateUser = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+  const user = await userModel.findById(id);
+  Object.assign(user, req.body);
+  await user.save();
+  res.status(200).send({ message: "User updated successfully", data: user });
+});
+
 const addToWishList = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const { id } = req.params;

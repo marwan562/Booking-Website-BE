@@ -82,7 +82,7 @@ export const sanitizeData = [
 // CORS configuration
 export const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = [process.env.FRONT_END_URL];
+    const allowedOrigins =" "
 
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);

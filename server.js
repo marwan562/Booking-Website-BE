@@ -56,7 +56,7 @@ app.use(securityHeaders);
 app.use(sanitizeData);
 
 // CORS configuration
-app.use(cors(corsOptions));
+// app.use(cors(corsOptions));
 
 // Request parsing cookies
 app.use(cookieParser());

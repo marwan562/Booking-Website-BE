@@ -58,7 +58,7 @@ app.use(sanitizeData);
 // CORS configuration
 app.use(cors({
   origin: "*",
-  methods: ["GET","POST","PUT","DELETE"],
+  methods: ["GET","POST","PUT","DELETE","PATCH"],
   credentials: true
 }));
 

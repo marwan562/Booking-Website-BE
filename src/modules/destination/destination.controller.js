@@ -5,170 +5,233 @@ import { ApiFeature } from "../../utilities/AppFeature.js";
 import { ObjectId } from "mongodb";
 import destinationModel from "../../models/destinationModel.js";
 import tourModel from "../../models/tourModel.js";
+import reviewModel from "../../models/reviewModel.js";
 import { updatePopularDestinations } from "../../../utilities/updatePopularDestinations.js";
 import { scheduleJob } from "node-schedule";
-import reviewModel from "../../models/reviewModel.js";
+import { transformTours } from "../tour/tour.controller.js";
 
-const createDestination = catchAsyncError(async (req, res, next) => {
-  const { city, country } = req.body;
+const getLocalizedValue = (field, locale = "en") => {
+  if (!field || typeof field !== "object") return field;
+  return field[locale] || field.en || field[Object.keys(field)[0]] || "";
+};
 
-  if (!country) {
-    return next(new AppError("Missing required fields: country", 400));
-  }
+const transformDestination = (destination, locale = "en") => {
+  if (!destination) return null;
+  return {
+    ...destination,
+    city: getLocalizedValue(destination.city, locale),
+    country: getLocalizedValue(destination.country, locale),
+    description: getLocalizedValue(destination.description, locale),
+  };
+};
 
-  const existingDestination = await destinationModel.findOne({
-    city: city && { $regex: city, $options: "i" },
-    country: { $regex: country, $options: "i" },
-  });
+const transformDestinations = (destinations, locale = "en") =>
+  destinations.map((dest) => transformDestination(dest, locale));
 
-  if (existingDestination) {
-    return next(new AppError("Destination already exists", 409));
-  }
-
-  const destination = await destinationModel.create(req.body);
-
-  if (!destination) {
-    return next(new AppError("Failed to create destination", 500));
-  }
-
-  res.status(201).json({
-    status: "success",
-    data: destination,
-  });
+const buildLocalizedQuery = (value) => ({
+  $or: [
+    { "city.en": { $regex: value, $options: "i" } },
+    { "city.ar": { $regex: value, $options: "i" } },
+    { "city.es": { $regex: value, $options: "i" } },
+  ].filter(Boolean),
 });
 
-const deleteDestination = catchAsyncError(async (req, res, next) => {
-  const { id } = req.params;
+const getSortStage = (sortBy) => {
+  const validSortOptions = {
+    popularity: { totalTravelers: -1, averageRating: -1 },
+    "best-rated": { averageRating: -1, totalReviews: -1 },
+    "price-low": { price: 1 },
+    "price-high": { price: -1 },
+    new: { createdAt: -1 },
+    "duration-short": { durationInMinutes: 1 },
+    "duration-long": { durationInMinutes: -1 },
+  };
+  return validSortOptions[sortBy] || validSortOptions.popularity;
+};
 
-  if (!id || id.length !== 24) {
-    return next(new AppError("Invalid destination ID", 400));
+const buildTourMatchStage = ({
+  destinationIds,
+  category,
+  features,
+  priceMin,
+  priceMax,
+  durationMin,
+  durationMax,
+  availability,
+  dateFrom,
+  dateTo,
+  startTime,
+}) => {
+  const matchStage = {};
+
+  if (destinationIds) {
+    matchStage.destination = Array.isArray(destinationIds)
+      ? { $in: destinationIds }
+      : { $eq: destinationIds };
   }
 
-  const destination = await destinationModel.findById(id);
+  if (category) {
+    const categories = Array.isArray(category)
+      ? category
+      : category.split(",").map((c) => c.trim());
 
-  if (!destination) {
-    return next(new AppError("Destination not found", 404));
+    matchStage["category.en"] = { $in: categories };
   }
 
-  const toursCount = await tourModel.countDocuments({ destination: id });
+  if (features && features.length > 0) {
+    const featureList = Array.isArray(features)
+      ? features
+      : features.split(",").map((f) => f.trim());
 
-  if (toursCount > 0) {
-    return next(
-      new AppError(
-        `Cannot delete destination with ${toursCount} associated tours. Please delete tours first.`,
-        400
-      )
-    );
+    matchStage["features.en"] = { $all: featureList };
   }
 
-  try {
-    if (destination.mainImg && destination.mainImg.public_id) {
-      removeImage(destination.mainImg.public_id);
+  if (priceMin || priceMax) {
+    matchStage.price = {};
+    if (priceMin && !isNaN(priceMin)) {
+      matchStage.price.$gte = parseFloat(priceMin);
+    }
+    if (priceMax && !isNaN(priceMax)) {
+      matchStage.price.$lte = parseFloat(priceMax);
+    }
+  }
+
+  if (durationMin || durationMax) {
+    matchStage.durationInMinutes = {};
+    if (durationMin && !isNaN(durationMin)) {
+      matchStage.durationInMinutes.$gte = parseInt(durationMin) * 60;
+    }
+    if (durationMax && !isNaN(durationMax)) {
+      matchStage.durationInMinutes.$lte = parseInt(durationMax) * 60;
+    }
+  }
+
+  const orConditions = [];
+
+  if (availability) {
+    const now = new Date();
+
+    if (availability === "today") {
+      matchStage.isAvailableToday = true;
     }
 
-    if (destination.images && Array.isArray(destination.images)) {
-      destination.images.forEach((img) => {
-        if (img && img.public_id) {
-          removeImage(img.public_id);
+    if (availability === "tomorrow") {
+      const targetDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const dayName = targetDate.toLocaleString("en-US", { weekday: "long" });
+
+      orConditions.push(
+        {
+          isRepeated: true,
+          repeatDays: { $in: [dayName] },
+        },
+        {
+          isRepeated: false,
+          "date.from": { $lte: targetDate },
+          "date.to": { $gte: targetDate },
         }
-      });
+      );
     }
-  } catch (error) {
-    console.error("Error cleaning up images:", error);
   }
 
-  await destinationModel.findByIdAndDelete(id);
-
-  res.status(200).json({
-    status: "success",
-    message: "Destination deleted successfully",
-  });
-});
-
-const updateDestination = catchAsyncError(async (req, res, next) => {
-  const { id } = req.params;
-
-  if (!id || id.length !== 24) {
-    return next(new AppError("Invalid destination ID", 400));
-  }
-
-  const destination = await destinationModel.findById(id);
-
-  if (!destination) {
-    return next(new AppError("Destination not found", 404));
-  }
-
-  try {
-    if (
-      req.body.mainImg &&
-      destination.mainImg &&
-      destination.mainImg.public_id
-    ) {
-      removeImage(destination.mainImg.public_id);
-    }
-
-    if (
-      req.body.images &&
-      destination.images &&
-      Array.isArray(destination.images)
-    ) {
-      destination.images.forEach((img) => {
-        if (img && img.public_id) {
-          removeImage(img.public_id);
+  if (dateFrom && dateTo) {
+    const from = new Date(dateFrom);
+    const to = new Date(dateTo);
+    if (!isNaN(from) && !isNaN(to)) {
+      orConditions.push(
+        { isRepeated: true },
+        {
+          isRepeated: false,
+          "date.from": { $lte: to },
+          "date.to": { $gte: from },
         }
-      });
+      );
     }
-  } catch (error) {
-    console.error("Error cleaning up old images:", error);
   }
 
-  const updatedDestination = await destinationModel.findByIdAndUpdate(
-    id,
-    req.body,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
-
-  if (!updatedDestination) {
-    return next(new AppError("Failed to update destination", 500));
+  if (orConditions.length > 0) {
+    matchStage.$or = orConditions;
   }
 
-  res.status(200).json({
-    status: "success",
-    data: updatedDestination,
-  });
-});
-
-const getAllDestinations = catchAsyncError(async (req, res, next) => {
-  const apiFeature = new ApiFeature(destinationModel.find(), req.query)
-    .paginate()
-    .fields()
-    .filter()
-    .search()
-    .sort()
-    .lean();
-
-  const result = await apiFeature.mongoseQuery;
-
-  const totalCount = await apiFeature.getTotalCount();
-  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
-
-  if (!result || result.length === 0) {
-    return next(new AppError("No destinations found", 404));
+  if (startTime) {
+    matchStage.__startTime = startTime;
   }
 
-  res.status(200).json({
-    status: "success",
-    data: {
-      destinations: result,
-      pagination: paginationMeta,
+  return matchStage;
+};
+
+const buildTourAggregationPipeline = (matchStage, sortStage, page, limit) => [
+  { $match: matchStage },
+  {
+    $addFields: {
+      effectiveDurationInDays: {
+        $cond: {
+          if: { $gt: ["$durationInDays", 0] },
+          then: "$durationInDays",
+          else: {
+            $cond: {
+              if: { $gt: ["$durationInMinutes", 0] },
+              then: { $ceil: { $divide: ["$durationInMinutes", 1440] } },
+              else: 1,
+            },
+          },
+        },
+      },
     },
-  });
-});
+  },
+  {
+    $facet: {
+      tours: [
+        { $sort: sortStage },
+        { $skip: (parseInt(page) - 1) * parseInt(limit) },
+        { $limit: parseInt(limit) },
+        {
+          $project: {
+            _id: 1,
+            title: 1,
+            description: 1,
+            price: 1,
+            discountPercent: 1,
+            averageRating: 1,
+            totalReviews: 1,
+            totalTravelers: 1,
+            mainImg: 1,
+            duration: 1,
+            category: 1,
+            features: 1,
+            slug: 1,
+          },
+        },
+      ],
+      totalCount: [{ $count: "total" }],
+      categories: [
+        { $group: { _id: "$category", count: { $sum: 1 } } },
+        { $project: { _id: 0, category: "$_id", count: 1 } },
+        { $sort: { category: 1 } },
+      ],
+      features: [
+        {
+          $match: { features: { $exists: true, $ne: [], $not: { $size: 0 } } },
+        },
+        { $unwind: "$features" },
+        { $group: { _id: "$features", count: { $sum: 1 } } },
+        { $project: { _id: 0, feature: "$_id", count: 1 } },
+        { $sort: { feature: 1 } },
+      ],
+      maxPriceAndDuration: [
+        {
+          $group: {
+            _id: null,
+            maxPrice: { $max: "$price" },
+            maxDurationInDays: { $max: "$effectiveDurationInDays" },
+          },
+        },
+        { $project: { _id: 0, maxPrice: 1, maxDurationInDays: 1 } },
+      ],
+    },
+  },
+];
 
-const getDestination = catchAsyncError(async (req, res, next) => {
+export const getDestination = catchAsyncError(async (req, res, next) => {
   const { destination } = req.params;
   const {
     page = 1,
@@ -184,18 +247,19 @@ const getDestination = catchAsyncError(async (req, res, next) => {
     durationMin,
     durationMax,
     sortBy = "popularity",
+    locale = "en",
   } = req.query;
 
+  // Validate inputs
   if (!destination) {
     return next(new AppError("Destination parameter is required", 400));
   }
+  const validLocales = ["en", "ar", "es"];
+  if (!validLocales.includes(locale)) {
+    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+  }
 
-  const destinationLower = destination.toLowerCase().trim();
-
-  console.log(`Request for destination: ${destinationLower}`, {
-    query: req.query,
-    sortBy,
-  });
+  const destinationLower = destination.trim().toLowerCase();
 
   const validSortOptions = [
     "popularity",
@@ -209,160 +273,45 @@ const getDestination = catchAsyncError(async (req, res, next) => {
   const effectiveSortBy = validSortOptions.includes(sortBy)
     ? sortBy
     : "popularity";
-  if (sortBy !== effectiveSortBy) {
-    console.log(
-      `Invalid sortBy value: ${sortBy}. Defaulting to: ${effectiveSortBy}`
-    );
-  }
 
   const destinationData = await destinationModel
     .findOne({
       $or: [
-        { city: { $regex: `^${destinationLower}$`, $options: "i" } },
-        { country: { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "city.en": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "city.ar": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "city.es": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "country.en": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "country.ar": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "country.es": { $regex: `^${destinationLower}$`, $options: "i" } },
       ],
     })
     .lean();
 
   if (!destinationData) {
     console.log(`No destination found for: ${destinationLower}`);
-    console.log(
-      `Available cities: ${await destinationModel.distinct("city")}`,
-      `Available countries: ${await destinationModel.distinct("country")}`
-    );
     return next(new AppError("Destination not found", 404));
   }
 
-  const matchedDestination = destinationData;
+  const isCityMatch =
+    destinationData.city?.en?.toLowerCase() === destinationLower ||
+    destinationData.city?.ar?.toLowerCase() === destinationLower ||
+    destinationData.city?.es?.toLowerCase() === destinationLower;
 
-  if (matchedDestination.city?.toLowerCase() === destinationLower) {
-    // Build query filters for tours
-    let matchStage = { destination: matchedDestination._id };
-
-    if (category) {
-      matchStage.category = {
-        $in: Array.isArray(category)
-          ? category
-          : category.split(",").map((c) => c.trim()),
-      };
-    }
-
-    if (queryFeatures) {
-      const featuresArray = Array.isArray(queryFeatures)
-        ? queryFeatures
-        : queryFeatures.split(",").map((f) => f.trim());
-      matchStage.features = { $all: featuresArray };
-    }
-
-    if (priceMin || priceMax) {
-      matchStage.price = {};
-      if (priceMin && !isNaN(parseFloat(priceMin)))
-        matchStage.price.$gte = parseFloat(priceMin);
-      if (priceMax && !isNaN(parseFloat(priceMax)))
-        matchStage.price.$lte = parseFloat(priceMax);
-    }
-
-    if (durationMin || durationMax) {
-      matchStage.durationInMinutes = {};
-      if (durationMin && !isNaN(parseInt(durationMin)))
-        matchStage.durationInMinutes.$gte = parseInt(durationMin) * 60;
-      if (durationMax && !isNaN(parseInt(durationMax)))
-        matchStage.durationInMinutes.$lte = parseInt(durationMax) * 60;
-    }
-
-    if (availability) {
-      const now = new Date();
-      let targetDate;
-
-      switch (availability) {
-        case "today":
-          targetDate = now;
-          matchStage.isAvailableToday = true;
-          break;
-        case "tomorrow":
-          targetDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          const tomorrowDay = targetDate.getDay() + 1;
-          matchStage.$or = [
-            {
-              isRepeated: true,
-              repeatDays: {
-                $in: [
-                  tomorrowDay === 1
-                    ? "Sunday"
-                    : tomorrowDay === 2
-                    ? "Monday"
-                    : tomorrowDay === 3
-                    ? "Tuesday"
-                    : tomorrowDay === 4
-                    ? "Wednesday"
-                    : tomorrowDay === 5
-                    ? "Thursday"
-                    : tomorrowDay === 6
-                    ? "Friday"
-                    : "Saturday",
-                ],
-              },
-            },
-            {
-              isRepeated: false,
-              "date.from": { $lte: targetDate },
-              "date.to": { $gte: targetDate },
-            },
-          ];
-          break;
-        default:
-          console.log(`Invalid availability value: ${availability}`);
-      }
-    }
-
-    if (dateFrom && dateTo) {
-      const fromDate = new Date(dateFrom);
-      const toDate = new Date(dateTo);
-      if (!isNaN(fromDate) && !isNaN(toDate)) {
-        matchStage.$or = [
-          { isRepeated: true },
-          {
-            isRepeated: false,
-            "date.from": { $lte: toDate },
-            "date.to": { $gte: fromDate },
-          },
-        ];
-      }
-    }
-
-    if (startTime) {
-      const [hours, minutes] = startTime.split(":").map(Number);
-      if (!isNaN(hours) && !isNaN(minutes)) {
-        const startMinutes = hours * 60 + (minutes || 0);
-        matchStage.repeatTime = {
-          $elemMatch: {
-            $expr: {
-              $lte: [
-                {
-                  $abs: {
-                    $subtract: [
-                      startMinutes,
-                      {
-                        $add: [
-                          {
-                            $multiply: [
-                              { $toInt: { $substr: ["$$this", 0, 2] } },
-                              60,
-                            ],
-                          },
-                          { $toInt: { $substr: ["$$this", 3, 2] } },
-                        ],
-                      },
-                    ],
-                  },
-                },
-                60,
-              ],
-            },
-          },
-        };
-      }
-    }
+  if (isCityMatch) {
+    const matchStage = buildTourMatchStage({
+      destinationIds: [destinationData._id],
+      category,
+      features: queryFeatures,
+      priceMin,
+      priceMax,
+      durationMin,
+      durationMax,
+      availability,
+      dateFrom,
+      dateTo,
+      startTime,
+      locale,
+    });
 
     const sortStage = (() => {
       switch (effectiveSortBy) {
@@ -376,259 +325,95 @@ const getDestination = catchAsyncError(async (req, res, next) => {
           return { price: -1 };
         case "new":
           return { createdAt: -1 };
-        case "duration-short-long":
+        case "duration-short":
           return { durationInMinutes: 1 };
-        case "duration-long-short":
+        case "duration-long":
           return { durationInMinutes: -1 };
         default:
-          return { totalTravelers: -1, averageRating: -1 }; // Fallback
+          return { totalTravelers: -1, averageRating: -1 };
       }
     })();
 
-    // Updated aggregation pipeline section for your getDestination controller
+    const apiFeature = new ApiFeature(
+      tourModel.find(matchStage).populate("destination", "city country"),
+      { page, limit }
+    )
+      .paginate()
+      .sort(sortStage)
+      .fields(
+        "title description price discountPercent averageRating totalReviews totalTravelers duration category features slug mainImg"
+      )
+      .lean();
 
-    const aggregationPipeline = [
-      { $match: matchStage },
-      {
-        $facet: {
-          tours: [
-            { $sort: sortStage },
-            { $skip: (parseInt(page) - 1) * parseInt(limit) },
-            { $limit: parseInt(limit) },
-            {
-              $project: {
-                _id: 1,
-                title: 1,
-                description: 1,
-                price: 1,
-                destination:1,
-                discountPercent: 1,
-                averageRating: 1,
-                totalReviews: 1,
-                totalTravelers: 1,
-                duration: 1,
-                category: 1,
-                features: 1,
-                slug: 1,
-                mainImg: 1,
-              },
-            },
-          ],
-          totalCount: [{ $count: "total" }],
-          categories: [
-            {
-              $group: {
-                _id: "$category",
-                count: { $sum: 1 },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                category: "$_id",
-                count: 1,
-              },
-            },
-            { $sort: { category: 1 } },
-          ],
-          features: [
-            {
-              $match: {
-                features: { $exists: true, $ne: [], $not: { $size: 0 } },
-              },
-            },
-            { $unwind: "$features" },
-            {
-              $group: {
-                _id: "$features",
-                count: { $sum: 1 },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                feature: "$_id",
-                count: 1,
-              },
-            },
-            { $sort: { feature: 1 } },
-          ],
-          maxPriceAndDuration: [
-            {
-              $addFields: {
-                // Calculate durationInDays if it doesn't exist
-                calculatedDurationInDays: {
-                  $cond: {
-                    if: { $ifNull: ["$durationInDays", false] },
-                    then: "$durationInDays",
-                    else: {
-                      $cond: {
-                        if: { $ifNull: ["$durationInMinutes", false] },
-                        then: {
-                          $ceil: {
-                            $divide: [
-                              "$durationInMinutes",
-                              { $multiply: [24, 60] },
-                            ],
-                          },
-                        },
-                        else: 1, // Default to 1 day if no duration data
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                maxPrice: { $max: "$price" },
-                maxDurationInDays: { $max: "$calculatedDurationInDays" },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                maxPrice: 1,
-                maxDurationInDays: 1,
-              },
-            },
-          ],
-        },
-      },
-    ];
+    const tours = await apiFeature.mongoseQuery;
+    const totalCount = await tourModel.countDocuments(matchStage);
+    const paginationMeta = apiFeature.getPaginationMeta(totalCount);
 
-    // Alternative simpler approach if you prefer
-    const alternativeAggregationPipeline = [
-      { $match: matchStage },
-      {
-        $addFields: {
-          // Ensure durationInDays exists for all documents
-          effectiveDurationInDays: {
-            $cond: {
-              if: { $gt: ["$durationInDays", 0] },
-              then: "$durationInDays",
-              else: {
+    const transformedTours = tours.map((tour) => ({
+      ...tour,
+      title: getLocalizedValue(tour.title, locale),
+      description: getLocalizedValue(tour.description, locale),
+      category: getLocalizedValue(tour.category, locale),
+      features: tour.features
+        ? tour.features.map((f) => getLocalizedValue(f, locale))
+        : [],
+      destination: transformDestination(tour.destination, locale),
+    }));
+
+    const [categories, featuresData] = await Promise.all([
+      tourModel
+        .aggregate([
+          { $match: { destination: destinationData._id } },
+          { $group: { _id: `$category.${locale}`, count: { $sum: 1 } } },
+          { $project: { _id: 0, category: "$_id", count: 1 } },
+          { $sort: { category: 1 } },
+        ])
+        .allowDiskUse(true),
+      tourModel
+        .aggregate([
+          {
+            $match: {
+              destination: destinationData._id,
+              features: { $exists: true, $ne: [] },
+            },
+          },
+          { $unwind: "$features" },
+          { $group: { _id: `$features.${locale}`, count: { $sum: 1 } } },
+          { $project: { _id: 0, feature: "$_id", count: 1 } },
+          { $sort: { feature: 1 } },
+        ])
+        .allowDiskUse(true),
+    ]);
+
+    const maxStats = await tourModel
+      .aggregate([
+        { $match: { destination: destinationData._id } },
+        {
+          $group: {
+            _id: null,
+            maxPrice: { $max: "$price" },
+            maxDurationInDays: {
+              $max: {
                 $cond: {
-                  if: { $gt: ["$durationInMinutes", 0] },
-                  then: { $ceil: { $divide: ["$durationInMinutes", 1440] } }, // 1440 = 24*60 minutes in a day
-                  else: 1,
+                  if: { $gt: ["$durationInDays", 0] },
+                  then: "$durationInDays",
+                  else: { $ceil: { $divide: ["$durationInMinutes", 1440] } },
                 },
               },
             },
           },
         },
-      },
-      {
-        $facet: {
-          tours: [
-            { $sort: sortStage },
-            { $skip: (parseInt(page) - 1) * parseInt(limit) },
-            { $limit: parseInt(limit) },
-            {
-              $project: {
-                _id: 1,
-                title: 1,
-                description: 1,
-                price: 1,
-                discountPercent: 1,
-                averageRating: 1,
-                totalReviews: 1,
-                totalTravelers: 1,
-                mainImg: 1,
-                duration: 1,
-                category: 1,
-                features: 1,
-                slug: 1,
-              },
-            },
-          ],
-          totalCount: [{ $count: "total" }],
-          categories: [
-            {
-              $group: {
-                _id: "$category",
-                count: { $sum: 1 },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                category: "$_id",
-                count: 1,
-              },
-            },
-            { $sort: { category: 1 } },
-          ],
-          features: [
-            {
-              $match: {
-                features: { $exists: true, $ne: [], $not: { $size: 0 } },
-              },
-            },
-            { $unwind: "$features" },
-            {
-              $group: {
-                _id: "$features",
-                count: { $sum: 1 },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                feature: "$_id",
-                count: 1,
-              },
-            },
-            { $sort: { feature: 1 } },
-          ],
-          maxPriceAndDuration: [
-            {
-              $group: {
-                _id: null,
-                maxPrice: { $max: "$price" },
-                maxDurationInDays: { $max: "$effectiveDurationInDays" },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                maxPrice: 1,
-                maxDurationInDays: 1,
-              },
-            },
-          ],
-        },
-      },
-    ];
+        { $project: { _id: 0, maxPrice: 1, maxDurationInDays: 1 } },
+      ])
+      .allowDiskUse(true);
 
-    const results = await tourModel.aggregate(aggregationPipeline);
-
-    const tours = results[0].tours || [];
-    const totalCount = results[0].totalCount[0]?.total || 0;
-    const categories = results[0].categories || [];
-    const features = results[0].features || [];
-    const maxPrice = results[0].maxPriceAndDuration[0]?.maxPrice || 0;
-    const maxDurationInDays =
-      results[0].maxPriceAndDuration[0]?.maxDurationInDays || 0;
-
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
-    const hasNextPage = parseInt(page) < totalPages;
-    const hasPrevPage = parseInt(page) > 1;
-
-    const paginationMeta = {
-      currentPage: parseInt(page),
-      totalPages,
-      totalItems: totalCount,
-      hasNextPage,
-      hasPrevPage,
-      limit: parseInt(limit),
-    };
+    const maxPrice = maxStats[0]?.maxPrice || 0;
+    const maxDurationInDays = maxStats[0]?.maxDurationInDays || 0;
 
     return res.status(200).json({
       status: "success",
       type: "city",
-      destination: matchedDestination,
+      destination: transformDestination(destinationData, locale),
       filters: {
         availability,
         dateFrom,
@@ -641,76 +426,360 @@ const getDestination = catchAsyncError(async (req, res, next) => {
         durationMin,
         durationMax,
         sortBy: effectiveSortBy,
+        locale,
       },
       data: {
-        tours,
+        tours: transformedTours,
         pagination: paginationMeta,
         categories,
-        features,
+        features: featuresData,
         maxPrice,
         maxDurationInDays,
       },
     });
   }
 
-  if (matchedDestination.country?.toLowerCase() === destinationLower) {
-    const filter = {
-      country: { $regex: `^${destinationLower}$`, $options: "i" },
-    };
-    const apiFeature = new ApiFeature(destinationModel.find(filter), {
-      limit,
-      page,
-    })
-      .paginate()
-      .sort()
-      .lean();
+  const isCountryMatch =
+    destinationData.country?.en?.toLowerCase() === destinationLower ||
+    destinationData.country?.ar?.toLowerCase() === destinationLower ||
+    destinationData.country?.es?.toLowerCase() === destinationLower;
 
-    const cities = await apiFeature.mongoseQuery;
-    const totalCities = await destinationModel.countDocuments(filter);
-
-    const totalTravelers = cities.reduce(
-      (sum, city) => sum + (city.totalTravelers || 0),
-      0
-    );
-    const totalTours = cities.reduce(
-      (sum, city) => sum + (city.totalTours || 0),
-      0
-    );
-    const totalReviews = cities.reduce(
-      (sum, city) => sum + (city.totalReviews || 0),
-      0
-    );
-
-    const averageRating =
-      cities.length > 0
-        ? cities.reduce((sum, city) => sum + (city.averageRating || 0), 0) /
-          cities.length
-        : 0;
-    const averageRatingRounded = Math.round(averageRating * 10) / 10;
-
-    const paginationMeta = apiFeature.getPaginationMeta(totalCities);
-
-    return res.status(200).json({
-      status: "success",
-      type: "country",
-      destination: matchedDestination,
-      lengthCities: totalCities,
-      totalTravelers,
-      totalTours,
-      totalReviews,
-      averageRating: averageRatingRounded,
-      data: {
-        cities,
-        pagination: paginationMeta,
-      },
-    });
+  if (!isCountryMatch) {
+    return next(new AppError("No matching city or country found", 404));
   }
 
-  return next(new AppError("No matching city or country found", 404));
-});
-const deleteAllDestinations = catchAsyncError(async (req, res, next) => {
-  const destinationsWithTours = await tourModel.distinct("destination");
+  const cities = await destinationModel
+    .find({
+      $or: [
+        { "country.en": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "country.ar": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "country.es": { $regex: `^${destinationLower}$`, $options: "i" } },
+      ],
+    })
+    .lean();
 
+  if (!cities?.length) {
+    return next(new AppError("No cities found for this country", 404));
+  }
+
+  const destinationIds = cities.map((city) => city._id);
+  const matchStage = buildTourMatchStage({
+    destinationIds,
+    category,
+    features: queryFeatures,
+    priceMin,
+    priceMax,
+    durationMin,
+    durationMax,
+    availability,
+    dateFrom,
+    dateTo,
+    startTime,
+    locale,
+  });
+
+  const sortStage = (() => {
+    switch (effectiveSortBy) {
+      case "popularity":
+        return { totalTravelers: -1, averageRating: -1 };
+      case "best-rated":
+        return { averageRating: -1, totalReviews: -1 };
+      case "price-low":
+        return { price: 1 };
+      case "price-high":
+        return { price: -1 };
+      case "new":
+        return { createdAt: -1 };
+      case "duration-short":
+        return { durationInMinutes: 1 };
+      case "duration-long":
+        return { durationInMinutes: -1 };
+      default:
+        return { totalTravelers: -1, averageRating: -1 };
+    }
+  })();
+
+  const apiFeature = new ApiFeature(
+    tourModel.find(matchStage).populate("destination", "city country"),
+    { page, limit }
+  )
+    .paginate()
+    .sort(sortStage)
+    .fields(
+      "title description price discountPercent averageRating totalReviews totalTravelers duration category features slug mainImg"
+    )
+    .lean();
+
+  const tours = await apiFeature.mongoseQuery;
+  const totalCount = await tourModel.countDocuments(matchStage);
+  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+  const transformedTours = tours.map((tour) => ({
+    ...tour,
+    title: getLocalizedValue(tour.title, locale),
+    description: getLocalizedValue(tour.description, locale),
+    category: getLocalizedValue(tour.category, locale),
+    features: tour.features
+      ? tour.features.map((f) => getLocalizedValue(f, locale))
+      : [],
+    destination: transformDestination(tour.destination, locale),
+  }));
+
+  const stats = await destinationModel
+    .aggregate([
+      {
+        $match: {
+          $or: [
+            {
+              "country.en": { $regex: `^${destinationLower}$`, $options: "i" },
+            },
+            {
+              "country.ar": { $regex: `^${destinationLower}$`, $options: "i" },
+            },
+            {
+              "country.es": { $regex: `^${destinationLower}$`, $options: "i" },
+            },
+          ],
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalTravelers: { $sum: "$totalTravelers" },
+          totalTours: { $sum: "$totalTours" },
+          totalReviews: { $sum: "$totalReviews" },
+          averageRating: { $avg: "$averageRating" },
+        },
+      },
+    ])
+    .allowDiskUse(true);
+
+  const totalTravelers = stats[0]?.totalTravelers || 0;
+  const totalTours = stats[0]?.totalTours || totalCount;
+  const totalReviews = stats[0]?.totalReviews || 0;
+  const averageRating = stats[0]?.averageRating
+    ? Math.round(stats[0].averageRating * 10) / 10
+    : 0;
+
+  const [categories, featuresData] = await Promise.all([
+    tourModel
+      .aggregate([
+        { $match: matchStage },
+        { $group: { _id: `$category.${locale}`, count: { $sum: 1 } } },
+        { $project: { _id: 0, category: "$_id", count: 1 } },
+        { $sort: { category: 1 } },
+      ])
+      .allowDiskUse(true),
+    tourModel
+      .aggregate([
+        { $match: { ...matchStage, features: { $exists: true, $ne: [] } } },
+        { $unwind: "$features" },
+        { $group: { _id: `$features.${locale}`, count: { $sum: 1 } } },
+        { $project: { _id: 0, feature: "$_id", count: 1 } },
+        { $sort: { feature: 1 } },
+      ])
+      .allowDiskUse(true),
+  ]);
+
+  const maxStats = await tourModel
+    .aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: null,
+          maxPrice: { $max: "$price" },
+          maxDurationInDays: {
+            $max: {
+              $cond: {
+                if: { $gt: ["$durationInDays", 0] },
+                then: "$durationInDays",
+                else: { $ceil: { $divide: ["$durationInMinutes", 1440] } },
+              },
+            },
+          },
+        },
+      },
+      { $project: { _id: 0, maxPrice: 1, maxDurationInDays: 1 } },
+    ])
+    .allowDiskUse(true);
+
+  const maxPrice = maxStats[0]?.maxPrice || 0;
+  const maxDurationInDays = maxStats[0]?.maxDurationInDays || 0;
+
+  return res.status(200).json({
+    status: "success",
+    type: "country",
+    destination: transformDestination(destinationData, locale),
+    lengthCities: cities.length,
+    totalTravelers,
+    totalTours,
+    totalReviews,
+    averageRating,
+    filters: {
+      availability,
+      dateFrom,
+      dateTo,
+      startTime,
+      category,
+      features: queryFeatures,
+      priceMin,
+      priceMax,
+      durationMin,
+      durationMax,
+      sortBy: effectiveSortBy,
+      locale,
+    },
+    data: {
+      tours: transformedTours,
+      cities: transformDestinations(cities, locale),
+      pagination: paginationMeta,
+      categories,
+      features: featuresData,
+      maxPrice,
+      maxDurationInDays,
+    },
+  });
+});
+
+export const createDestination = catchAsyncError(async (req, res, next) => {
+  const { city, country } = req.body;
+  if (!country)
+    return next(new AppError("Missing required field: country", 400));
+
+  const cityValue = city?.en || city?.ar || city?.es || "";
+  const countryValue = country.en || country.ar || country.es || "";
+  if (!cityValue || !countryValue)
+    return next(new AppError("Missing city or country values", 400));
+
+  const query = {
+    ...buildLocalizedQuery(cityValue),
+    $or: [
+      { "country.en": { $regex: countryValue, $options: "i" } },
+      { "country.ar": { $regex: countryValue, $options: "i" } },
+      { "country.es": { $regex: countryValue, $options: "i" } },
+    ],
+  };
+
+  const existingDestination = await destinationModel.findOne(query);
+  if (existingDestination)
+    return next(new AppError("Destination already exists", 409));
+
+  const destination = await destinationModel.create(req.body);
+  if (!destination)
+    return next(new AppError("Failed to create destination", 500));
+
+  res.status(201).json({
+    status: "success",
+    data: transformDestination(
+      destination.toObject(),
+      req.query.locale || "en"
+    ),
+  });
+});
+
+export const deleteDestination = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+  if (!ObjectId.isValid(id))
+    return next(new AppError("Invalid destination ID", 400));
+
+  const destination = await destinationModel.findById(id);
+  if (!destination) return next(new AppError("Destination not found", 404));
+
+  const toursCount = await tourModel.countDocuments({ destination: id });
+  if (toursCount > 0)
+    return next(
+      new AppError(
+        `Cannot delete destination with ${toursCount} associated tours. Please delete tours first.`,
+        400
+      )
+    );
+
+  try {
+    if (destination.mainImg?.public_id)
+      removeImage(destination.mainImg.public_id);
+    if (destination.images?.length) {
+      destination.images.forEach((img) => {
+        if (img?.public_id) removeImage(img.public_id);
+      });
+    }
+  } catch (error) {
+    console.error("Error cleaning up images:", error);
+  }
+
+  await destinationModel.findByIdAndDelete(id);
+  res
+    .status(200)
+    .json({ status: "success", message: "Destination deleted successfully" });
+});
+
+export const updateDestination = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+  const { locale = "en" } = req.query;
+  if (!ObjectId.isValid(id))
+    return next(new AppError("Invalid destination ID", 400));
+
+  const destination = await destinationModel.findById(id);
+  if (!destination) return next(new AppError("Destination not found", 404));
+
+  try {
+    if (req.body.mainImg && destination.mainImg?.public_id)
+      removeImage(destination.mainImg.public_id);
+    if (req.body.images && destination.images?.length) {
+      destination.images.forEach((img) => {
+        if (img?.public_id) removeImage(img.public_id);
+      });
+    }
+  } catch (error) {
+    console.error("Error cleaning up old images:", error);
+  }
+
+  const updatedDestination = await destinationModel.findByIdAndUpdate(
+    id,
+    req.body,
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  if (!updatedDestination)
+    return next(new AppError("Failed to update destination", 500));
+
+  res.status(200).json({
+    status: "success",
+    data: transformDestination(updatedDestination.toObject(), locale),
+  });
+});
+
+export const getAllDestinations = catchAsyncError(async (req, res, next) => {
+  const { locale = "en" } = req.query;
+
+  const apiFeature = new ApiFeature(destinationModel.find(), req.query)
+    .paginate()
+    .fields()
+    .filter()
+    .search()
+    .sort()
+    .lean();
+
+  const result = await apiFeature.mongoseQuery;
+  const totalCount = await apiFeature.getTotalCount();
+  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+  if (!result?.length) return next(new AppError("No destinations found", 404));
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      destinations:
+        locale === "all" ? result : transformDestinations(result, locale),
+      pagination: paginationMeta,
+    },
+  });
+});
+
+export const deleteAllDestinations = catchAsyncError(async (req, res, next) => {
+  const destinationsWithTours = await tourModel.distinct("destination");
   if (destinationsWithTours.length > 0) {
     return next(
       new AppError(
@@ -724,12 +793,12 @@ const deleteAllDestinations = catchAsyncError(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    message: `${result.deletedCount} destinations deleted successfully`,
+    message: "Deleted Successfully.",
   });
 });
 
-const getPopularDestinations = catchAsyncError(async (req, res, next) => {
-  const { limit = 10, page = 1 } = req.query;
+export const getPopularDestinations = catchAsyncError(async (req, res) => {
+  const { limit = 10, page = 1, locale = "en" } = req.query;
 
   const apiFeature = new ApiFeature(destinationModel.find({ popular: true }), {
     limit,
@@ -746,24 +815,21 @@ const getPopularDestinations = catchAsyncError(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: {
-      destinations: result,
+      destinations: transformDestinations(result, locale),
       pagination: paginationMeta,
     },
   });
 });
 
-const getDestinationStats = catchAsyncError(async (req, res, next) => {
+export const getDestinationStats = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
+  const { locale = "en" } = req.query;
 
-  if (!id || id.length !== 24) {
+  if (!ObjectId.isValid(id))
     return next(new AppError("Invalid destination ID", 400));
-  }
 
-  const destination = await destinationModel.findById(id);
-
-  if (!destination) {
-    return next(new AppError("Destination not found", 404));
-  }
+  const destination = await destinationModel.findById(id).lean();
+  if (!destination) return next(new AppError("Destination not found", 404));
 
   const tourStats = await tourModel.aggregate([
     { $match: { destination: new ObjectId(id) } },
@@ -796,20 +862,13 @@ const getDestinationStats = catchAsyncError(async (req, res, next) => {
         _id: null,
         totalReviews: { $sum: 1 },
         averageRating: { $avg: "$rating" },
-        ratingDistribution: {
-          $push: "$rating",
-        },
+        ratingDistribution: { $push: "$rating" },
       },
     },
   ]);
 
   const stats = {
-    destination: {
-      _id: destination._id,
-      city: destination.city,
-      country: destination.country,
-      popular: destination.popular,
-    },
+    destination: transformDestination(destination, locale),
     tours: tourStats[0] || {
       totalTours: 0,
       totalTravelers: 0,
@@ -825,92 +884,67 @@ const getDestinationStats = catchAsyncError(async (req, res, next) => {
     },
   };
 
-  // Update destination stats
   await destinationModel.findByIdAndUpdate(id, {
     totalTours: stats.tours.totalTours,
     totalReviews: stats.reviews.totalReviews,
-    averageRating: Math.round(stats.reviews.averageRating * 10) / 10,
+    averageRating: Math.round((stats.reviews.averageRating || 0) * 10) / 10,
   });
 
-  res.status(200).json({
-    status: "success",
-    data: {
-      stats,
-    },
-  });
+  res.status(200).json({ status: "success", data: { stats } });
 });
 
-const getDestinationTours = catchAsyncError(async (req, res, next) => {
-  // Validate destination ID
-  if (!id || id.length !== 24) {
+export const getDestinationTours = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+  const { locale = "en" } = req.query;
+
+  if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid destination ID", 400));
   }
 
-  const destinationData = await destinationModel.find();
+  const destination = await destinationModel.findById(id).lean();
+  if (!destination) return next(new AppError("Destination not found", 404));
 
-  if (!destinationData) {
-    return next(new AppError("Destination not found", 404));
-  }
-
-  const apiFeature = new ApiFeature(
-    tourModel.find({ destination: id }).populate("destination", "city country"),
-    req.query
-  )
-    .paginate()
-    .fields()
-    .filter()
-    .search()
-    .sort()
-    .lean();
-
-  const result = await apiFeature.mongoseQuery;
-  const totalCount = await tourModel.countDocuments({ destination: id });
-  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
-
+  const tours = await tourModel.find({
+    destination: new mongoose.Types.ObjectId(id),
+  });
+  const transformedTours = transformTours(tours, locale);
   res.status(200).json({
     status: "success",
     data: {
-      destination: destinationData,
-      tours: result,
-      pagination: paginationMeta,
+      destination: transformDestination(destination, locale),
+      tours: transformedTours,
     },
   });
 });
 
-const searchDestinations = catchAsyncError(async (req, res, next) => {
+export const searchDestinations = catchAsyncError(async (req, res) => {
   const {
     q,
-    country,
+    country: countryQuery,
     popular,
     limit = 10,
     page = 1,
     justCities = false,
+    locale = "en",
   } = req.query;
-  // if (!q && !country && !popular) {
-  //   return next(new AppError("At least one search parameter is required", 400));
-  // }
 
-  let searchQuery = {};
+  const searchQuery = {};
 
   if (q) {
-    searchQuery.$or = [
-      { city: { $regex: q, $options: "i" } },
-      { country: { $regex: q, $options: "i" } },
-      { description: { $regex: q, $options: "i" } },
+    const baseOr = [
+      { [`city.${locale}`]: { $regex: q, $options: "i" } },
+      { [`country.${locale}`]: { $regex: q, $options: "i" } },
+      { [`description.${locale}`]: { $regex: q, $options: "i" } },
     ];
+    searchQuery.$or = baseOr;
   }
 
-  if (country) {
-    searchQuery.country = { $regex: country, $options: "i" };
+  if (countryQuery) {
+    searchQuery[`country.${locale}`] = { $regex: countryQuery, $options: "i" };
   }
 
-  if (popular === "true") {
-    searchQuery.popular = true;
-  }
-
-  if (justCities === "true") {
-    searchQuery.city = { $exists: true };
-  }
+  if (popular === "true") searchQuery.popular = true;
+  if (justCities === "true") searchQuery.city = { $exists: true };
 
   const apiFeature = new ApiFeature(destinationModel.find(searchQuery), {
     limit,
@@ -927,62 +961,50 @@ const searchDestinations = catchAsyncError(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: {
-      destinations: result,
+      destinations: transformDestinations(result, locale),
       pagination: paginationMeta,
     },
   });
 });
 
-const getDestinationsByCategory = catchAsyncError(async (req, res, next) => {
-  const { category } = req.params;
-  const { limit = 10, page = 1 } = req.query;
+export const getDestinationsByCategory = catchAsyncError(
+  async (req, res, next) => {
+    const { category } = req.params;
+    const { limit = 10, page = 1, locale = "en" } = req.query;
 
-  const tourDestinations = await tourModel.distinct("destination", {
-    category: { $regex: category, $options: "i" },
-  });
+    const tourDestinations = await tourModel.distinct("destination", {
+      category: { $regex: category, $options: "i" },
+    });
 
-  if (tourDestinations.length === 0) {
-    return next(
-      new AppError(`No destinations found for category: ${category}`, 404)
-    );
+    if (tourDestinations.length === 0) {
+      return next(
+        new AppError(`No destinations found for category: ${category}`, 404)
+      );
+    }
+
+    const apiFeature = new ApiFeature(
+      destinationModel.find({ _id: { $in: tourDestinations } }),
+      { limit, page }
+    )
+      .paginate()
+      .sort({ popular: -1, averageRating: -1, totalTours: -1 })
+      .lean();
+
+    const result = await apiFeature.mongoseQuery;
+    const totalCount = tourDestinations.length;
+    const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        destinations: transformDestinations(result, locale),
+        pagination: paginationMeta,
+        category,
+      },
+    });
   }
-
-  const apiFeature = new ApiFeature(
-    destinationModel.find({ _id: { $in: tourDestinations } }),
-    { limit, page }
-  )
-    .paginate()
-    .sort({ popular: -1, averageRating: -1, totalTours: -1 })
-    .lean();
-
-  const result = await apiFeature.mongoseQuery;
-  const totalCount = tourDestinations.length;
-  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
-
-  res.status(200).json({
-    status: "success",
-    data: {
-      destinations: result,
-      pagination: paginationMeta,
-      category,
-    },
-  });
-});
+);
 
 scheduleJob("0 2 * * *", async () => {
   await updatePopularDestinations();
 });
-
-export {
-  createDestination,
-  deleteDestination,
-  updateDestination,
-  getAllDestinations,
-  getDestination,
-  deleteAllDestinations,
-  getPopularDestinations,
-  getDestinationStats,
-  getDestinationTours,
-  searchDestinations,
-  getDestinationsByCategory,
-};

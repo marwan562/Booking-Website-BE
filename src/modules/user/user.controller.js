@@ -7,6 +7,7 @@ import { ApiFeature } from "../../utilities/AppFeature.js";
 import jwt from "jsonwebtoken";
 import tourModel from "../../models/tourModel.js";
 import { AppError } from "../../utilities/AppError.js";
+import mongoose from "mongoose";
 
 const checkEmail = catchAsyncError(async (req, res, next) => {
   const { email } = req.body;
@@ -205,82 +206,65 @@ export const updateUser = catchAsyncError(async (req, res, next) => {
   res.status(200).send({ message: "User updated successfully", data: user });
 });
 
+// Helper function to get localized value for a field
+const getLocalizedValue = (field, locale) => {
+  if (!field || typeof field !== "object") return "";
+  return field[locale] || field.en || "";
+};
+
+// Helper function to transform a destination
+const transformDestination = (destination, locale) => {
+  if (!destination) return null;
+  return {
+    ...destination,
+    city: getLocalizedValue(destination.city, locale),
+    country: getLocalizedValue(destination.country, locale),
+  };
+};
+
+// Helper function to transform a tour
+const transformTour = (tour, locale) => {
+  if (!tour) return null;
+  return {
+    ...tour,
+    title: getLocalizedValue(tour.title, locale),
+    description: getLocalizedValue(tour.description, locale),
+    category: getLocalizedValue(tour.category, locale),
+    destination: transformDestination(tour.destination, locale),
+  };
+};
+
+const { ObjectId } = mongoose.Types;
+
 const addToWishList = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const { id } = req.params;
-  const tour = await tourModel.findById(id);
+  const { locale = "en" } = req.query;
 
-  if (!tour) return next(new AppError("Tour not found!", 404));
+  const validLocales = ["en", "ar", "es"];
+  if (!validLocales.includes(locale)) {
+    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+  }
+
+  if (!id || id.length !== 24) {
+    return next(new AppError("Invalid tour ID", 400));
+  }
+
+  const tour = await tourModel.findById(id);
+  if (!tour) {
+    return next(new AppError("Tour not found!", 404));
+  }
 
   const user = await userModel
     .findByIdAndUpdate(
       _id,
-      {
-        $addToSet: { wishList: id },
-      },
+      { $addToSet: { wishList: id } },
       { new: true }
     )
     .populate({
       path: "wishList",
       select:
-        "mainImg slug title description adultPricing averageRating totalReviews price hasOffer discountPercent destination",
-      populate: {
-        path: "destination",
-        model: "destination",
-        select: "city country",
-      },
-    })
-    .lean();
-
-  if (!user) return next(new AppError("User not found!", 404));
-
-  res.status(200).send({ message: "success", data: user.wishList });
-});
-
-const removeFromWishList = catchAsyncError(async (req, res, next) => {
-  const { _id } = req.user;
-  const { id } = req.params;
-
-  const tour = await tourModel.findById(id);
-  if (!tour) return next(new AppError("Tour not found!", 404));
-
-  const user = await userModel.findById(_id).select("wishList");
-  if (!user) return next(new AppError("User not found!", 404));
-
-  const isInWishlist = user.wishList.some((wishId) => wishId.toString() === id);
-  if (!isInWishlist) return next(new AppError("Tour is not in wishlist", 400));
-
-  const updatedUser = await userModel
-    .findByIdAndUpdate(
-      _id,
-      {
-        $pull: { wishList: id },
-      },
-      { new: true }
-    )
-    .populate({
-      path: "wishList",
-      select:
-        "mainImg slug title description category duration adultPricing averageRating totalReviews price hasOffer discountPercent destination",
-      populate: {
-        path: "destination",
-        model: "destination",
-        select: "city country",
-      },
-    })
-    .lean();
-
-  res.status(200).send({ message: "success", data: updatedUser.wishList });
-});
-
-const getWishlist = catchAsyncError(async (req, res, next) => {
-  const { _id } = req.user;
-  const user = await userModel
-    .findById(_id)
-    .populate({
-      path: "wishList",
-      select:
-        "mainImg slug title description category duration adultPricing averageRating totalReviews price hasOffer discountPercent destination",
+        "mainImg slug title description duration category adultPricing averageRating totalReviews price hasOffer discountPercent destination",
       populate: {
         path: "destination",
         model: "destination",
@@ -290,12 +274,109 @@ const getWishlist = catchAsyncError(async (req, res, next) => {
     .lean();
 
   if (!user) {
-    return next(new AppError("can't find user"));
+    return next(new AppError("User not found!", 404));
   }
-  if (!user.wishList[0]) {
-    return next(new AppError("can't find any wishlist"));
+
+  const transformedWishlist = user.wishList.map((tour) => transformTour(tour, locale));
+
+  res.status(200).json({
+    status: "success",
+    data: transformedWishlist,
+  });
+});
+
+const removeFromWishList = catchAsyncError(async (req, res, next) => {
+  const { _id } = req.user;
+  const { id } = req.params;
+  const { locale = "en" } = req.query;
+
+  const validLocales = ["en", "ar", "es"];
+  if (!validLocales.includes(locale)) {
+    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
   }
-  res.status(200).send({ message: "success", data: user.wishList });
+
+  if (!id || id.length !== 24) {
+    return next(new AppError("Invalid tour ID", 400));
+  }
+
+  const tour = await tourModel.findById(id);
+  if (!tour) {
+    return next(new AppError("Tour not found!", 404));
+  }
+
+  const user = await userModel.findById(_id).select("wishList");
+  if (!user) {
+    return next(new AppError("User not found!", 404));
+  }
+
+  const isInWishlist = user.wishList.some((wishId) => wishId.toString() === id);
+  if (!isInWishlist) {
+    return next(new AppError("Tour is not in wishlist", 400));
+  }
+
+  const updatedUser = await userModel
+    .findByIdAndUpdate(
+      _id,
+      { $pull: { wishList: id } },
+      { new: true }
+    )
+    .populate({
+      path: "wishList",
+      select:
+        "mainImg slug title description category duration adultPricing averageRating totalTravelers totalReviews price hasOffer discountPercent destination",
+      populate: {
+        path: "destination",
+        model: "destination",
+        select: "city country",
+      },
+    })
+    .lean();
+
+  const transformedWishlist = updatedUser.wishList.map((tour) => transformTour(tour, locale));
+
+  res.status(200).json({
+    status: "success",
+    data: transformedWishlist,
+  });
+});
+
+const getWishlist = catchAsyncError(async (req, res, next) => {
+  const { _id } = req.user;
+  const { locale = "en" } = req.query;
+
+  const validLocales = ["en", "ar", "es"];
+  if (!validLocales.includes(locale)) {
+    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+  }
+
+  const user = await userModel
+    .findById(_id)
+    .populate({
+      path: "wishList",
+      select:
+        "mainImg slug title description category duration adultPricing averageRating totalTravelers totalReviews price hasOffer discountPercent destination",
+      populate: {
+        path: "destination",
+        model: "destination",
+        select: "city country",
+      },
+    })
+    .lean();
+
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  if (!user.wishList || user.wishList.length === 0) {
+    return next(new AppError("No tours found in wishlist", 404));
+  }
+
+  const transformedWishlist = user.wishList.map((tour) => transformTour(tour, locale));
+
+  res.status(200).json({
+    status: "success",
+    data: transformedWishlist,
+  });
 });
 
 const authentication = catchAsyncError(async (req, res, next) => {
@@ -336,7 +417,6 @@ const checkCode = catchAsyncError(async (req, res, next) => {
 });
 const forgetPassword = catchAsyncError(async (req, res, next) => {
   const { email, code, newPassword, reNewPassword } = req.body;
-  console.log("forget password", newPassword, reNewPassword);
   if (newPassword !== reNewPassword) {
     return next(new AppError("Passwords do not match!", 400));
   }

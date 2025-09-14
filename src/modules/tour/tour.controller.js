@@ -6,7 +6,75 @@ import { ApiFeature } from "../../utilities/AppFeature.js";
 import { ObjectId } from "mongodb";
 import destinationModel from "../../models/destinationModel.js";
 
+const getLocalizedValue = (field, locale = "en") => {
+  if (!field || typeof field !== "object") return field;
+  return field[locale] || field.en || field[Object.keys(field)[0]] || "";
+};
+
+const transformTour = (tour, locale = "en") => {
+  if (!tour) return null;
+  const transformed = { ...tour };
+
+  transformed.title = getLocalizedValue(tour.title, locale);
+  transformed.description = getLocalizedValue(tour.description, locale);
+  transformed.category = getLocalizedValue(tour.category, locale);
+  transformed.historyBrief = getLocalizedValue(tour.historyBrief, locale);
+
+  transformed.location = {
+    from: getLocalizedValue(tour.location?.from, locale),
+    to: getLocalizedValue(tour.location?.to, locale),
+  };
+
+  if (tour.features) {
+    transformed.features = tour.features.map((feature) =>
+      getLocalizedValue(feature, locale)
+    );
+  }
+  if (tour.includes) {
+    transformed.includes = tour.includes.map((include) =>
+      getLocalizedValue(include, locale)
+    );
+  }
+  if (tour.notIncludes) {
+    transformed.notIncludes = tour.notIncludes.map((notInclude) =>
+      getLocalizedValue(notInclude, locale)
+    );
+  }
+  if (tour.tags) {
+    transformed.tags = tour.tags.map((tag) => getLocalizedValue(tag, locale));
+  }
+
+  if (tour.options) {
+    transformed.options = tour.options.map((option) => ({
+      ...option,
+      name: getLocalizedValue(option.name, locale),
+    }));
+  }
+
+  if (tour.itinerary) {
+    transformed.itinerary = tour.itinerary.map((item) => ({
+      ...item,
+      title: getLocalizedValue(item.title, locale),
+      subtitle: getLocalizedValue(item.subtitle, locale),
+    }));
+  }
+
+  if (tour.destination) {
+    transformed.destination = {
+      ...tour.destination,
+      city: getLocalizedValue(tour.destination.city, locale),
+      country: getLocalizedValue(tour.destination.country, locale),
+    };
+  }
+
+  return transformed;
+};
+
+export const transformTours = (tours, locale = "en") =>
+  tours.map((tour) => transformTour(tour, locale));
+
 const getCategories = catchAsyncError(async (req, res) => {
+  const { locale = "en" } = req.query;
   try {
     const categories = await tourModel.aggregate([
       {
@@ -18,7 +86,7 @@ const getCategories = catchAsyncError(async (req, res) => {
       {
         $project: {
           _id: 0,
-          category: "$_id",
+          category: { $ifNull: ["$_id.en", "$_id"] },
           count: 1,
         },
       },
@@ -27,9 +95,21 @@ const getCategories = catchAsyncError(async (req, res) => {
       },
     ]);
 
-    res.status(200).json(categories);
+    const localizedCategories = categories.map((cat) => ({
+      ...cat,
+      category: getLocalizedValue(cat.category, locale),
+    }));
+
+    res.status(200).json({
+      status: "success",
+      data: localizedCategories,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch categories", error });
+    res.status(500).json({
+      status: "error",
+      message: "Failed to fetch categories",
+      error: error.message,
+    });
   }
 });
 
@@ -87,9 +167,12 @@ const createTour = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Failed to create tour", 500));
   }
 
+  const { locale = "en" } = req.query;
+  const transformedTour = transformTour(tour.toObject(), locale);
+
   res.status(201).json({
     status: "success",
-    data: tour,
+    data: transformedTour,
   });
 });
 
@@ -97,7 +180,7 @@ const deleteTour = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
 
   // Validate tour ID
-  if (!id || id.length !== 24) {
+  if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid tour ID", 400));
   }
 
@@ -132,9 +215,10 @@ const deleteTour = catchAsyncError(async (req, res, next) => {
 
 const updateTour = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
+  const { locale = "en" } = req.query;
 
   // Validate tour ID
-  if (!id || id.length !== 24) {
+  if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid tour ID", 400));
   }
 
@@ -170,27 +254,42 @@ const updateTour = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Failed to update tour", 500));
   }
 
+  const transformedTour = transformTour(updatedTour.toObject(), locale);
+
   res.status(200).json({
     status: "success",
-    data: updatedTour,
+    data: transformedTour,
   });
 });
 
-export const getTourBySlug = async (req, res, next) => {
-  try {
-    const slug = req.params.slug;
-    const tour = await tourModel.findOne({ slug }).populate({
-      path: "destination",
-      select: "city country",
-    });
-    if (!tour) return next(new AppError("Tour not found", 404));
-    res.status(200).json({ status: "success", tour });
-  } catch (error) {
-    next(error);
+export const getTourBySlug = catchAsyncError(async (req, res, next) => {
+  const { slug } = req.params;
+  const { locale = "en" } = req.query;
+
+  if (!slug) {
+    return next(new AppError("Slug is required", 400));
   }
-};
+
+  const tour = await tourModel.findOne({ slug }).populate({
+    path: "destination",
+    select: "city country",
+  });
+
+  if (!tour) {
+    return next(new AppError("Tour not found", 404));
+  }
+
+  const transformedTour = transformTour(tour.toObject(), locale);
+
+  res.status(200).json({
+    status: "success",
+    data: transformedTour,
+  });
+});
 
 const getAllTour = catchAsyncError(async (req, res, next) => {
+  const { locale = "en" } = req.query;
+
   const apiFeature = new ApiFeature(
     tourModel.find().populate({ path: "destination", select: "city country" }),
     req.query
@@ -210,11 +309,12 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
   if (!result || result.length === 0) {
     return next(new AppError("No tours found", 404));
   }
-
+  console.log(locale)
+  const transformedTours = locale === "all" ? result : transformTours(result, locale);
   res.status(200).json({
     status: "success",
     data: {
-      tours: result,
+      tours: transformedTours,
       pagination: paginationMeta,
     },
   });
@@ -222,22 +322,31 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
 
 const getTourById = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
+  const { locale = "en" } = req.query;
 
   // Validate tour ID
-  if (!id || id.length !== 24) {
+  if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid tour ID", 400));
   }
 
   // Use optimized query with lean
-  const tour = await tourModel.findById(id).lean();
+  const tour = await tourModel
+    .findById(id)
+    .populate({
+      path: "destination",
+      select: "city country",
+    })
+    .lean();
 
   if (!tour) {
     return next(new AppError("Tour not found", 404));
   }
 
+  const transformedTour = transformTour(tour, locale);
+
   res.status(200).json({
     status: "success",
-    data: tour,
+    data: transformedTour,
   });
 });
 
@@ -273,7 +382,7 @@ const orderTour = catchAsyncError(async (req, res, next) => {
     }
 
     // Validate tour ID format
-    if (tourOrder.id.length !== 24) {
+    if (!ObjectId.isValid(tourOrder.id)) {
       return next(new AppError("Invalid tour ID format", 400));
     }
 
@@ -291,15 +400,19 @@ const orderTour = catchAsyncError(async (req, res, next) => {
     .find({
       _id: { $in: tourIds },
     })
+    .populate("destination", "city country")
     .lean();
 
   if (tours.length !== req.body.length) {
     return next(new AppError("One or more tours not found", 404));
   }
 
+  const { locale = "en" } = req.query;
+  const transformedTours = transformTours(tours, locale);
+
   // Process orders
   const processedOrders = req.body.map((order) => {
-    const tour = tours.find((t) => t._id.toString() === order.id);
+    const tour = transformedTours.find((t) => t._id.toString() === order.id);
     return {
       tourId: order.id,
       tourTitle: tour.title,
@@ -326,10 +439,12 @@ const orderTour = catchAsyncError(async (req, res, next) => {
 
 const getToursByCategory = catchAsyncError(async (req, res, next) => {
   const { category } = req.params;
-  const { limit = 10, page = 1 } = req.query;
+  const { limit = 10, page = 1, locale = "en" } = req.query;
 
   const apiFeature = new ApiFeature(
-    tourModel.find({ category: { $regex: category, $options: "i" } }),
+    tourModel
+      .find({ "category.en": { $regex: category, $options: "i" } })
+      .populate({ path: "destination", select: "city country" }),
     { limit, page }
   )
     .paginate()
@@ -338,14 +453,16 @@ const getToursByCategory = catchAsyncError(async (req, res, next) => {
 
   const result = await apiFeature.mongoseQuery;
   const totalCount = await tourModel.countDocuments({
-    category: { $regex: category, $options: "i" },
+    "category.en": { $regex: category, $options: "i" },
   });
   const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+  const transformedTours = transformTours(result, locale);
 
   res.status(200).json({
     status: "success",
     data: {
-      tours: result,
+      tours: transformedTours,
       pagination: paginationMeta,
       category,
     },
@@ -353,12 +470,17 @@ const getToursByCategory = catchAsyncError(async (req, res, next) => {
 });
 
 const getToursWithOffers = catchAsyncError(async (req, res, next) => {
-  const { limit = 10, page = 1 } = req.query;
+  const { limit = 10, page = 1, locale = "en" } = req.query;
 
-  const apiFeature = new ApiFeature(tourModel.find({ hasOffer: true }), {
-    limit,
-    page,
-  })
+  const apiFeature = new ApiFeature(
+    tourModel
+      .find({ hasOffer: true })
+      .populate({ path: "destination", select: "city country" }),
+    {
+      limit,
+      page,
+    }
+  )
     .paginate()
     .sort()
     .lean();
@@ -367,31 +489,33 @@ const getToursWithOffers = catchAsyncError(async (req, res, next) => {
   const totalCount = await tourModel.countDocuments({ hasOffer: true });
   const paginationMeta = apiFeature.getPaginationMeta(totalCount);
 
+  const transformedTours = transformTours(result, locale);
+
   res.status(200).json({
     status: "success",
     data: {
-      tours: result,
+      tours: transformedTours,
       pagination: paginationMeta,
     },
   });
 });
 
 const searchTours = catchAsyncError(async (req, res, next) => {
-  const { q, limit = 10, page = 1 } = req.query;
+  const { q, limit = 10, page = 1, locale = "en" } = req.query;
 
   if (!q) {
     return next(new AppError("Search query is required", 400));
   }
 
+  const searchFields = [`title.${locale}`, `description.${locale}`];
+  const searchQuery = {
+    $or: searchFields.map((field) => ({
+      [field]: { $regex: q, $options: "i" },
+    })),
+  };
+
   const apiFeature = new ApiFeature(
-    tourModel
-      .find({
-        $or: [
-          { title: { $regex: `^${q}$`, $options: "i" } },
-          { description: { $regex: `^${q}$`, $options: "i" } },
-        ],
-      })
-      .populate("destination", "city country"),
+    tourModel.find(searchQuery).populate("destination", "city country"),
     { limit, page }
   )
     .paginate()
@@ -399,18 +523,15 @@ const searchTours = catchAsyncError(async (req, res, next) => {
     .lean();
 
   const result = await apiFeature.mongoseQuery;
-  const totalCount = await tourModel.countDocuments({
-    $or: [
-      { title: { $regex: `^${q}$`, $options: "i" } },
-      { description: { $regex: `^${q}$`, $options: "i" } },
-    ],
-  });
+  const totalCount = await tourModel.countDocuments(searchQuery);
   const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+  const transformedTours = transformTours(result, locale);
 
   res.status(200).json({
     status: "success",
     data: {
-      tours: result,
+      tours: transformedTours,
       pagination: paginationMeta,
       searchQuery: q,
     },

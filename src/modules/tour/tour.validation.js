@@ -5,13 +5,10 @@ const imgSchema = joi.object({
   public_id: joi.string(),
 });
 
-const itineraySchema = joi.object({
-  title: joi.string().optional(),
-  subtitle: joi.string().optional(),
-});
-
 const adultPricing = joi.array().items(
   joi.object({
+    _id: joi.string().hex().length(24),
+    totalPrice: joi.number(),
     adults: joi.number().min(1).max(30),
     price: joi.number().min(1).max(10000),
   })
@@ -19,18 +16,18 @@ const adultPricing = joi.array().items(
 
 const childrenPricing = joi.array().items(
   joi.object({
+    _id: joi.string().hex().length(24),
+    totalPrice: joi.number(),
     children: joi.number().min(1).max(30),
     price: joi.number().min(1).max(10000),
   })
 );
+const localizedSchema = joi.object({
+  en: joi.string().required(),
+  ar: joi.string().required(),
+  es: joi.string().required(),
+});
 
-const options = joi.array().items(
-  joi.object({
-    name: joi.string().min(1).max(100),
-    price: joi.number().min(1).max(10000),
-    childPrice: joi.number().min(1).max(10000),
-  })
-);
 const repeatDays = joi
   .array()
   .items(
@@ -48,97 +45,111 @@ const repeatDays = joi
   )
   .min(1);
 
-const location = joi.object({
-  from: joi.string().min(1).max(50),
-  to: joi.string().min(1).max(50),
-});
-import Joi from "joi";
+const options = joi.array().items(
+  joi.object({
+    name: localizedSchema.required(),
+    price: joi.number().required(),
+    childPrice: joi.number(),
+  })
+);
 
-export const createTourSchema = Joi.object({
-  title: Joi.string().min(1).max(100).required(),
-  description: Joi.string().min(10).max(20000).required(),
-  destination: Joi.string().hex().length(24).required(),
+const location = joi.object({
+  from: localizedSchema.required(),
+  to: localizedSchema.required(),
+});
+
+const itinerarySchema = joi.object({
+  title: localizedSchema.required(),
+  subtitle: localizedSchema.required(),
+});
+
+export const createTourSchema = joi.object({
+  title: localizedSchema.required(),
+  description: localizedSchema.required(),
+  category: localizedSchema.required(),
+  historyBrief: localizedSchema.required(),
+
+  destination: joi.string().hex().length(24).required(),
 
   mainImg: imgSchema.required(),
-  images: Joi.array().items(imgSchema).min(1),
+  images: joi.array().items(imgSchema).min(1).required(),
 
-  category: Joi.string().required(),
-  options: options,
-  isRepeated: Joi.boolean(),
-  hasOffer: Joi.boolean(),
+  date: joi
+    .object({
+      from: joi.date().required(),
+      to: joi.date().required(),
+    })
+    .required(),
 
-  repeatTime: Joi.array().items(Joi.string().min(1).max(10)).min(1),
-  repeatDays: repeatDays,
+  features: joi.array().items(localizedSchema),
+  includes: joi.array().items(localizedSchema),
+  notIncludes: joi.array().items(localizedSchema),
+  tags: joi.array().items(localizedSchema),
+
+  repeatTime: joi.array().items(joi.string().min(1).max(10)).min(1),
+  repeatDays: repeatDays.min(1),
 
   location: location.required(),
-  mapDetails: Joi.string(),
+  mapDetails: joi.string().allow(""),
 
-  inclusions: Joi.array().items(Joi.string().min(5).max(100)),
-  exclusions: Joi.array().items(Joi.string().min(5).max(100)),
+  options: options.min(1).required(),
+  isRepeated: joi.boolean().required(),
+  hasOffer: joi.boolean(),
 
   adultPricing: adultPricing.min(1).required(),
-  childrenPricing: childrenPricing,
+  childrenPricing: childrenPricing.min(0),
 
-  duration: Joi.string().min(1).max(20).required(),
+  duration: joi.string().min(1).max(20).required(),
+  durationInMinutes: joi.number().min(0),
+  durationInDays: joi.number().min(0),
 
-  itinerary: Joi.array().items(itineraySchema).min(1),
+  itinerary: joi.array().items(itinerarySchema).min(1).required(),
 
-  tags: Joi.array().items(Joi.string().min(2).max(50)),
-  historyBrief: Joi.string().min(1),
-
-  date: Joi.object({
-    from: Joi.date().required(),
-    to: Joi.date().required(),
-  }),
-  features: Joi.array().items(Joi.string()),
-  includes: Joi.array().items(Joi.string()),
-  notIncludes: Joi.array().items(Joi.string()),
-  discountPercent: Joi.number().min(0).max(100),
-  durationInMinutes: Joi.number().min(0),
-  durationInDays: Joi.number().min(0),
+  discountPercent: joi.number().min(0).max(100),
 });
 
 export const updatedTourSchema = joi.object({
-  id: joi.string().hex().length(24).optional(),
-  title: Joi.string().min(1).max(100).optional(),
-  description: Joi.string().min(10).max(20000).optional(),
-  destination: Joi.string().hex().length(24).optional(),
+  id: joi.string().hex().length(24).required(),
+  title: localizedSchema.optional(),
+  description: localizedSchema.optional(),
+  category: localizedSchema.optional(),
+  historyBrief: localizedSchema.optional(),
+
+  destination: joi.string().hex().length(24).optional(),
 
   mainImg: imgSchema.optional(),
-  images: Joi.array().items(imgSchema).min(1),
+  images: joi.array().items(imgSchema).min(1).optional(),
 
-  category: Joi.string().optional(),
-  options: options,
-  isRepeated: Joi.boolean(),
-  hasOffer: Joi.boolean(),
+  date: joi
+    .object({
+      from: joi.date().optional(),
+      to: joi.date().optional(),
+    })
+    .optional(),
 
-  repeatTime: Joi.array().items(Joi.string().min(1).max(10)).min(1),
-  repeatDays: repeatDays,
+  features: joi.array().items(localizedSchema),
+  includes: joi.array().items(localizedSchema),
+  notIncludes: joi.array().items(localizedSchema),
+  tags: joi.array().items(localizedSchema),
+
+  repeatTime: joi.array().items(joi.string().min(1).max(10)).min(1),
+  repeatDays: repeatDays.min(1),
 
   location: location.optional(),
-  mapDetails: Joi.string(),
+  mapDetails: joi.string().allow(""),
 
-  inclusions: Joi.array().items(Joi.string().min(5).max(100)),
-  exclusions: Joi.array().items(Joi.string().min(5).max(100)),
+  options: options.min(1).optional(),
+  isRepeated: joi.boolean().optional(),
+  hasOffer: joi.boolean(),
 
   adultPricing: adultPricing.min(1).optional(),
-  childrenPricing: childrenPricing,
+  childrenPricing: childrenPricing.min(0),
 
-  duration: Joi.string().min(1).max(20).optional(),
+  duration: joi.string().min(1).max(20).optional(),
+  durationInMinutes: joi.number().min(0),
+  durationInDays: joi.number().min(0),
 
-  itinerary: Joi.array().items(itineraySchema).min(1),
+  itinerary: joi.array().items(itinerarySchema).min(1).optional(),
 
-  tags: Joi.array().items(Joi.string().min(2).max(50)),
-  historyBrief: Joi.string().min(1),
-
-  date: Joi.object({
-    from: Joi.date().optional(),
-    to: Joi.date().optional(),
-  }),
-  features: Joi.array().items(Joi.string()),
-  includes: Joi.array().items(Joi.string()),
-  notIncludes: Joi.array().items(Joi.string()),
-  discountPercent: Joi.number().min(0).max(100),
-  durationInMinutes: Joi.number().min(0),
-  durationInDays: Joi.number().min(0),
+  discountPercent: joi.number().min(0).max(100),
 });

@@ -19,7 +19,15 @@ export class ApiFeature {
 
   filter() {
     let filterobj = { ...this.queryString };
-    const excludeQuary = ["page", "sort", "fields", "keyword", "limit"];
+    const excludeQuary = [
+      "page",
+      "sort",
+      "fields",
+      "keyword",
+      "limit",
+      "locale",
+      "category",
+    ];
     excludeQuary.forEach((q) => {
       delete filterobj[q];
     });
@@ -59,20 +67,34 @@ export class ApiFeature {
     }
     return this;
   }
-
   search() {
     if (this.queryString.keyword) {
       const keyword = this.queryString.keyword;
-
+      const locale =
+        this.queryString.locale === "all"
+          ? "en"
+          : this.queryString.locale || "en";
+      const regex = new RegExp(keyword, "i");
       const searchQuery = {
         $or: [
-          { title: { $regex: keyword, $options: "i" } },
-          { description: { $regex: keyword, $options: "i" } },
-          { category: { $regex: keyword, $options: "i" } },
-          { bookingReference: { $regex: keyword, $options: "i" } },
-          { country: { $regex: keyword, $options: "i" } },
-          { city: { $regex: keyword, $options: "i" } },
+          { [`title.${locale}`]: regex },
+          { [`description.${locale}`]: regex },
+          { [`category.${locale}`]: regex },
+          { [`country.${locale}`]: regex },
+          { [`city.${locale}`]: regex },
+          { bookingReference: regex },
         ],
+      };
+
+      this.mongoseQuery.find(searchQuery);
+    }
+
+    if (this.queryString.category) {
+      const category = this.queryString.category;
+      const locale = this.queryString.locale || "en";
+      const regex = new RegExp(category, "i");
+      const searchQuery = {
+        $or: [{ [`category.${locale}`]: regex }],
       };
 
       this.mongoseQuery.find(searchQuery);
@@ -95,21 +117,37 @@ export class ApiFeature {
   }
 
   async getTotalCount() {
-    const countQuery = this.mongoseQuery.model.find();
+    const locale = this.queryString.locale || "en";
+    const keyword = this.queryString.keyword;
+    const category = this.queryString.category;
+    const regexKeyword = keyword ? new RegExp(keyword, "i") : null;
+    const regexCategory = category ? new RegExp(category, "i") : null;
 
-    if (this.queryString.keyword) {
-      const keyword = this.queryString.keyword;
-      countQuery.find({
-        $or: [
-          { title: { $regex: keyword, $options: "i" } },
-          { description: { $regex: keyword, $options: "i" } },
-          { category: { $regex: keyword, $options: "i" } },
-          { tags: { $in: [new RegExp(keyword, "i")] } },
-        ],
-      });
+    const filter = {};
+
+    // Add search conditions
+    if (regexKeyword) {
+      filter.$or = [
+        { [`title.${locale}`]: regexKeyword },
+        { [`description.${locale}`]: regexKeyword },
+        { [`category.${locale}`]: regexKeyword },
+        { [`country.${locale}`]: regexKeyword },
+        { [`city.${locale}`]: regexKeyword },
+        { bookingReference: regexKeyword },
+      ];
     }
 
-    return await countQuery.countDocuments();
+    // Add category filter if provided
+    if (regexCategory) {
+      // Merge with existing $or if already set
+      if (filter.$or) {
+        filter.$or.push({ [`category.${locale}`]: regexCategory });
+      } else {
+        filter.$or = [{ [`category.${locale}`]: regexCategory }];
+      }
+    }
+
+    return await this.mongoseQuery.model.countDocuments(filter);
   }
 
   getPaginationMeta(totalCount) {

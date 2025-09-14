@@ -27,6 +27,7 @@ export const subscriptionSchema = joi.object({
       })
     )
     .optional(),
+    locale: joi.string().valid("en","es","ar")
 });
 
 export const updateCartSchema = joi.object({

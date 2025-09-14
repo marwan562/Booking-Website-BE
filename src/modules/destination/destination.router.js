@@ -8,6 +8,7 @@ import {
   createDestinationSchema,
   updatedDestinationSchema,
 } from "./destination.validation.js";
+import { parseJsonFields } from "../../middlewares/parseJsonFieldsMiddleware.js";
 
 const destinationRouter = Router();
 
@@ -22,6 +23,7 @@ destinationRouter
     allowedTo("admin"),
     uploadMixfile([{ name: "mainImg", maxCount: 1 }]),
     saveImg,
+    parseJsonFields,
     validation(createDestinationSchema),
     Destination.createDestination
   )
@@ -37,12 +39,13 @@ destinationRouter
     allowedTo("admin"),
     uploadMixfile([{ name: "mainImg", maxCount: 1 }]),
     saveImg,
+    parseJsonFields,
     validation(updatedDestinationSchema),
     Destination.updateDestination
   );
 
 destinationRouter
-  .route("/:destination/tours")
+  .route("/:id/tours")
   .get(Destination.getDestinationTours);
 destinationRouter.route("/:id/stats").get(Destination.getDestinationStats);
 destinationRouter

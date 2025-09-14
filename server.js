@@ -9,7 +9,6 @@ import {
   securityHeaders,
   sanitizeData,
   requestSizeLimit,
-  // apiLimiter,
   corsOptions,
 } from "./src/middlewares/security.js";
 import logger from "./logs/logger.js";
@@ -76,9 +75,6 @@ if (process.env.NODE_ENV === "development") {
 } else {
   app.use(morgan("combined", { stream }));
 }
-
-// Global rate limiting
-// app.use("/api", apiLimiter);
 
 // Routes
 app.use("/api", router);

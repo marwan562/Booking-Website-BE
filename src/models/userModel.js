@@ -54,7 +54,6 @@ const schema = new Schema(
 );
 
 // Performance indexes for common queries
-schema.index({ email: 1 });
 schema.index({ createdAt: -1 });
 
 // Pre-save middleware for password hashing

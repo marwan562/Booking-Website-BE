@@ -5,6 +5,7 @@ import { uploadMixfile } from "../../middlewares/fileUpload.js";
 import { saveImg } from "../../middlewares/uploadToCloud.js";
 import { validation } from "../../middlewares/validation.js";
 import { createTourSchema, updatedTourSchema } from "./tour.validation.js";
+import { parseJsonFields } from "../../middlewares/parseJsonFieldsMiddleware.js";
 const tourRouter = Router();
 
 tourRouter.route("/order").patch(auth, Tour.orderTour);
@@ -22,6 +23,7 @@ tourRouter
       { name: "images", maxCount: 10 },
     ]),
     saveImg,
+    parseJsonFields,
     validation(createTourSchema),
     Tour.createTour
   )
@@ -30,22 +32,22 @@ tourRouter
 tourRouter.route("/search", Tour.searchTours);
 tourRouter.route("/categories").get(Tour.getCategories);
 
+tourRouter.route("/:slug").get(Tour.getTourBySlug);
+
 tourRouter
-  .route("/:slug")
-  .get(Tour.getTourBySlug)
-  .delete(auth, allowedTo("admin"), Tour.deleteTour);
-
-tourRouter.route("/:id").patch(
-  auth,
-  allowedTo("admin"),
-  uploadMixfile([
-    { name: "mainImg", maxCount: 1 },
-    { name: "images", maxCount: 10 },
-  ]),
-  saveImg,
-  validation(updatedTourSchema),
-  Tour.updateTour
-);
-
+  .route("/:id")
+  .delete(auth, allowedTo("admin"), Tour.deleteTour)
+  .patch(
+    auth,
+    allowedTo("admin"),
+    uploadMixfile([
+      { name: "mainImg", maxCount: 1 },
+      { name: "images", maxCount: 10 },
+    ]),
+    saveImg,
+    parseJsonFields,
+    validation(updatedTourSchema),
+    Tour.updateTour
+  );
 
 export default tourRouter;

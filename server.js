@@ -9,24 +9,14 @@ import {
   securityHeaders,
   sanitizeData,
   requestSizeLimit,
-  corsOptions,
 } from "./src/middlewares/security.js";
 import logger from "./logs/logger.js";
 import { AppError } from "./src/utilities/AppError.js";
 import customErrorHandler from "./src/middlewares/customErrorHandler.js";
-import "dotenv/config";
 import paymentRouter from "./src/modules/payment/payment.router.js";
+import "dotenv/config";
 
 const app = express();
-
-// Stripe webhook
-app.use(
-  "/api/payment/webhook",
-  express.raw({ type: "application/json" }),
-  paymentRouter
-);
-
-console.log("Loaded ENV:", process.env.NODE_ENV);
 
 // Connect to database
 try {
@@ -35,6 +25,13 @@ try {
 } catch (err) {
   logger.error(`Database connection failed: ${err.message}`);
 }
+
+// Stripe webhook
+app.use(
+  "/api/payment/webhook",
+  express.raw({ type: "application/json" }),
+  paymentRouter
+);
 
 app.use(
   compression({

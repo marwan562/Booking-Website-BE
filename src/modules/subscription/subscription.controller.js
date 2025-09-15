@@ -18,6 +18,12 @@ const transformTour = (tour, locale) => {
     title: getLocalizedValue(tour.title, locale),
     slug: getLocalizedValue(tour.slug, locale),
     description: getLocalizedValue(tour.description, locale),
+    location: tour.location
+      ? {
+          from: getLocalizedValue(tour.location.from, locale),
+          to: getLocalizedValue(tour.location.to, locale),
+        }
+      : null,
     features: tour.features
       ? tour.features.map((f) => getLocalizedValue(f, locale))
       : [],
@@ -249,6 +255,13 @@ function localizeData(data, locale = "en") {
               "title",
               locale
             ),
+            location: {
+              to: getLocalizedValue(
+                localizedBooking.tourDetails.location,
+                "to",
+                locale
+              ),
+            },
             features: Array.isArray(localizedBooking.tourDetails.features)
               ? localizedBooking.tourDetails.features.map((feature) =>
                   getLocalizedValue({ feature }, "feature", locale)
@@ -259,7 +272,6 @@ function localizeData(data, locale = "en") {
         return localizedBooking;
       });
     }
-
     localizedItem.city = getLocalizedValue(localizedItem, "city", locale);
     localizedItem.country = getLocalizedValue(localizedItem, "country", locale);
 
@@ -331,6 +343,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
                   hasOffer: "$tourDetails.hasOffer",
                   totalReviews: "$tourDetails.totalReviews",
                   averageRating: "$tourDetails.averageRating",
+                  location: "$tourDetails.location",
                   price: "$tourDetails.price",
                   duration: "$tourDetails.duration",
                   date: "$tourDetails.date",
@@ -348,12 +361,6 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
             city: "$_id.city",
             destination: 1,
             bookings: 1,
-          },
-        },
-        {
-          $sort: {
-            "country.en": 1,
-            "city.en": 1,
           },
         },
       ]);
@@ -687,6 +694,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
                 discountPercent: "$tourDetails.discountPercent",
                 hasOffer: "$tourDetails.hasOffer",
                 totalReviews: "$tourDetails.totalReviews",
+                location: "$tourDetails.location",
                 averageRating: "$tourDetails.averageRating",
                 price: "$tourDetails.price",
                 duration: "$tourDetails.duration",
@@ -705,12 +713,6 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
           city: "$_id.city",
           destination: 1,
           bookings: 1,
-        },
-      },
-      {
-        $sort: {
-          country: 1,
-          city: 1,
         },
       },
     ]);

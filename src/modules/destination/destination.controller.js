@@ -519,6 +519,7 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
   const transformedTours = tours.map((tour) => ({
     ...tour,
     title: getLocalizedValue(tour.title, locale),
+    slug: getLocalizedValue(tour.slug, locale),
     description: getLocalizedValue(tour.description, locale),
     category: getLocalizedValue(tour.category, locale),
     features: tour.features

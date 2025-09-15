@@ -16,6 +16,7 @@ const transformTour = (tour, locale) => {
   return {
     ...tour,
     title: getLocalizedValue(tour.title, locale),
+    slug: getLocalizedValue(tour.slug, locale),
     description: getLocalizedValue(tour.description, locale),
     features: tour.features
       ? tour.features.map((f) => getLocalizedValue(f, locale))
@@ -383,7 +384,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       return next(new AppError("No subscriptions found.", 404));
     }
 
-     const transformedSubscriptions = result.map((booking) => ({
+    const transformedSubscriptions = result.map((booking) => ({
       ...booking,
       tourDetails: transformTour(booking.tourDetails, locale),
     }));

@@ -56,11 +56,7 @@ app.use(securityHeaders);
 app.use(sanitizeData);
 
 // CORS configuration
-app.use(cors({
-  origin: "*",
-  methods: ["GET","POST","PUT","DELETE","PATCH"],
-  credentials: true
-}));
+app.use(cors());
 
 // Request parsing cookies
 app.use(cookieParser());

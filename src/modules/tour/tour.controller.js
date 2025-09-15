@@ -16,6 +16,7 @@ const transformTour = (tour, locale = "en") => {
   const transformed = { ...tour };
 
   transformed.title = getLocalizedValue(tour.title, locale);
+  transformed.slug = getLocalizedValue(tour.slug, locale);
   transformed.description = getLocalizedValue(tour.description, locale);
   transformed.category = getLocalizedValue(tour.category, locale);
   transformed.historyBrief = getLocalizedValue(tour.historyBrief, locale);
@@ -270,10 +271,12 @@ export const getTourBySlug = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Slug is required", 400));
   }
 
-  const tour = await tourModel.findOne({ slug }).populate({
-    path: "destination",
-    select: "city country",
-  });
+  const tour = await tourModel
+    .findOne({ $or: [{ [`slug.${locale}`]: slug }] })
+    .populate({
+      path: "destination",
+      select: "city country",
+    });
 
   if (!tour) {
     return next(new AppError("Tour not found", 404));
@@ -309,8 +312,9 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
   if (!result || result.length === 0) {
     return next(new AppError("No tours found", 404));
   }
-  console.log(locale)
-  const transformedTours = locale === "all" ? result : transformTours(result, locale);
+  console.log(locale);
+  const transformedTours =
+    locale === "all" ? result : transformTours(result, locale);
   res.status(200).json({
     status: "success",
     data: {

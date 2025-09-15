@@ -228,6 +228,7 @@ const transformTour = (tour, locale) => {
   return {
     ...tour,
     title: getLocalizedValue(tour.title, locale),
+    slug: getLocalizedValue(tour.slug, locale),
     description: getLocalizedValue(tour.description, locale),
     category: getLocalizedValue(tour.category, locale),
     destination: transformDestination(tour.destination, locale),
@@ -256,11 +257,7 @@ const addToWishList = catchAsyncError(async (req, res, next) => {
   }
 
   const user = await userModel
-    .findByIdAndUpdate(
-      _id,
-      { $addToSet: { wishList: id } },
-      { new: true }
-    )
+    .findByIdAndUpdate(_id, { $addToSet: { wishList: id } }, { new: true })
     .populate({
       path: "wishList",
       select:
@@ -277,7 +274,9 @@ const addToWishList = catchAsyncError(async (req, res, next) => {
     return next(new AppError("User not found!", 404));
   }
 
-  const transformedWishlist = user.wishList.map((tour) => transformTour(tour, locale));
+  const transformedWishlist = user.wishList.map((tour) =>
+    transformTour(tour, locale)
+  );
 
   res.status(200).json({
     status: "success",
@@ -315,11 +314,7 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
   }
 
   const updatedUser = await userModel
-    .findByIdAndUpdate(
-      _id,
-      { $pull: { wishList: id } },
-      { new: true }
-    )
+    .findByIdAndUpdate(_id, { $pull: { wishList: id } }, { new: true })
     .populate({
       path: "wishList",
       select:
@@ -332,7 +327,9 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
     })
     .lean();
 
-  const transformedWishlist = updatedUser.wishList.map((tour) => transformTour(tour, locale));
+  const transformedWishlist = updatedUser.wishList.map((tour) =>
+    transformTour(tour, locale)
+  );
 
   res.status(200).json({
     status: "success",
@@ -371,7 +368,9 @@ const getWishlist = catchAsyncError(async (req, res, next) => {
     return next(new AppError("No tours found in wishlist", 404));
   }
 
-  const transformedWishlist = user.wishList.map((tour) => transformTour(tour, locale));
+  const transformedWishlist = user.wishList.map((tour) =>
+    transformTour(tour, locale)
+  );
 
   res.status(200).json({
     status: "success",

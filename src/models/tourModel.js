@@ -4,7 +4,7 @@ import slugify from "slugify";
 const localizedSchema = new Schema(
   {
     en: { type: String, required: true },
-    ar: { type: String, required: true},
+    ar: { type: String, required: true },
     es: { type: String, required: true },
   },
   { _id: false }
@@ -13,7 +13,7 @@ const localizedSchema = new Schema(
 const schema = new Schema(
   {
     title: { type: localizedSchema, required: true },
-    slug: { type: String, unique: true },
+    slug: { type: localizedSchema, unique: true },
     description: { type: localizedSchema, required: true },
 
     destination: {
@@ -150,20 +150,42 @@ schema.index({
 });
 
 schema.pre("save", async function (next) {
-  if (this.isModified("title.en")) {
-    let baseSlug = slugify(this.title.en, { lower: true, strict: true });
-    let slug = baseSlug;
-    let count = 1;
+  const langs = ["en", "ar", "es"];
+  const isNewDoc = this.isNew;
 
-    while (await this.constructor.findOne({ slug })) {
-      slug = `${baseSlug}-${count}`;
-      count++;
+  if (
+    langs.some((lang) => this.isModified(`title.${lang}`)) ||
+    !this.slug ||
+    isNewDoc
+  ) {
+    this.slug = this.slug || {};
+
+    for (const lang of langs) {
+      if (this.isModified(`title.${lang}`) || !this.slug[lang]) {
+        const baseSlug = slugify(this.title[lang], {
+          lower: true,
+          strict: true,
+        });
+
+        let slug = baseSlug;
+        let count = 1;
+
+        while (
+          await this.constructor.findOne({
+            [`slug.${lang}`]: slug,
+            _id: { $ne: this._id },
+          })
+        ) {
+          slug = `${baseSlug}-${count}`;
+          count++;
+        }
+
+        this.slug[lang] = slug;
+      }
     }
-
-    this.slug = slug;
   }
 
-  if (!this.price && this.adultPricing && this.adultPricing.length > 0) {
+  if (!this.price && this.adultPricing?.length > 0) {
     this.price = this.adultPricing[0].totalPrice;
   }
 

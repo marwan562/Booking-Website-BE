@@ -61,6 +61,7 @@ const buildTourMatchStage = ({
   dateFrom,
   dateTo,
   startTime,
+  locale = "en",
 }) => {
   const matchStage = {};
 
@@ -75,7 +76,7 @@ const buildTourMatchStage = ({
       ? category
       : category.split(",").map((c) => c.trim());
 
-    matchStage["category.en"] = { $in: categories };
+    matchStage[`category.${locale}`] = { $in: categories };
   }
 
   if (features && features.length > 0) {
@@ -83,7 +84,7 @@ const buildTourMatchStage = ({
       ? features
       : features.split(",").map((f) => f.trim());
 
-    matchStage["features.en"] = { $all: featureList };
+    matchStage[`features.${locale}`] = { $all: featureList };
   }
 
   if (priceMin || priceMax) {
@@ -352,6 +353,7 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
     const transformedTours = tours.map((tour) => ({
       ...tour,
       title: getLocalizedValue(tour.title, locale),
+      slug: getLocalizedValue(tour.slug, locale),
       description: getLocalizedValue(tour.description, locale),
       category: getLocalizedValue(tour.category, locale),
       features: tour.features

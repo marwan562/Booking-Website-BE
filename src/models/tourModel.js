@@ -149,6 +149,13 @@ schema.index({
   createdAt: -1,
 });
 
+const slugifyArabic = (text) => {
+  return text
+    .trim()
+    .replace(/[؟،!.,;:"'«»()]/g, "") 
+    .replace(/\s+/g, "-");
+};
+
 schema.pre("save", async function (next) {
   const langs = ["en", "ar", "es"];
   const isNewDoc = this.isNew;
@@ -161,11 +168,21 @@ schema.pre("save", async function (next) {
     this.slug = this.slug || {};
 
     for (const lang of langs) {
+      if (!this.title?.[lang]) continue;
+
       if (this.isModified(`title.${lang}`) || !this.slug[lang]) {
-        const baseSlug = slugify(this.title[lang], {
-          lower: true,
-          strict: true,
-        });
+        let baseSlug;
+
+        if (lang === "ar") {
+          baseSlug = slugifyArabic(this.title[lang]);
+        } else {
+          baseSlug = slugify(this.title[lang], {
+            lower: true,
+            locale: lang,
+            trim: true,
+            remove: /[*+~.()'"!:@،؟]/g,
+          });
+        }
 
         let slug = baseSlug;
         let count = 1;

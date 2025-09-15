@@ -272,7 +272,13 @@ export const getTourBySlug = catchAsyncError(async (req, res, next) => {
   }
 
   const tour = await tourModel
-    .findOne({ $or: [{ [`slug.${locale}`]: slug }] })
+    .findOne({
+      $or: [
+        { [`slug.es`]: slug },
+        { [`slug.en`]: slug },
+        { [`slug.ar`]: slug },
+      ],
+    })
     .populate({
       path: "destination",
       select: "city country",

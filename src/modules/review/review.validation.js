@@ -14,7 +14,7 @@ export const createReviewSchema = Joi.object({
     "any.required": "Rating is required",
   }),
   comment: Joi.string().max(7000),
-  images: Joi.array().items(imgSchema).optional(),
+  images: Joi.any().optional(),
 });
 
 export const editReviewSchema = Joi.object({

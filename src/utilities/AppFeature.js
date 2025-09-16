@@ -83,6 +83,9 @@ export class ApiFeature {
           { [`country.${locale}`]: regex },
           { [`city.${locale}`]: regex },
           { bookingReference: regex },
+          { name: regex },
+          { lastname: regex },
+          { email: regex },
         ],
       };
 
@@ -94,9 +97,12 @@ export class ApiFeature {
       const locale = this.queryString.locale || "en";
       const regex = new RegExp(category, "i");
       const searchQuery = {
-        $or: [{ [`category.${locale}`]: regex }],
+        $or: [
+          { [`category.en`]: regex },
+          { [`category.ar`]: regex },
+          { [`category.es`]: regex },
+        ],
       };
-
       this.mongoseQuery.find(searchQuery);
     }
     return this;

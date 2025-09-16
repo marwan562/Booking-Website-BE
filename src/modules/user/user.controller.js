@@ -101,7 +101,7 @@ const register = catchAsyncError(async (req, res, next) => {
 });
 
 const getAllUsers = catchAsyncError(async (req, res, next) => {
-  const apiFeature = new ApiFeature(userModel.find(), req.query)
+  const apiFeature = new ApiFeature(userModel.find({}), req.query)
     .paginate()
     .fields()
     .filter()

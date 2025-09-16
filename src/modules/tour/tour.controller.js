@@ -318,7 +318,6 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
   if (!result || result.length === 0) {
     return next(new AppError("No tours found", 404));
   }
-  console.log(locale);
   const transformedTours =
     locale === "all" ? result : transformTours(result, locale);
   res.status(200).json({

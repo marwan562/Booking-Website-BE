@@ -1,4 +1,13 @@
 import joi from "joi";
+
+const schemaPassengers = joi.object({
+  name: joi.string().min(2).max(50).required(),
+  lastName: joi.string().min(2).max(50).required(),
+  passport: joi.string().empty("").optional(),
+  dateOfBirth: joi.string().optional(),
+  nationality: joi.string().required(),
+});
+
 export const subscriptionSchema = joi.object({
   id: joi.string().hex().length(24).required(),
   adultPricing: joi.string().hex().length(24).required(),
@@ -27,6 +36,7 @@ export const subscriptionSchema = joi.object({
       })
     )
     .optional(),
+  passengers: joi.array().items(schemaPassengers),
   locale: joi.string().valid("en", "es", "ar"),
 });
 

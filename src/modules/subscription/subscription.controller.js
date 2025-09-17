@@ -115,8 +115,7 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     fetchingOptions.forEach((option) => {
       options.forEach((inputOption) => {
         if (option._id.toString() === inputOption.id) {
-
-          option.name = option[locale] || option["en"]
+          option.name = option[locale] || option["en"];
           option.number = inputOption.number || 0;
           option.numberOfChildren = inputOption.numberOfChildren || 0;
 
@@ -257,6 +256,11 @@ function localizeData(data, locale = "en") {
               "title",
               locale
             ),
+            slug: getLocalizedValue(
+              localizedBooking.tourDetails,
+              "slug",
+              locale
+            ),
             location: {
               to: getLocalizedValue(
                 localizedBooking.tourDetails.location,
@@ -317,8 +321,8 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
         {
           $group: {
             _id: {
-              country: "$destination.country",
-              city: "$destination.city",
+              country: `$destination.country.${locale}`,
+              city: `$destination.city.${locale}`,
             },
             destination: { $first: "$destination" },
             bookings: {
@@ -345,7 +349,6 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
                   hasOffer: "$tourDetails.hasOffer",
                   totalReviews: "$tourDetails.totalReviews",
                   averageRating: "$tourDetails.averageRating",
-                  location: "$tourDetails.location",
                   price: "$tourDetails.price",
                   duration: "$tourDetails.duration",
                   date: "$tourDetails.date",
@@ -365,10 +368,16 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
             bookings: 1,
           },
         },
+        {
+          $sort: {
+            "_id.country": 1,
+            "_id.city": 1,
+          },
+        },
       ]);
 
       if (!result || result.length === 0) {
-        return next(new AppError("No upcoming bookings found.", 404));
+        return next(new AppError("No bookings by destination found.", 404));
       }
 
       return res
@@ -640,6 +649,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
   const { sortby, locale = "en" } = req.query;
 
   if (sortby === "by-destination") {
+    console.log("Sortby:", sortby);
     const result = await subscriptionModel.aggregate([
       {
         $match: {
@@ -696,7 +706,6 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
                 discountPercent: "$tourDetails.discountPercent",
                 hasOffer: "$tourDetails.hasOffer",
                 totalReviews: "$tourDetails.totalReviews",
-                location: "$tourDetails.location",
                 averageRating: "$tourDetails.averageRating",
                 price: "$tourDetails.price",
                 duration: "$tourDetails.duration",
@@ -717,10 +726,16 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
           bookings: 1,
         },
       },
+      {
+        $sort: {
+          country: 1,
+          city: 1,
+        },
+      },
     ]);
 
     if (!result || result.length === 0) {
-      return next(new AppError("No upcoming bookings found.", 404));
+      return next(new AppError("No Bookings by destination found.", 404));
     }
 
     return res

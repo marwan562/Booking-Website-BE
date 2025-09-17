@@ -62,6 +62,7 @@ const verifyUser = catchAsyncError(async (req, res, next) => {
 const register = catchAsyncError(async (req, res, next) => {
   const {
     name,
+    lastname,
     email,
     password,
     rePassword,
@@ -81,6 +82,7 @@ const register = catchAsyncError(async (req, res, next) => {
 
   const user = await userModel.create({
     name,
+    lastname,
     email,
     password,
     age,

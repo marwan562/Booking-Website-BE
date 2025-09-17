@@ -115,6 +115,8 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     fetchingOptions.forEach((option) => {
       options.forEach((inputOption) => {
         if (option._id.toString() === inputOption.id) {
+
+          option.name = option[locale] || option["en"]
           option.number = inputOption.number || 0;
           option.numberOfChildren = inputOption.numberOfChildren || 0;
 

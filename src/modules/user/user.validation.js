@@ -78,13 +78,13 @@ const userSchemaCreate = joi.object({
   avatar: joi.object({
     url: joi.string().uri(),
     public_id: joi.string(),
-  }),
-  age: joi.number().min(17).max(100),
-  nationality: joi.string(),
+  }).optional(),
+  age: joi.number().min(17).max(100).optional(),
+  nationality: joi.string().optional(),
   phone: phoneSchema,
   city: joi.string().optional(),
   instagram: joi.string().optional(),
-  gender: joi.string().valid("male", "female", "other").required(),
+  gender: joi.string().valid("male", "female", "other").optional(),
 });
 
 const userSchemaUpdate = joi.object({
@@ -101,16 +101,16 @@ const userSchemaUpdate = joi.object({
     url: joi.string().uri(),
     public_id: joi.string(),
   }),
-  age: joi.number().integer().min(1).max(120),
+  age: joi.number().integer().min(1).max(120).optional(),
   role: joi.string().valid("user", "admin").optional(),
   nationality: joi
     .string()
     .min(2)
     .max(50)
-    .pattern(/^[a-zA-Z\s]+$/),
+    .pattern(/^[a-zA-Z\s]+$/).optional(),
   phone: phoneSchema.optional(),
   verified: joi.boolean().optional(),
-  nationality: joi.string(),
+  nationality: joi.string().optional(),
   gender: joi.string().valid("male", "female", "other").messages({
     "any.only": "Gender must be one of Male, Female, or Other",
   }),

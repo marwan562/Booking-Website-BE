@@ -18,9 +18,9 @@ const schema = new Schema(
     },
     city: { type: String, required: false },
     instagram: { type: String, required: false },
-    age: { type: Number, required: true },
+    age: { type: Number, required: false },
     avatar: { url: { type: String }, public_id: { type: String } },
-    nationality: { type: String, required: true },
+    nationality: { type: String, required: false },
     gender: {
       type: String,
       required: true,

@@ -10,6 +10,9 @@ const localizedStringSchema = joi.object({
   es: joi.string().messages({
     "string.empty": "Spanish value is required",
   }),
+  fr: joi.string().messages({
+    "string.empty": "French value is required",
+  }),
 });
 
 const imageSchema = joi.object({

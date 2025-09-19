@@ -1,3 +1,9 @@
+import { 
+  buildLocalizedSearchQuery, 
+  buildCategorySearchQuery, 
+  getSupportedLocales 
+} from "./localizationUtils.js";
+
 export class ApiFeature {
   constructor(mongoseQuery, queryString) {
     this.mongoseQuery = mongoseQuery;
@@ -74,20 +80,20 @@ export class ApiFeature {
         this.queryString.locale === "all"
           ? "en"
           : this.queryString.locale || "en";
+      
+      // Use centralized search query builder
+      const searchQuery = buildLocalizedSearchQuery(keyword, locale, [
+        "title", "description", "category", "country", "city"
+      ]);
+      
+      // Add non-localized fields
       const regex = new RegExp(keyword, "i");
-      const searchQuery = {
-        $or: [
-          { [`title.${locale}`]: regex },
-          { [`description.${locale}`]: regex },
-          { [`category.${locale}`]: regex },
-          { [`country.${locale}`]: regex },
-          { [`city.${locale}`]: regex },
-          { bookingReference: regex },
-          { name: regex },
-          { lastname: regex },
-          { email: regex },
-        ],
-      };
+      searchQuery.$or.push(
+        { bookingReference: regex },
+        { name: regex },
+        { lastname: regex },
+        { email: regex }
+      );
 
       this.mongoseQuery.find(searchQuery);
     }
@@ -95,14 +101,9 @@ export class ApiFeature {
     if (this.queryString.category) {
       const category = this.queryString.category;
       const locale = this.queryString.locale || "en";
-      const regex = new RegExp(category, "i");
-      const searchQuery = {
-        $or: [
-          { [`category.en`]: regex },
-          { [`category.ar`]: regex },
-          { [`category.es`]: regex },
-        ],
-      };
+      
+      // Use centralized category search query builder
+      const searchQuery = buildCategorySearchQuery(category, locale);
       this.mongoseQuery.find(searchQuery);
     }
     return this;
@@ -126,30 +127,34 @@ export class ApiFeature {
     const locale = this.queryString.locale || "en";
     const keyword = this.queryString.keyword;
     const category = this.queryString.category;
-    const regexKeyword = keyword ? new RegExp(keyword, "i") : null;
-    const regexCategory = category ? new RegExp(category, "i") : null;
 
     const filter = {};
 
-    // Add search conditions
-    if (regexKeyword) {
-      filter.$or = [
-        { [`title.${locale}`]: regexKeyword },
-        { [`description.${locale}`]: regexKeyword },
-        { [`category.${locale}`]: regexKeyword },
-        { [`country.${locale}`]: regexKeyword },
-        { [`city.${locale}`]: regexKeyword },
-        { bookingReference: regexKeyword },
-      ];
+    // Add search conditions using centralized functions
+    if (keyword) {
+      const searchQuery = buildLocalizedSearchQuery(keyword, locale, [
+        "title", "description", "category", "country", "city"
+      ]);
+      
+      // Add non-localized fields
+      const regex = new RegExp(keyword, "i");
+      searchQuery.$or.push({ bookingReference: regex });
+      
+      filter.$or = searchQuery.$or;
     }
 
     // Add category filter if provided
-    if (regexCategory) {
-      // Merge with existing $or if already set
+    if (category) {
+      const categoryQuery = buildCategorySearchQuery(category, locale);
+      
       if (filter.$or) {
-        filter.$or.push({ [`category.${locale}`]: regexCategory });
+        filter.$and = [
+          { $or: filter.$or },
+          { $or: categoryQuery.$or }
+        ];
+        delete filter.$or;
       } else {
-        filter.$or = [{ [`category.${locale}`]: regexCategory }];
+        filter.$or = categoryQuery.$or;
       }
     }
 

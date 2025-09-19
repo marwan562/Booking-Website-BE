@@ -5,78 +5,28 @@ import { AppError } from "../../utilities/AppError.js";
 import { ApiFeature } from "../../utilities/AppFeature.js";
 import { ObjectId } from "mongodb";
 import destinationModel from "../../models/destinationModel.js";
+import { 
+  transformTour, 
+  transformTours, 
+  getLocalizedValue,
+  isValidLocale,
+  getSupportedLocales 
+} from "../../utilities/localizationUtils.js";
 
-const getLocalizedValue = (field, locale = "en") => {
-  if (!field || typeof field !== "object") return field;
-  return field[locale] || field.en || field[Object.keys(field)[0]] || "";
-};
-
-const transformTour = (tour, locale = "en") => {
-  if (!tour) return null;
-  const transformed = { ...tour };
-
-  transformed.title = getLocalizedValue(tour.title, locale);
-  transformed.slug = getLocalizedValue(tour.slug, locale);
-  transformed.description = getLocalizedValue(tour.description, locale);
-  transformed.category = getLocalizedValue(tour.category, locale);
-  transformed.historyBrief = getLocalizedValue(tour.historyBrief, locale);
-
-  transformed.location = {
-    from: getLocalizedValue(tour.location?.from, locale),
-    to: getLocalizedValue(tour.location?.to, locale),
-  };
-
-  if (tour.features) {
-    transformed.features = tour.features.map((feature) =>
-      getLocalizedValue(feature, locale)
-    );
-  }
-  if (tour.includes) {
-    transformed.includes = tour.includes.map((include) =>
-      getLocalizedValue(include, locale)
-    );
-  }
-  if (tour.notIncludes) {
-    transformed.notIncludes = tour.notIncludes.map((notInclude) =>
-      getLocalizedValue(notInclude, locale)
-    );
-  }
-  if (tour.tags) {
-    transformed.tags = tour.tags.map((tag) => getLocalizedValue(tag, locale));
-  }
-
-  if (tour.options) {
-    transformed.options = tour.options.map((option) => ({
-      ...option,
-      _id: option._id,
-      name: getLocalizedValue(option.name, locale),
-    }));
-  }
-
-  if (tour.itinerary) {
-    transformed.itinerary = tour.itinerary.map((item) => ({
-      ...item,
-      title: getLocalizedValue(item.title, locale),
-      subtitle: getLocalizedValue(item.subtitle, locale),
-    }));
-  }
-
-  if (tour.destination) {
-    transformed.destination = {
-      ...tour.destination,
-      city: getLocalizedValue(tour.destination.city, locale),
-      country: getLocalizedValue(tour.destination.country, locale),
-    };
-  }
-
-  return transformed;
-};
-
-export const transformTours = (tours, locale = "en") =>
-  tours.map((tour) => transformTour(tour, locale));
+// Re-export for backward compatibility
+export { transformTours };
 
 const getCategories = catchAsyncError(async (req, res) => {
   const { locale = "en" } = req.query;
+  
+  // Validate locale
+  if (!isValidLocale(locale)) {
+    return res.status(400).json({
+      status: "error",
+      message: `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+    });
+  }
+  
   try {
     const categories = await tourModel.aggregate([
       {
@@ -298,6 +248,11 @@ export const getTourBySlug = catchAsyncError(async (req, res, next) => {
 
 const getAllTour = catchAsyncError(async (req, res, next) => {
   const { locale = "en" } = req.query;
+  
+  // Validate locale
+  if (locale !== "all" && !isValidLocale(locale)) {
+    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}, or 'all'`, 400));
+  }
 
   const apiFeature = new ApiFeature(
     tourModel.find().populate({ path: "destination", select: "city country" }),
@@ -336,6 +291,11 @@ const getTourById = catchAsyncError(async (req, res, next) => {
   // Validate tour ID
   if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid tour ID", 400));
+  }
+
+  // Validate locale
+  if (!isValidLocale(locale)) {
+    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
   }
 
   // Use optimized query with lean
@@ -514,6 +474,11 @@ const searchTours = catchAsyncError(async (req, res, next) => {
 
   if (!q) {
     return next(new AppError("Search query is required", 400));
+  }
+
+  // Validate locale
+  if (!isValidLocale(locale)) {
+    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
   }
 
   const searchFields = [`title.${locale}`, `description.${locale}`];

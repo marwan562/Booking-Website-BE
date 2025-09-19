@@ -8,31 +8,22 @@ import tourModel from "../../models/tourModel.js";
 import reviewModel from "../../models/reviewModel.js";
 import { updatePopularDestinations } from "../../../utilities/updatePopularDestinations.js";
 import { scheduleJob } from "node-schedule";
-import { transformTours } from "../tour/tour.controller.js";
-
-const getLocalizedValue = (field, locale = "en") => {
-  if (!field || typeof field !== "object") return field;
-  return field[locale] || field.en || field[Object.keys(field)[0]] || "";
-};
-
-const transformDestination = (destination, locale = "en") => {
-  if (!destination) return null;
-  return {
-    ...destination,
-    city: getLocalizedValue(destination.city, locale),
-    country: getLocalizedValue(destination.country, locale),
-    description: getLocalizedValue(destination.description, locale),
-  };
-};
-
-const transformDestinations = (destinations, locale = "en") =>
-  destinations.map((dest) => transformDestination(dest, locale));
+import { 
+  transformTours,
+  transformDestination,
+  transformDestinations,
+  getLocalizedValue,
+  getLocalizedAggregationValue,
+  isValidLocale,
+  getSupportedLocales 
+} from "../../utilities/localizationUtils.js";
 
 const buildLocalizedQuery = (value) => ({
   $or: [
     { "city.en": { $regex: value, $options: "i" } },
     { "city.ar": { $regex: value, $options: "i" } },
     { "city.es": { $regex: value, $options: "i" } },
+    { "city.fr": { $regex: value, $options: "i" } },
   ].filter(Boolean),
 });
 
@@ -255,9 +246,8 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
   if (!destination) {
     return next(new AppError("Destination parameter is required", 400));
   }
-  const validLocales = ["en", "ar", "es"];
-  if (!validLocales.includes(locale)) {
-    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+  if (!isValidLocale(locale)) {
+    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
   }
 
   const destinationLower = destination.trim().toLowerCase();
@@ -281,9 +271,11 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
         { "city.en": { $regex: `^${destinationLower}$`, $options: "i" } },
         { "city.ar": { $regex: `^${destinationLower}$`, $options: "i" } },
         { "city.es": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "city.fr": { $regex: `^${destinationLower}$`, $options: "i" } },
         { "country.en": { $regex: `^${destinationLower}$`, $options: "i" } },
         { "country.ar": { $regex: `^${destinationLower}$`, $options: "i" } },
         { "country.es": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "country.fr": { $regex: `^${destinationLower}$`, $options: "i" } },
       ],
     })
     .lean();
@@ -295,7 +287,8 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
   const isCityMatch =
     destinationData.city?.en?.toLowerCase() === destinationLower ||
     destinationData.city?.ar?.toLowerCase() === destinationLower ||
-    destinationData.city?.es?.toLowerCase() === destinationLower;
+    destinationData.city?.es?.toLowerCase() === destinationLower ||
+    destinationData.city?.fr?.toLowerCase() === destinationLower;
 
   if (isCityMatch) {
     const matchStage = buildTourMatchStage({
@@ -365,7 +358,12 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
       tourModel
         .aggregate([
           { $match: { destination: destinationData._id } },
-          { $group: { _id: `$category.${locale}`, count: { $sum: 1 } } },
+          {
+            $addFields: {
+              categoryValue: getLocalizedAggregationValue("$category", locale)
+            }
+          },
+          { $group: { _id: "$categoryValue", count: { $sum: 1 } } },
           { $project: { _id: 0, category: "$_id", count: 1 } },
           { $sort: { category: 1 } },
         ])
@@ -379,7 +377,12 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
             },
           },
           { $unwind: "$features" },
-          { $group: { _id: `$features.${locale}`, count: { $sum: 1 } } },
+          {
+            $addFields: {
+              featureValue: getLocalizedAggregationValue("$features", locale)
+            }
+          },
+          { $group: { _id: "$featureValue", count: { $sum: 1 } } },
           { $project: { _id: 0, feature: "$_id", count: 1 } },
           { $sort: { feature: 1 } },
         ])
@@ -443,7 +446,8 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
   const isCountryMatch =
     destinationData.country?.en?.toLowerCase() === destinationLower ||
     destinationData.country?.ar?.toLowerCase() === destinationLower ||
-    destinationData.country?.es?.toLowerCase() === destinationLower;
+    destinationData.country?.es?.toLowerCase() === destinationLower ||
+    destinationData.country?.fr?.toLowerCase() === destinationLower;
 
   if (!isCountryMatch) {
     return next(new AppError("No matching city or country found", 404));
@@ -455,6 +459,7 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
         { "country.en": { $regex: `^${destinationLower}$`, $options: "i" } },
         { "country.ar": { $regex: `^${destinationLower}$`, $options: "i" } },
         { "country.es": { $regex: `^${destinationLower}$`, $options: "i" } },
+        { "country.fr": { $regex: `^${destinationLower}$`, $options: "i" } },
       ],
     })
     .lean();
@@ -541,6 +546,9 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
             {
               "country.es": { $regex: `^${destinationLower}$`, $options: "i" },
             },
+            {
+              "country.fr": { $regex: `^${destinationLower}$`, $options: "i" },
+            },
           ],
         },
       },
@@ -567,7 +575,12 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
     tourModel
       .aggregate([
         { $match: matchStage },
-        { $group: { _id: `$category.${locale}`, count: { $sum: 1 } } },
+        {
+          $addFields: {
+            categoryValue: getLocalizedAggregationValue("$category", locale)
+          }
+        },
+        { $group: { _id: "$categoryValue", count: { $sum: 1 } } },
         { $project: { _id: 0, category: "$_id", count: 1 } },
         { $sort: { category: 1 } },
       ])
@@ -576,7 +589,12 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
       .aggregate([
         { $match: { ...matchStage, features: { $exists: true, $ne: [] } } },
         { $unwind: "$features" },
-        { $group: { _id: `$features.${locale}`, count: { $sum: 1 } } },
+        {
+          $addFields: {
+            featureValue: getLocalizedAggregationValue("$features", locale)
+          }
+        },
+        { $group: { _id: "$featureValue", count: { $sum: 1 } } },
         { $project: { _id: 0, feature: "$_id", count: 1 } },
         { $sort: { feature: 1 } },
       ])
@@ -648,8 +666,8 @@ export const createDestination = catchAsyncError(async (req, res, next) => {
   if (!country)
     return next(new AppError("Missing required field: country", 400));
 
-  const cityValue = city?.en || city?.ar || city?.es || "";
-  const countryValue = country.en || country.ar || country.es || "";
+  const cityValue = city?.en || city?.ar || city?.es || city?.fr || "";
+  const countryValue = country.en || country.ar || country.es || country.fr || "";
   if (!cityValue || !countryValue)
     return next(new AppError("Missing city or country values", 400));
 

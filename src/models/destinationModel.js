@@ -5,6 +5,7 @@ const localizedSchema = new Schema(
     en: { type: String, required: true },
     ar: { type: String, required: true },
     es: { type: String, required: true },
+    fr: { type: String, required: true },
   },
   { _id: false }
 );

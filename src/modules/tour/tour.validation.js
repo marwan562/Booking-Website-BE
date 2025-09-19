@@ -26,6 +26,7 @@ const localizedSchema = joi.object({
   en: joi.string().required(),
   ar: joi.string().required(),
   es: joi.string().required(),
+  fr: joi.string().required(),
 });
 
 const repeatDays = joi

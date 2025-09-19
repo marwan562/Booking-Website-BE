@@ -5,30 +5,12 @@ import { AppError } from "../../utilities/AppError.js";
 import { ApiFeature } from "../../utilities/AppFeature.js";
 import schedule from "node-schedule";
 import mongoose, { Types } from "mongoose";
-
-const getLocalizedValue = (field, locale) => {
-  if (!field || typeof field !== "object") return "";
-  return field[locale] || field.en || "";
-};
-
-const transformTour = (tour, locale) => {
-  if (!tour) return null;
-  return {
-    ...tour,
-    title: getLocalizedValue(tour.title, locale),
-    slug: getLocalizedValue(tour.slug, locale),
-    description: getLocalizedValue(tour.description, locale),
-    location: tour.location
-      ? {
-          from: getLocalizedValue(tour.location.from, locale),
-          to: getLocalizedValue(tour.location.to, locale),
-        }
-      : null,
-    features: tour.features
-      ? tour.features.map((f) => getLocalizedValue(f, locale))
-      : [],
-  };
-};
+import { 
+  getLocalizedValue,
+  transformTour,
+  isValidLocale,
+  getSupportedLocales 
+} from "../../utilities/localizationUtils.js";
 
 const createSubscription = catchAsyncError(async (req, res, next) => {
   const { _id: userId } = req.user;
@@ -36,9 +18,8 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
   const { locale = "en" } = req.query;
 
   // Validate locale
-  const validLocales = ["en", "ar", "es"];
-  if (!validLocales.includes(locale)) {
-    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+  if (!isValidLocale(locale)) {
+    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
   }
 
   console.log("req.body", req.body);
@@ -607,9 +588,9 @@ const getAllCart = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const { locale = "en" } = req.query;
 
-  const validLocales = ["en", "ar", "es"];
+  const validLocales = ["en", "ar", "es", "fr"];
   if (!validLocales.includes(locale)) {
-    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+    return next(new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400));
   }
 
   // Use ApiFeature to build the query
@@ -929,9 +910,9 @@ const getSubscriptionsByRefs = catchAsyncError(async (req, res, next) => {
   const { refs } = req.query;
   const { locale = "en" } = req.query;
 
-  const validLocales = ["en", "ar", "es"];
+  const validLocales = ["en", "ar", "es", "fr"];
   if (!validLocales.includes(locale)) {
-    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+    return next(new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400));
   }
 
   if (!refs) {

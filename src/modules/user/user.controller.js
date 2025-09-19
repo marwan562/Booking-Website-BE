@@ -8,6 +8,13 @@ import jwt from "jsonwebtoken";
 import tourModel from "../../models/tourModel.js";
 import { AppError } from "../../utilities/AppError.js";
 import mongoose from "mongoose";
+import { 
+  getLocalizedValue,
+  transformDestination,
+  transformTour,
+  isValidLocale,
+  getSupportedLocales 
+} from "../../utilities/localizationUtils.js";
 
 const checkEmail = catchAsyncError(async (req, res, next) => {
   const { email } = req.body;
@@ -212,34 +219,7 @@ export const updateUser = catchAsyncError(async (req, res, next) => {
   res.status(200).send({ message: "User updated successfully", data: user });
 });
 
-// Helper function to get localized value for a field
-const getLocalizedValue = (field, locale) => {
-  if (!field || typeof field !== "object") return "";
-  return field[locale] || field.en || "";
-};
-
-// Helper function to transform a destination
-const transformDestination = (destination, locale) => {
-  if (!destination) return null;
-  return {
-    ...destination,
-    city: getLocalizedValue(destination.city, locale),
-    country: getLocalizedValue(destination.country, locale),
-  };
-};
-
-// Helper function to transform a tour
-const transformTour = (tour, locale) => {
-  if (!tour) return null;
-  return {
-    ...tour,
-    title: getLocalizedValue(tour.title, locale),
-    slug: getLocalizedValue(tour.slug, locale),
-    description: getLocalizedValue(tour.description, locale),
-    category: getLocalizedValue(tour.category, locale),
-    destination: transformDestination(tour.destination, locale),
-  };
-};
+// Localization functions are now imported from utilities/localizationUtils.js
 
 const { ObjectId } = mongoose.Types;
 
@@ -248,9 +228,8 @@ const addToWishList = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
   const { locale = "en" } = req.query;
 
-  const validLocales = ["en", "ar", "es"];
-  if (!validLocales.includes(locale)) {
-    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+  if (!isValidLocale(locale)) {
+    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
   }
 
   if (!id || id.length !== 24) {
@@ -295,9 +274,8 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
   const { locale = "en" } = req.query;
 
-  const validLocales = ["en", "ar", "es"];
-  if (!validLocales.includes(locale)) {
-    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+  if (!isValidLocale(locale)) {
+    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
   }
 
   if (!id || id.length !== 24) {
@@ -347,9 +325,8 @@ const getWishlist = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const { locale = "en" } = req.query;
 
-  const validLocales = ["en", "ar", "es"];
-  if (!validLocales.includes(locale)) {
-    return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
+  if (!isValidLocale(locale)) {
+    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
   }
 
   const user = await userModel

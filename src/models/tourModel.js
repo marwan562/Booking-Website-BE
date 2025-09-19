@@ -6,6 +6,7 @@ const localizedSchema = new Schema(
     en: { type: String, required: true },
     ar: { type: String, required: true },
     es: { type: String, required: true },
+    fr: { type: String, required: true },
   },
   { _id: false }
 );
@@ -141,9 +142,11 @@ schema.index({
   "title.en": "text",
   "title.ar": "text",
   "title.es": "text",
+  "title.fr": "text",
   "description.en": "text",
   "description.ar": "text",
   "description.es": "text",
+  "description.fr": "text",
   category: 1,
   price: 1,
   durationInMinutes: 1,
@@ -160,7 +163,7 @@ const slugifyArabic = (text) => {
 };
 
 schema.pre("save", async function (next) {
-  const langs = ["en", "ar", "es"];
+  const langs = ["en", "ar", "es", "fr"];
   const isNewDoc = this.isNew;
 
   if (

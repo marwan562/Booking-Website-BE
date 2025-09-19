@@ -266,7 +266,7 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === "payment_intent.succeeded") {
+  if (event.type === "checkout.session.completed") {
     const paymentIntent = event.data.object;
 
     const userId = paymentIntent.metadata.userId;

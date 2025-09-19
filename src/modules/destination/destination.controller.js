@@ -289,7 +289,6 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
     .lean();
 
   if (!destinationData) {
-    console.log(`No destination found for: ${destinationLower}`);
     return next(new AppError("Destination not found", 404));
   }
 

@@ -10,6 +10,20 @@ const localizedSchema = new Schema(
   { _id: false }
 );
 
+const optionSchema = new Schema(
+  {
+    name: localizedSchema,
+    price: Number,
+    childPrice: {
+      type: Number,
+      default: function () {
+        return this.price * 0.5;
+      },
+    },
+  },
+  { _id: true }
+);
+
 const schema = new Schema(
   {
     title: { type: localizedSchema, required: true },
@@ -45,18 +59,7 @@ const schema = new Schema(
     includes: [{ type: localizedSchema }],
     notIncludes: [{ type: localizedSchema }],
 
-    options: [
-      {
-        name: { type: localizedSchema },
-        price: { type: Number },
-        childPrice: {
-          type: Number,
-          default: function () {
-            return this.price * 0.5;
-          },
-        },
-      },
-    ],
+    options: [optionSchema],
     isRepeated: { type: Boolean, default: true },
     repeatTime: [{ type: String }],
     repeatDays: [
@@ -152,7 +155,7 @@ schema.index({
 const slugifyArabic = (text) => {
   return text
     .trim()
-    .replace(/[؟،!.,;:"'«»()]/g, "") 
+    .replace(/[؟،!.,;:"'«»()]/g, "")
     .replace(/\s+/g, "-");
 };
 

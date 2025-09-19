@@ -75,12 +75,16 @@ const userSchemaCreate = joi.object({
     "any.only": "Passwords do not match",
     "string.empty": "Confirm password is required",
   }),
-  avatar: joi.object({
-    url: joi.string().uri(),
-    public_id: joi.string(),
-  }).optional(),
+  avatar: joi
+    .object({
+      url: joi.string().uri(),
+      public_id: joi.string(),
+    })
+    .optional(),
   age: joi.number().min(17).max(100).optional(),
   nationality: joi.string().optional(),
+  passport: joi.string().optional(),
+  dateOfBirth: joi.string().optional(),
   phone: phoneSchema,
   city: joi.string().optional(),
   instagram: joi.string().optional(),
@@ -107,7 +111,8 @@ const userSchemaUpdate = joi.object({
     .string()
     .min(2)
     .max(50)
-    .pattern(/^[a-zA-Z\s]+$/).optional(),
+    .pattern(/^[a-zA-Z\s]+$/)
+    .optional(),
   phone: phoneSchema.optional(),
   verified: joi.boolean().optional(),
   nationality: joi.string().optional(),
@@ -117,6 +122,8 @@ const userSchemaUpdate = joi.object({
   instagram: joi.string(),
   city: joi.string(),
   removeAvatar: joi.boolean(),
+  passport: joi.string().optional(),
+  dateOfBirth: joi.string().optional(),
 });
 
 const forgetPasswordSchema = joi.object({

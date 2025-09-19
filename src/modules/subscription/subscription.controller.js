@@ -31,175 +31,285 @@ const transformTour = (tour, locale) => {
 };
 
 const createSubscription = catchAsyncError(async (req, res, next) => {
-  const { _id } = req.user;
-  const { id } = req.params;
+  const { _id: userId } = req.user;
+  const { id: tourId } = req.params;
   const { locale = "en" } = req.query;
+
+  // Validate locale
   const validLocales = ["en", "ar", "es"];
   if (!validLocales.includes(locale)) {
     return next(new AppError("Invalid locale. Use 'en', 'ar', or 'es'", 400));
   }
 
-  if (!id || id.length !== 24) {
+  console.log("req.body", req.body);
+
+  // Validate tour ID
+  if (!tourId || !Types.ObjectId.isValid(tourId)) {
     return next(new AppError("Invalid tour ID", 400));
   }
 
-  const tour = await tourModel.findById(id);
+  const tour = await tourModel.findById(tourId);
   if (!tour) {
     return next(new AppError("Tour not found", 404));
   }
 
-  let { adultPricing, childrenPricing, options } = req.body;
-  req.body.userDetails = _id;
-  req.body.tourDetails = id;
+  const {
+    numberOfAdults = 0,
+    numberOfChildren = 0,
+    adultPricing: sentAdultPricing,
+    childrenPricing: sentChildrenPricing,
+    options = [],
+    passengers = [],
+    time,
+    date,
+    day,
+  } = req.body;
+
+  if (numberOfAdults === 0 && numberOfChildren === 0) {
+    return next(
+      new AppError("At least one adult or child must be selected", 400)
+    );
+  }
+  if (!time || !date) {
+    return next(new AppError("Time and date are required", 400));
+  }
 
   let subtotalPrice = 0;
   let totalPrice = 0;
   let discountAmount = 0;
-  let discountPercent = 0;
+  let discountPercent = tour.discountPercent || 0;
 
-  if (adultPricing) {
-    const fetchingAdult = await tourModel.aggregate([
-      { $match: { _id: new Types.ObjectId(id) } },
-      { $unwind: "$adultPricing" },
-      { $match: { "adultPricing._id": new Types.ObjectId(adultPricing) } },
-      { $project: { adultPricing: 1, _id: 0 } },
-      { $replaceRoot: { newRoot: "$adultPricing" } },
-    ]);
+  let adultTotal = 0;
+  let adultUnitPrice = tour.price || 0;
+  let selectedAdultPricing = null;
 
-    if (!fetchingAdult[0]) {
-      return next(new AppError("Can't find adultPricing", 404));
+  if (sentAdultPricing && numberOfAdults > 0) {
+    if (
+      sentAdultPricing.adults === numberOfAdults &&
+      sentAdultPricing.price &&
+      sentAdultPricing.totalPrice &&
+      (sentAdultPricing._id === null ||
+        Types.ObjectId.isValid(sentAdultPricing._id))
+    ) {
+      const foundPricing = sentAdultPricing._id
+        ? tour.adultPricing.find(
+            (p) => p._id.toString() === sentAdultPricing._id
+          )
+        : null;
+      if (foundPricing || sentAdultPricing._id === null) {
+        selectedAdultPricing = {
+          adults: numberOfAdults,
+          price: sentAdultPricing.price,
+          totalPrice: sentAdultPricing.totalPrice,
+          _id: sentAdultPricing._id,
+        };
+        adultUnitPrice = sentAdultPricing.price;
+        adultTotal = sentAdultPricing.totalPrice;
+      }
     }
-
-    subtotalPrice += fetchingAdult[0].totalPrice;
-    req.body.adultPricing = fetchingAdult[0];
   }
 
-  if (childrenPricing) {
-    const fetchingChildren = await tourModel.aggregate([
-      { $match: { _id: new Types.ObjectId(id) } },
-      { $unwind: "$childrenPricing" },
-      {
-        $match: { "childrenPricing._id": new Types.ObjectId(childrenPricing) },
-      },
-      { $project: { childrenPricing: 1, _id: 0 } },
-      { $replaceRoot: { newRoot: "$childrenPricing" } },
-    ]);
-
-    if (!fetchingChildren[0]) {
-      return next(new AppError("Can't find childrenPricing", 404));
+  if (!selectedAdultPricing && numberOfAdults > 0) {
+    selectedAdultPricing = tour.adultPricing.find(
+      (p) => p.adults === numberOfAdults
+    );
+    if (selectedAdultPricing) {
+      adultUnitPrice = selectedAdultPricing.price;
+      adultTotal = selectedAdultPricing.totalPrice;
+    } else {
+      const highestPricing = tour.adultPricing.reduce(
+        (highest, p) => (p.adults > (highest?.adults || 0) ? p : highest),
+        null
+      );
+      if (highestPricing) {
+        adultUnitPrice = highestPricing.price;
+        adultTotal = adultUnitPrice * numberOfAdults;
+        selectedAdultPricing = {
+          adults: numberOfAdults,
+          price: adultUnitPrice,
+          totalPrice: adultTotal,
+          _id: highestPricing._id || null,
+        };
+      } else {
+        adultTotal = adultUnitPrice * numberOfAdults;
+        selectedAdultPricing = {
+          adults: numberOfAdults,
+          price: adultUnitPrice,
+          totalPrice: adultTotal,
+          _id: null,
+        };
+      }
     }
-
-    req.body.childrenPricing = fetchingChildren[0];
-    subtotalPrice += fetchingChildren[0].totalPrice;
   }
 
-  if (options && options.length > 0) {
-    const fetchingOptions = await tourModel.aggregate([
-      { $match: { _id: new Types.ObjectId(id) } },
-      { $unwind: "$options" },
-      {
-        $match: {
-          "options._id": {
-            $in: options.map((option) => new Types.ObjectId(option.id)),
-          },
-        },
-      },
-      { $project: { options: 1 } },
-      { $replaceRoot: { newRoot: "$options" } },
-    ]);
+  subtotalPrice += adultTotal;
 
-    if (!fetchingOptions || fetchingOptions.length === 0) {
-      return next(new AppError("Can't find options", 404));
+  let childTotal = 0;
+  let childUnitPrice = tour.childPrice || 0;
+  let selectedChildPricing = null;
+
+  if (sentChildrenPricing && numberOfChildren > 0) {
+    if (
+      sentChildrenPricing.children === numberOfChildren &&
+      sentChildrenPricing.price &&
+      sentChildrenPricing.totalPrice &&
+      (sentChildrenPricing._id === null ||
+        Types.ObjectId.isValid(sentChildrenPricing._id))
+    ) {
+      const foundPricing = sentChildrenPricing._id
+        ? tour.childrenPricing.find(
+            (p) => p._id.toString() === sentChildrenPricing._id
+          )
+        : null;
+      if (foundPricing || sentChildrenPricing._id === null) {
+        selectedChildPricing = {
+          children: numberOfChildren,
+          price: sentChildrenPricing.price,
+          totalPrice: sentChildrenPricing.totalPrice,
+          _id: sentChildrenPricing._id,
+        };
+        childUnitPrice = sentChildrenPricing.price;
+        childTotal = sentChildrenPricing.totalPrice;
+      }
+    }
+  }
+
+  if (!selectedChildPricing && numberOfChildren > 0) {
+    selectedChildPricing = tour.childrenPricing.find(
+      (p) => p.children === numberOfChildren
+    );
+    if (selectedChildPricing) {
+      childUnitPrice = selectedChildPricing.price;
+      childTotal = selectedChildPricing.totalPrice;
+    } else {
+      const highestPricing = tour.childrenPricing.reduce(
+        (highest, p) => (p.children > (highest?.children || 0) ? p : highest),
+        null
+      );
+      if (highestPricing) {
+        childUnitPrice = highestPricing.price;
+        childTotal = childUnitPrice * numberOfChildren;
+        selectedChildPricing = {
+          children: numberOfChildren,
+          price: childUnitPrice,
+          totalPrice: childTotal,
+          _id: highestPricing._id || null,
+        };
+      } else {
+        childTotal = childUnitPrice * numberOfChildren;
+        selectedChildPricing = {
+          children: numberOfChildren,
+          price: childUnitPrice,
+          totalPrice: childTotal,
+          _id: null,
+        };
+      }
+    }
+  }
+
+  subtotalPrice += childTotal;
+
+  let selectedOptions = [];
+  if (Array.isArray(options) && options.length > 0) {
+    const optionIds = options
+      .filter((opt) => Types.ObjectId.isValid(opt.id))
+      .map((opt) => new Types.ObjectId(opt.id));
+
+    if (optionIds.length === 0) {
+      return next(new AppError("Invalid option IDs provided", 400));
     }
 
-    fetchingOptions.forEach((option) => {
-      options.forEach((inputOption) => {
-        if (option._id.toString() === inputOption.id) {
-          option.name = option[locale] || option["en"];
-          option.number = inputOption.number || 0;
-          option.numberOfChildren = inputOption.numberOfChildren || 0;
+    const fetchingOptions = await tourModel
+      .findOne({
+        _id: new Types.ObjectId(tourId),
+        "options._id": { $in: optionIds },
+      })
+      .select("options")
+      .lean();
 
-          const adultTotal = option.price * option.number;
-          const childTotal = option.childPrice * option.numberOfChildren;
+    if (
+      !fetchingOptions ||
+      !fetchingOptions.options ||
+      fetchingOptions.options.length === 0
+    ) {
+      return next(new AppError("Selected options not found", 404));
+    }
 
-          option.totalPrice = adultTotal + childTotal;
-          subtotalPrice += option.totalPrice;
-        }
+    selectedOptions = fetchingOptions.options
+      .filter((opt) => optionIds.some((id) => id.equals(opt._id)))
+      .map((option) => {
+        const clientOption = options.find(
+          (o) => o.id === option._id.toString()
+        );
+        const number = clientOption?.number || 0;
+        const numberOfChildren = clientOption?.numberOfChildren || 0;
+
+        const adultOptionTotal = (option.price || 0) * number;
+        const childOptionTotal = (option.childPrice || 0) * numberOfChildren;
+        const optionTotalPrice = adultOptionTotal + childOptionTotal;
+
+        subtotalPrice += optionTotalPrice;
+
+        return {
+          _id: option._id,
+          name: option.name[locale] || option.en,
+          number,
+          numberOfChildren,
+          price: option.price || 0,
+          childPrice: option.childPrice || 0,
+          adultTotal: adultOptionTotal,
+          childTotal: childOptionTotal,
+          totalPrice: optionTotalPrice,
+        };
       });
-    });
-
-    req.body.options = fetchingOptions;
   }
 
-  if (tour.hasOffer && tour.discountPercent && tour.discountPercent > 0) {
-    discountPercent = tour.discountPercent;
-    discountAmount = +((subtotalPrice * discountPercent) / 100).toFixed(2);
-    totalPrice = +(subtotalPrice - discountAmount).toFixed(2);
+  if (tour.hasOffer && discountPercent > 0) {
+    discountPercent = Math.min(discountPercent, 100);
+    discountAmount = Number((subtotalPrice * discountPercent) / 100).toFixed(2);
+    totalPrice = Number(subtotalPrice - discountAmount).toFixed(2);
   } else {
-    totalPrice = subtotalPrice;
+    totalPrice = subtotalPrice.toFixed(2);
   }
 
-  req.body.totalPrice = totalPrice;
+  const subscriptionData = {
+    userDetails: userId,
+    tourDetails: tourId,
+    numberOfAdults,
+    numberOfChildren,
+    adultPricing: selectedAdultPricing,
+    childrenPricing: selectedChildPricing,
+    options: selectedOptions,
+    passengers,
+    time,
+    date,
+    totalPrice: Number(totalPrice),
+    discount: discountPercent,
+    mainImg: tour.mainImg,
+    title: tour.title,
+    day,
+    discountPercent,
+  };
 
-  const resultOfSubscription = new subscriptionModel(req.body);
+  console.log(subscriptionData);
+
+  const resultOfSubscription = new subscriptionModel(subscriptionData);
   await resultOfSubscription.save();
-  const subscriptionObj = resultOfSubscription.toObject();
 
+  const subscriptionObj = resultOfSubscription.toObject();
   delete subscriptionObj.payment;
   delete subscriptionObj.userDetails;
-
   subscriptionObj.tourDetails = transformTour(
     subscriptionObj.tourDetails,
     locale
   );
+
   res.status(200).json({
     status: "success",
     message: "Subscription created successfully",
     data: subscriptionObj,
   });
 });
-
-function localizeDataByDestination(data, locale) {
-  const getLocalizedValue = (obj, key, locale) => {
-    return obj && obj[key] && obj[key][locale]
-      ? obj[key][locale]
-      : obj[key]?.en || "";
-  };
-
-  const localizedData = JSON.parse(JSON.stringify(data));
-
-  localizedData.message = data.message;
-
-  localizedData.data = data.map((item) => {
-    const localizedItem = { ...item };
-
-    localizedItem.destination = {
-      ...item.destination,
-      city: getLocalizedValue(item.destination, "city", locale),
-      country: getLocalizedValue(item.destination, "country", locale),
-      description: getLocalizedValue(item.destination, "description", locale),
-    };
-
-    localizedItem.bookings = item.bookings.map((booking) => {
-      const localizedBooking = { ...booking };
-      localizedBooking.tourDetails = {
-        ...booking.tourDetails,
-        title: getLocalizedValue(booking.tourDetails, "title", locale),
-        features: booking.tourDetails.features.map((feature) =>
-          getLocalizedValue({ feature }, "feature", locale)
-        ),
-      };
-      return localizedBooking;
-    });
-
-    localizedItem.city = getLocalizedValue(item, "city", locale);
-    localizedItem.country = getLocalizedValue(item, "country", locale);
-
-    return localizedItem;
-  });
-
-  return localizedData;
-}
 
 const updateTourInCart = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
@@ -321,8 +431,8 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
         {
           $group: {
             _id: {
-              country: `$destination.country.${locale}`,
-              city: `$destination.city.${locale}`,
+              country: `$destination.country`,
+              city: `$destination.city`,
             },
             destination: { $first: "$destination" },
             bookings: {
@@ -348,6 +458,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
                   discountPercent: "$tourDetails.discountPercent",
                   hasOffer: "$tourDetails.hasOffer",
                   totalReviews: "$tourDetails.totalReviews",
+                  location: "$tourDetails.location",
                   averageRating: "$tourDetails.averageRating",
                   price: "$tourDetails.price",
                   duration: "$tourDetails.duration",
@@ -649,7 +760,6 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
   const { sortby, locale = "en" } = req.query;
 
   if (sortby === "by-destination") {
-    console.log("Sortby:", sortby);
     const result = await subscriptionModel.aggregate([
       {
         $match: {
@@ -705,6 +815,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
                 features: "$tourDetails.features",
                 discountPercent: "$tourDetails.discountPercent",
                 hasOffer: "$tourDetails.hasOffer",
+                location: "$tourDetails.location",
                 totalReviews: "$tourDetails.totalReviews",
                 averageRating: "$tourDetails.averageRating",
                 price: "$tourDetails.price",
@@ -761,6 +872,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
       )
     );
   }
+  console.log(bookings)
   const transformedSubscriptions = bookings.map((booking) => ({
     ...booking,
     tourDetails: transformTourByRefs(booking.tourDetails, locale),
@@ -777,6 +889,7 @@ const transformTourByRefs = (tour, locale) => {
   return {
     ...tour,
     title: getLocalizedValue(tour.title, locale),
+    slug: getLocalizedValue(tour.slug, locale),
     description: getLocalizedValue(tour.description, locale),
     features: tour.features
       ? tour.features.map((f) => getLocalizedValue(f, locale))

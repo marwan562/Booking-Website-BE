@@ -22,14 +22,12 @@ const subscriptionRouter = Router();
 
 subscriptionRouter.route("/by-refs").get(auth, getSubscriptionsByRefs);
 
-
 subscriptionRouter.route("/cart").get(auth, getAllCart);
 subscriptionRouter
   .route("/cart/:id")
   .patch(auth, validation(updateCartSchema), updateTourInCart)
   .delete(auth, deleteTourFromCart);
 subscriptionRouter.route("/clear").delete(auth, deleteAllToursInCart);
-
 
 subscriptionRouter.route("/upcoming-bookings").get(auth, upcomingBookings);
 
@@ -39,7 +37,11 @@ subscriptionRouter
 
 subscriptionRouter
   .route("/:id")
-  .post(auth, validation(subscriptionSchema), createSubscription)
+  .post(
+    auth,
+    validation(subscriptionSchema),
+    createSubscription
+  )
   .get(auth, getSubscriptionById)
   .delete(auth, allowedTo("admin"), deleteSubscription);
 

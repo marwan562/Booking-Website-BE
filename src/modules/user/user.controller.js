@@ -71,6 +71,8 @@ const register = catchAsyncError(async (req, res, next) => {
     avatar,
     phone,
     gender,
+    dateOfBirth,
+    passport,
   } = req.body;
 
   if (password !== rePassword) {
@@ -90,6 +92,8 @@ const register = catchAsyncError(async (req, res, next) => {
     avatar,
     phone,
     gender,
+    dateOfBirth,
+    passport,
   });
 
   const accessToken = await user.generateVerificationToken();

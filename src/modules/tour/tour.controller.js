@@ -48,6 +48,7 @@ const transformTour = (tour, locale = "en") => {
   if (tour.options) {
     transformed.options = tour.options.map((option) => ({
       ...option,
+      _id: option._id,
       name: getLocalizedValue(option.name, locale),
     }));
   }
@@ -282,12 +283,11 @@ export const getTourBySlug = catchAsyncError(async (req, res, next) => {
     .populate({
       path: "destination",
       select: "city country",
-    });
+    })
 
   if (!tour) {
     return next(new AppError("Tour not found", 404));
   }
-
   const transformedTour = transformTour(tour.toObject(), locale);
 
   res.status(200).json({

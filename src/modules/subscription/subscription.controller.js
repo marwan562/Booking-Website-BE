@@ -5,11 +5,11 @@ import { AppError } from "../../utilities/AppError.js";
 import { ApiFeature } from "../../utilities/AppFeature.js";
 import schedule from "node-schedule";
 import mongoose, { Types } from "mongoose";
-import { 
+import {
   getLocalizedValue,
   transformTour,
   isValidLocale,
-  getSupportedLocales 
+  getSupportedLocales,
 } from "../../utilities/localizationUtils.js";
 
 const createSubscription = catchAsyncError(async (req, res, next) => {
@@ -19,10 +19,13 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
 
   // Validate locale
   if (!isValidLocale(locale)) {
-    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
+    return next(
+      new AppError(
+        `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+        400
+      )
+    );
   }
-
-  console.log("req.body", req.body);
 
   // Validate tour ID
   if (!tourId || !Types.ObjectId.isValid(tourId)) {
@@ -45,7 +48,6 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     date,
     day,
   } = req.body;
-
   if (numberOfAdults === 0 && numberOfChildren === 0) {
     return next(
       new AppError("At least one adult or child must be selected", 400)
@@ -272,7 +274,6 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     discountPercent,
   };
 
-  console.log(subscriptionData);
 
   const resultOfSubscription = new subscriptionModel(subscriptionData);
   await resultOfSubscription.save();
@@ -590,7 +591,9 @@ const getAllCart = catchAsyncError(async (req, res, next) => {
 
   const validLocales = ["en", "ar", "es", "fr"];
   if (!validLocales.includes(locale)) {
-    return next(new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400));
+    return next(
+      new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400)
+    );
   }
 
   // Use ApiFeature to build the query
@@ -853,7 +856,6 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
       )
     );
   }
-  console.log(bookings)
   const transformedSubscriptions = bookings.map((booking) => ({
     ...booking,
     tourDetails: transformTourByRefs(booking.tourDetails, locale),
@@ -912,7 +914,9 @@ const getSubscriptionsByRefs = catchAsyncError(async (req, res, next) => {
 
   const validLocales = ["en", "ar", "es", "fr"];
   if (!validLocales.includes(locale)) {
-    return next(new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400));
+    return next(
+      new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400)
+    );
   }
 
   if (!refs) {

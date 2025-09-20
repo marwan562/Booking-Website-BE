@@ -15,15 +15,16 @@ const userRouter = Router();
 // Public routes with rate limiting
 userRouter.route("/check-user-email").post(registerLimiter, User.checkEmail);
 
-userRouter
-  .route("/register")
-  .post(
-    registerLimiter,
-    uploadMixfile([{ name: "avatar", maxCount: 1 }]),
-    saveImg,
-    validation(UserValidation.userSchemaCreate),
-    User.register
-  );
+userRouter.route("/register").post(
+  registerLimiter,
+  uploadMixfile([
+    { name: "avatar", maxCount: 1 },
+    { name: "passport", maxCount: 1 },
+  ]),
+  saveImg,
+  validation(UserValidation.userSchemaCreate),
+  User.register
+);
 
 userRouter.route("/verifyEmail/:token").get(strictLimiter, User.verifyUser);
 
@@ -53,7 +54,10 @@ userRouter
   .get(auth, User.getUserProfile)
   .patch(
     auth,
-    uploadMixfile([{ name: "avatar", maxCount: 1 }]),
+    uploadMixfile([
+      { name: "avatar", maxCount: 1 },
+      { name: "passport", maxCount: 1 },
+    ]),
     saveImg,
     validation(UserValidation.userSchemaUpdate),
     User.updateUserProfile

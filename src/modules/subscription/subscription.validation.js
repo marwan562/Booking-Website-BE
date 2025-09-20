@@ -3,7 +3,14 @@ import joi from "joi";
 const schemaPassengers = joi.object({
   name: joi.string().min(2).max(50).required(),
   lastName: joi.string().min(2).max(50).required(),
-  passport: joi.string().empty("").optional(),
+  passport: joi.alternatives().try(
+    joi.object({
+      url: joi.string().uri().allow(null).optional(),
+      public_id: joi.string().allow(null).optional(),
+    }),
+    joi.string().uri(),
+    joi.allow(null)
+  ),
   dateOfBirth: joi.string().optional(),
   nationality: joi.string().required(),
 });
@@ -37,7 +44,7 @@ export const subscriptionSchema = joi
       )
       .optional(),
     passengers: joi.array().items(schemaPassengers),
-    locale: joi.string().valid("en", "es", "ar","fr"),
+    locale: joi.string().valid("en", "es", "ar", "fr"),
     numberOfAdults: joi.number().integer().min(0).required(),
     numberOfChildren: joi.number().integer().min(0).required(),
   })

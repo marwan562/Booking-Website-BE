@@ -18,6 +18,12 @@ import {
   subscriptionSchema,
   updateCartSchema,
 } from "./subscription.validation.js";
+import multer from "multer";
+import { saveImg, saveImgPassport } from "../../middlewares/uploadToCloud.js";
+import { clearPrefix } from "../../middlewares/clear-prefix.js";
+
+const upload = multer({ storage: multer.memoryStorage() });
+
 const subscriptionRouter = Router();
 
 subscriptionRouter.route("/by-refs").get(auth, getSubscriptionsByRefs);
@@ -38,7 +44,10 @@ subscriptionRouter
 subscriptionRouter
   .route("/:id")
   .post(
+    upload.any(),
+    clearPrefix,
     auth,
+    saveImgPassport,
     validation(subscriptionSchema),
     createSubscription
   )

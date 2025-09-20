@@ -38,9 +38,6 @@ const verifyUser = catchAsyncError(async (req, res, next) => {
       const { id } = decoded;
       const user = await userModel.findOne({ _id: id });
 
-      if (user.verified)
-        return next(new AppError("User already verified", 200));
-
       user.verified = true;
       await user.save();
 
@@ -218,10 +215,6 @@ export const updateUser = catchAsyncError(async (req, res, next) => {
   await user.save();
   res.status(200).send({ message: "User updated successfully", data: user });
 });
-
-// Localization functions are now imported from utilities/localizationUtils.js
-
-const { ObjectId } = mongoose.Types;
 
 const addToWishList = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;

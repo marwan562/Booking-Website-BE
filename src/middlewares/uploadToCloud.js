@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import { AppError } from "../utilities/AppError.js";
 import convertToWebp from "../utilities/convertToWebp.js";
+import { Readable } from "stream";
 import "dotenv/config";
 
 let cloud_name = process.env.CLOUDINARY_NAME,
@@ -21,35 +22,95 @@ if (cloud_name && api_key && api_secret) {
   process.exit(1);
 }
 
-export const saveImg = async (req, res, next) => {
-  function uploadToCloudinary(buffer, folderName) {
-    return new Promise((resolve, reject) => {
-      cloudinary.uploader
-        .upload_stream(
-          {
-            folder: folderName,
-            resource_type: "image",
-            allowed_formats: ["jpg", "jpeg", "png", "webp", "gif", "avif"],
-            transformation: [{ quality: "auto:good" }],
-          },
-          (error, result) => {
-            if (error) {
-              console.error("Cloudinary upload error:", error);
-              reject(
-                new AppError(
-                  `Error uploading to Cloudinary: ${error.message}`,
-                  500
-                )
-              );
-            } else {
-              resolve({ url: result.url, public_id: result.public_id });
-            }
-          }
-        )
-        .end(buffer);
-    });
-  }
+const uploadToCloudinaryForPassport = (fileBuffer, folder = "passports") => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve({
+          url: result.secure_url,
+          public_id: result.public_id,
+        });
+      }
+    );
 
+    const readable = new Readable();
+    readable._read = () => {};
+    readable.push(fileBuffer);
+    readable.push(null);
+    readable.pipe(stream);
+  });
+};
+
+export const saveImgPassport = async (req, res, next) => {
+  try {
+    const passengers = req.body.passengers;
+
+    if (!Array.isArray(passengers)) {
+      return next();
+    }
+
+    for (let i = 0; i < passengers.length; i++) {
+      const passenger = passengers[i];
+      const passportFile = passenger.passport;
+
+      if (
+        passportFile &&
+        typeof passportFile === "object" &&
+        passportFile.buffer
+      ) {
+        const uploadResult = await uploadToCloudinaryForPassport(
+          passportFile.buffer,
+          "passports"
+        );
+
+        passenger.passport = {
+          url: uploadResult.url,
+          public_id: uploadResult.public_id,
+        };
+      }
+    }
+
+    next();
+  } catch (error) {
+    console.error("Passport upload error:", error);
+    return res.status(500).json({ message: "Error uploading passport image" });
+  }
+};
+
+function uploadToCloudinary(buffer, folderName) {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream(
+        {
+          folder: folderName,
+          resource_type: "image",
+          allowed_formats: ["jpg", "jpeg", "png", "webp", "gif", "avif"],
+          transformation: [{ quality: "auto:good" }],
+        },
+        (error, result) => {
+          if (error) {
+            console.error("Cloudinary upload error:", error);
+            reject(
+              new AppError(
+                `Error uploading to Cloudinary: ${error.message}`,
+                500
+              )
+            );
+          } else {
+            resolve({ url: result.url, public_id: result.public_id });
+          }
+        }
+      )
+      .end(buffer);
+  });
+}
+
+export const saveImg = async (req, res, next) => {
   function getFolderName() {
     let folderNameParts = req.baseUrl.split("");
     folderNameParts.shift();

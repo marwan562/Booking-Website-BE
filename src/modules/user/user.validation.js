@@ -83,7 +83,12 @@ const userSchemaCreate = joi.object({
     .optional(),
   age: joi.number().min(17).max(100).optional(),
   nationality: joi.string().optional(),
-  passport: joi.string().allow(""),
+  passport: joi
+    .object({
+      url: joi.string().uri(),
+      public_id: joi.string(),
+    })
+    .optional(),
   dateOfBirth: joi.string().optional(),
   phone: phoneSchema,
   city: joi.string().optional(),
@@ -122,7 +127,12 @@ const userSchemaUpdate = joi.object({
   instagram: joi.string(),
   city: joi.string(),
   removeAvatar: joi.boolean(),
-  passport: joi.string().allow(""),
+  passport: joi
+    .object({
+      url: joi.string().uri(),
+      public_id: joi.string(),
+    })
+    .optional(),
   dateOfBirth: joi.string().optional(),
 });
 

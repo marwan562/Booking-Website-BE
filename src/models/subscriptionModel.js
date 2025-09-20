@@ -1,11 +1,14 @@
 import mongoose, { Schema, Types } from "mongoose";
 import tourModel from "./tourModel.js";
 
-const passengerSchema = new Schema({
+const passengerSchema = new mongoose.Schema({
   name: { type: String, required: true },
   lastName: { type: String, required: true },
-  passport: { type: String },
-  dateOfBirth: { type: String, required: true },
+  passport: {
+    url: { type: String, required: false },
+    public_id: { type: String, required: false },
+  },
+  dateOfBirth: String,
   nationality: { type: String, required: true },
 });
 

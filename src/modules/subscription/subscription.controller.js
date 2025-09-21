@@ -48,6 +48,7 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     date,
     day,
   } = req.body;
+  console.log(req.body);
   if (numberOfAdults === 0 && numberOfChildren === 0) {
     return next(
       new AppError("At least one adult or child must be selected", 400)
@@ -66,131 +67,71 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
   let adultUnitPrice = tour.price || 0;
   let selectedAdultPricing = null;
 
-  if (sentAdultPricing && numberOfAdults > 0) {
-    if (
-      sentAdultPricing.adults === numberOfAdults &&
-      sentAdultPricing.price &&
-      sentAdultPricing.totalPrice &&
-      (sentAdultPricing._id === null ||
-        Types.ObjectId.isValid(sentAdultPricing._id))
-    ) {
-      const foundPricing = sentAdultPricing._id
-        ? tour.adultPricing.find(
-            (p) => p._id.toString() === sentAdultPricing._id
-          )
-        : null;
-      if (foundPricing || sentAdultPricing._id === null) {
-        selectedAdultPricing = {
-          adults: numberOfAdults,
-          price: sentAdultPricing.price,
-          totalPrice: sentAdultPricing.totalPrice,
-          _id: sentAdultPricing._id,
-        };
-        adultUnitPrice = sentAdultPricing.price;
-        adultTotal = sentAdultPricing.totalPrice;
-      }
-    }
-  }
-
-  if (!selectedAdultPricing && numberOfAdults > 0) {
+  if (numberOfAdults > 0) {
     selectedAdultPricing = tour.adultPricing.find(
       (p) => p.adults === numberOfAdults
     );
+
     if (selectedAdultPricing) {
       adultUnitPrice = selectedAdultPricing.price;
-      adultTotal = selectedAdultPricing.totalPrice;
     } else {
       const highestPricing = tour.adultPricing.reduce(
-        (highest, p) => (p.adults > (highest?.adults || 0) ? p : highest),
+        (max, p) => (p.adults > (max?.adults || 0) ? p : max),
         null
       );
+
       if (highestPricing) {
         adultUnitPrice = highestPricing.price;
-        adultTotal = adultUnitPrice * numberOfAdults;
-        selectedAdultPricing = {
-          adults: numberOfAdults,
-          price: adultUnitPrice,
-          totalPrice: adultTotal,
-          _id: highestPricing._id || null,
-        };
       } else {
-        adultTotal = adultUnitPrice * numberOfAdults;
-        selectedAdultPricing = {
-          adults: numberOfAdults,
-          price: adultUnitPrice,
-          totalPrice: adultTotal,
-          _id: null,
-        };
+        adultUnitPrice = tour.price || 0;
       }
     }
-  }
 
-  subtotalPrice += adultTotal;
+    adultTotal = adultUnitPrice * numberOfAdults;
+    selectedAdultPricing = {
+      adults: numberOfAdults,
+      price: adultUnitPrice,
+      totalPrice: adultTotal,
+      _id: selectedAdultPricing?._id || null,
+    };
+
+    subtotalPrice += adultTotal;
+  }
 
   let childTotal = 0;
   let childUnitPrice = tour.childPrice || 0;
   let selectedChildPricing = null;
 
-  if (sentChildrenPricing && numberOfChildren > 0) {
-    if (
-      sentChildrenPricing.children === numberOfChildren &&
-      sentChildrenPricing.price &&
-      sentChildrenPricing.totalPrice &&
-      (sentChildrenPricing._id === null ||
-        Types.ObjectId.isValid(sentChildrenPricing._id))
-    ) {
-      const foundPricing = sentChildrenPricing._id
-        ? tour.childrenPricing.find(
-            (p) => p._id.toString() === sentChildrenPricing._id
-          )
-        : null;
-      if (foundPricing || sentChildrenPricing._id === null) {
-        selectedChildPricing = {
-          children: numberOfChildren,
-          price: sentChildrenPricing.price,
-          totalPrice: sentChildrenPricing.totalPrice,
-          _id: sentChildrenPricing._id,
-        };
-        childUnitPrice = sentChildrenPricing.price;
-        childTotal = sentChildrenPricing.totalPrice;
-      }
-    }
-  }
-
-  if (!selectedChildPricing && numberOfChildren > 0) {
+  if (numberOfChildren > 0) {
     selectedChildPricing = tour.childrenPricing.find(
       (p) => p.children === numberOfChildren
     );
+
     if (selectedChildPricing) {
       childUnitPrice = selectedChildPricing.price;
-      childTotal = selectedChildPricing.totalPrice;
     } else {
       const highestPricing = tour.childrenPricing.reduce(
-        (highest, p) => (p.children > (highest?.children || 0) ? p : highest),
+        (max, p) => (p.children > (max?.children || 0) ? p : max),
         null
       );
+
       if (highestPricing) {
         childUnitPrice = highestPricing.price;
-        childTotal = childUnitPrice * numberOfChildren;
-        selectedChildPricing = {
-          children: numberOfChildren,
-          price: childUnitPrice,
-          totalPrice: childTotal,
-          _id: highestPricing._id || null,
-        };
       } else {
-        childTotal = childUnitPrice * numberOfChildren;
-        selectedChildPricing = {
-          children: numberOfChildren,
-          price: childUnitPrice,
-          totalPrice: childTotal,
-          _id: null,
-        };
+        childUnitPrice = 0;
       }
     }
-  }
 
-  subtotalPrice += childTotal;
+    childTotal = childUnitPrice * numberOfChildren;
+    selectedChildPricing = {
+      children: numberOfChildren,
+      price: childUnitPrice,
+      totalPrice: childTotal,
+      _id: selectedChildPricing?._id || null,
+    };
+
+    subtotalPrice += childTotal;
+  }
 
   let selectedOptions = [];
   if (Array.isArray(options) && options.length > 0) {
@@ -247,7 +188,7 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       });
   }
 
-  if (tour.hasOffer && discountPercent > 0) {
+  if (discountPercent > 0) {
     discountPercent = Math.min(discountPercent, 100);
     discountAmount = Number((subtotalPrice * discountPercent) / 100).toFixed(2);
     totalPrice = Number(subtotalPrice - discountAmount).toFixed(2);
@@ -273,6 +214,7 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     day,
     discountPercent,
   };
+  console.log(subscriptionData.totalPrice);
 
   const resultOfSubscription = new subscriptionModel(subscriptionData);
   await resultOfSubscription.save();
@@ -494,7 +436,8 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
         .find({ userDetails: _id, payment: "success" })
         .populate({
           path: "tourDetails",
-          select: "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes"
+          select:
+            "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes",
         }),
       req.query
     )
@@ -528,13 +471,11 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
   if (role === "admin") {
     // Admin subscriptions - Update populate to include includes and notIncludes
     const apiFeature = new ApiFeature(
-      subscriptionModel
-        .find()
-        .populate("userDetails")
-        .populate({
-          path: "tourDetails",
-          select: "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes"
-        }),
+      subscriptionModel.find().populate("userDetails").populate({
+        path: "tourDetails",
+        select:
+          "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes",
+      }),
       req.query
     )
       .paginate()

@@ -135,7 +135,6 @@ export const saveImg = async (req, res, next) => {
     );
     return uploadedFiles;
   }
-
   async function handleFileUpload(fieldName, buffer) {
     try {
       const folder = getFolderName();
@@ -152,21 +151,15 @@ export const saveImg = async (req, res, next) => {
   if (req.files) {
     for (const fieldName in req.files) {
       const files = req.files[fieldName];
-      if (files.length === 1) {
-        req.body[fieldName] = await uploadSingleFile(
-          fieldName,
-          files[0].buffer
-        );
-      } else {
-        req.body[fieldName] = await uploadMultipleFiles(fieldName, files);
-      }
+
+      const uploaded = await uploadMultipleFiles(fieldName, files);
+      req.body[fieldName] = uploaded;
     }
   } else {
     if (req.file && req.file.buffer) {
-      req.body[req.file.fieldname] = await handleFileUpload(
-        req.file.fieldname,
-        req.file.buffer
-      );
+      req.body[req.file.fieldname] = [
+        await handleFileUpload(req.file.fieldname, req.file.buffer),
+      ];
     }
   }
 

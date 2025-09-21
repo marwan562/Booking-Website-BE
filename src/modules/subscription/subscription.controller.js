@@ -274,7 +274,6 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     discountPercent,
   };
 
-
   const resultOfSubscription = new subscriptionModel(subscriptionData);
   await resultOfSubscription.save();
 
@@ -365,6 +364,16 @@ function localizeData(data, locale = "en") {
                   getLocalizedValue({ feature }, "feature", locale)
                 )
               : [],
+            includes: Array.isArray(localizedBooking.tourDetails.includes)
+              ? localizedBooking.tourDetails.includes.map((include) =>
+                  getLocalizedValue({ include }, "include", locale)
+                )
+              : [],
+            notIncludes: Array.isArray(localizedBooking.tourDetails.notIncludes)
+              ? localizedBooking.tourDetails.notIncludes.map((notInclude) =>
+                  getLocalizedValue({ notInclude }, "notInclude", locale)
+                )
+              : [],
           };
         }
         return localizedBooking;
@@ -437,6 +446,8 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
                   slug: "$tourDetails.slug",
                   mainImg: "$tourDetails.mainImg",
                   features: "$tourDetails.features",
+                  includes: "$tourDetails.includes",
+                  notIncludes: "$tourDetails.notIncludes",
                   discountPercent: "$tourDetails.discountPercent",
                   hasOffer: "$tourDetails.hasOffer",
                   totalReviews: "$tourDetails.totalReviews",
@@ -479,7 +490,12 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
     }
 
     const apiFeature = new ApiFeature(
-      subscriptionModel.find({ userDetails: _id, payment: "success" }),
+      subscriptionModel
+        .find({ userDetails: _id, payment: "success" })
+        .populate({
+          path: "tourDetails",
+          select: "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes"
+        }),
       req.query
     )
       .paginate()
@@ -510,8 +526,15 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
   }
 
   if (role === "admin") {
+    // Admin subscriptions - Update populate to include includes and notIncludes
     const apiFeature = new ApiFeature(
-      subscriptionModel.find().populate("userDetails"),
+      subscriptionModel
+        .find()
+        .populate("userDetails")
+        .populate({
+          path: "tourDetails",
+          select: "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes"
+        }),
       req.query
     )
       .paginate()
@@ -559,11 +582,6 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       totalSuccessPayments = facet.successPayments[0]?.count || 0;
       totalPendingPayments = facet.pendingPayments[0]?.count || 0;
     }
-
-    // const localizedResult = localizeData(
-    //   { message: "Success", data: result },
-    //   locale
-    // );
 
     const transformedSubscriptions = result.map((booking) => ({
       ...booking,

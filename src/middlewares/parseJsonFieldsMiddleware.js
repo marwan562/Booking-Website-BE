@@ -5,7 +5,7 @@ export function parseJsonFields(req, res, next) {
     'features','includes','notIncludes','tags',
     'repeatTime','repeatDays','options',
     'adultPricing','childrenPricing','itinerary',
-    "city","country"
+    "city","country","imagesToDelete","imagesToKeep"
   ];
 
   for (const field of fieldsToParse) {

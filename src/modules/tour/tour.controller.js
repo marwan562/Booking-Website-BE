@@ -5,12 +5,12 @@ import { AppError } from "../../utilities/AppError.js";
 import { ApiFeature } from "../../utilities/AppFeature.js";
 import { ObjectId } from "mongodb";
 import destinationModel from "../../models/destinationModel.js";
-import { 
-  transformTour, 
-  transformTours, 
+import {
+  transformTour,
+  transformTours,
   getLocalizedValue,
   isValidLocale,
-  getSupportedLocales 
+  getSupportedLocales,
 } from "../../utilities/localizationUtils.js";
 
 // Re-export for backward compatibility
@@ -18,15 +18,17 @@ export { transformTours };
 
 const getCategories = catchAsyncError(async (req, res) => {
   const { locale = "en" } = req.query;
-  
+
   // Validate locale
   if (!isValidLocale(locale)) {
     return res.status(400).json({
       status: "error",
-      message: `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+      message: `Invalid locale. Use one of: ${getSupportedLocales().join(
+        ", "
+      )}`,
     });
   }
-  
+
   try {
     const categories = await tourModel.aggregate([
       {
@@ -168,7 +170,7 @@ const deleteTour = catchAsyncError(async (req, res, next) => {
 const updateTour = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
   const { locale = "en" } = req.query;
-
+  console.log(req.body.imagesToDelete);
   // Validate tour ID
   if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid tour ID", 400));
@@ -180,10 +182,23 @@ const updateTour = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Tour not found", 404));
   }
 
+  let imagesToKeep = [];
+  let imagesToDelete = [];
+  if (typeof req.body.imagesToKeep === "string") {
+    imagesToKeep = JSON.parse(req.body.imagesToKeep);
+  }
+  if (typeof req.body.imagesToDelete === "string") {
+    imagesToDelete = JSON.parse(req.body.imagesToDelete);
+  }
+
   // Clean up old images if new ones are provided
   try {
     if (req.body.mainImg && tour.mainImg && tour.mainImg.public_id) {
       removeImage(tour.mainImg.public_id);
+    }
+
+    for (const public_id of imagesToDelete) {
+      if (public_id) await removeImage(public_id);
     }
 
     if (req.body.images && tour.images && Array.isArray(tour.images)) {
@@ -196,6 +211,20 @@ const updateTour = catchAsyncError(async (req, res, next) => {
   } catch (error) {
     console.error("Error cleaning up old images:", error);
   }
+
+  let finalImages = [];
+
+  if (Array.isArray(imagesToKeep)) {
+    finalImages = finalImages.concat(imagesToKeep);
+  }
+
+  if (req.body.images && Array.isArray(req.body.images)) {
+    finalImages = finalImages.concat(req.body.images);
+  } else if (req.body.images && typeof req.body.images === "object") {
+    finalImages.push(req.body.images);
+  }
+
+  req.body.images = finalImages;
 
   const updatedTour = await tourModel.findByIdAndUpdate(id, req.body, {
     new: true,
@@ -233,7 +262,7 @@ export const getTourBySlug = catchAsyncError(async (req, res, next) => {
     .populate({
       path: "destination",
       select: "city country",
-    })
+    });
 
   if (!tour) {
     return next(new AppError("Tour not found", 404));
@@ -248,10 +277,17 @@ export const getTourBySlug = catchAsyncError(async (req, res, next) => {
 
 const getAllTour = catchAsyncError(async (req, res, next) => {
   const { locale = "en" } = req.query;
-  
+
   // Validate locale
   if (locale !== "all" && !isValidLocale(locale)) {
-    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}, or 'all'`, 400));
+    return next(
+      new AppError(
+        `Invalid locale. Use one of: ${getSupportedLocales().join(
+          ", "
+        )}, or 'all'`,
+        400
+      )
+    );
   }
 
   const apiFeature = new ApiFeature(
@@ -295,7 +331,12 @@ const getTourById = catchAsyncError(async (req, res, next) => {
 
   // Validate locale
   if (!isValidLocale(locale)) {
-    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
+    return next(
+      new AppError(
+        `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+        400
+      )
+    );
   }
 
   // Use optimized query with lean
@@ -478,7 +519,12 @@ const searchTours = catchAsyncError(async (req, res, next) => {
 
   // Validate locale
   if (!isValidLocale(locale)) {
-    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
+    return next(
+      new AppError(
+        `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+        400
+      )
+    );
   }
 
   const searchFields = [`title.${locale}`, `description.${locale}`];

@@ -22,6 +22,7 @@ const childrenPricing = joi.array().items(
     price: joi.number().min(1).max(10000),
   })
 );
+
 const localizedSchema = joi.object({
   en: joi.string().required(),
   ar: joi.string().required(),
@@ -70,6 +71,9 @@ export const createTourSchema = joi.object({
   category: localizedSchema.required(),
   historyBrief: localizedSchema.required(),
 
+  imagesToDelete: joi.array().items(joi.string()).optional(),
+  imagesToKeep: joi.array().items(joi.string()).optional(),
+
   destination: joi.string().hex().length(24).required(),
 
   mainImg: imgSchema.required(),
@@ -116,10 +120,13 @@ export const updatedTourSchema = joi.object({
   category: localizedSchema.optional(),
   historyBrief: localizedSchema.optional(),
 
+  imagesToDelete: joi.array().items(joi.string()).optional(),
+  imagesToKeep: joi.array().items(joi.string()).optional(),
+
   destination: joi.string().hex().length(24).optional(),
 
   mainImg: imgSchema.optional(),
-  images: joi.array().items(imgSchema).min(1).optional(),
+  images: joi.array().items(imgSchema).optional().allow(null),
 
   date: joi
     .object({

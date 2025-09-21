@@ -120,7 +120,7 @@ schema.pre("save", async function (next) {
     ]);
     next();
   } catch (error) {
-    next(error); // Pass the error to the next middleware
+    next(error);
   }
 });
 

@@ -11,15 +11,17 @@
  */
 export const getLocalizedValue = (field, locale = "en") => {
   if (!field || typeof field !== "object") return field || "";
-  
+
   // Try requested locale first, then fallback chain
-  return field[locale] || 
-         field.en || 
-         field.ar || 
-         field.es || 
-         field.fr || 
-         field[Object.keys(field)[0]] || 
-         "";
+  return (
+    field[locale] ||
+    field.en ||
+    field.ar ||
+    field.es ||
+    field.fr ||
+    field[Object.keys(field)[0]] ||
+    ""
+  );
 };
 
 /**
@@ -44,16 +46,16 @@ export const getLocalizedAggregationValue = (fieldPath, locale = "en") => {
                   {
                     $ifNull: [
                       `${fieldPath}.fr`,
-                      { $arrayElemAt: [{ $objectToArray: fieldPath }, 0] }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
+                      { $arrayElemAt: [{ $objectToArray: fieldPath }, 0] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
   };
 };
 
@@ -65,7 +67,7 @@ export const getLocalizedAggregationValue = (fieldPath, locale = "en") => {
  */
 export const transformTour = (tour, locale = "en") => {
   if (!tour) return null;
-  
+
   const transformed = { ...tour };
 
   // Transform basic fields
@@ -87,19 +89,19 @@ export const transformTour = (tour, locale = "en") => {
       getLocalizedValue(feature, locale)
     );
   }
-  
+
   if (tour.includes) {
     transformed.includes = tour.includes.map((include) =>
       getLocalizedValue(include, locale)
     );
   }
-  
+
   if (tour.notIncludes) {
     transformed.notIncludes = tour.notIncludes.map((notInclude) =>
       getLocalizedValue(notInclude, locale)
     );
   }
-  
+
   if (tour.tags) {
     transformed.tags = tour.tags.map((tag) => getLocalizedValue(tag, locale));
   }
@@ -126,6 +128,10 @@ export const transformTour = (tour, locale = "en") => {
   if (tour.destination) {
     transformed.destination = {
       ...tour.destination,
+      slug: {
+        city: getLocalizedValue(tour.destination?.slug?.city, locale),
+        country: getLocalizedValue(tour.destination?.slug?.country, locale),
+      },
       city: getLocalizedValue(tour.destination.city, locale),
       country: getLocalizedValue(tour.destination.country, locale),
       description: getLocalizedValue(tour.destination.description, locale),
@@ -143,10 +149,14 @@ export const transformTour = (tour, locale = "en") => {
  */
 export const transformDestination = (destination, locale = "en") => {
   if (!destination) return null;
-  
+
   return {
     ...destination,
     city: getLocalizedValue(destination.city, locale),
+    slug: {
+      city: getLocalizedValue(destination?.slug?.city, locale),
+      country: getLocalizedValue(destination?.slug?.country, locale),
+    },
     country: getLocalizedValue(destination.country, locale),
     description: getLocalizedValue(destination.description, locale),
   };
@@ -171,7 +181,9 @@ export const transformTours = (tours, locale = "en") => {
  */
 export const transformDestinations = (destinations, locale = "en") => {
   if (!Array.isArray(destinations)) return [];
-  return destinations.map((destination) => transformDestination(destination, locale));
+  return destinations.map((destination) =>
+    transformDestination(destination, locale)
+  );
 };
 
 /**
@@ -199,16 +211,21 @@ export const getSupportedLocales = () => {
  * @param {Array} fields - Array of field names to search
  * @returns {Object} - MongoDB search query
  */
-export const buildLocalizedSearchQuery = (keyword, locale = "en", fields = []) => {
+export const buildLocalizedSearchQuery = (
+  keyword,
+  locale = "en",
+  fields = []
+) => {
   const regex = new RegExp(keyword, "i");
-  const searchFields = fields.length > 0 ? fields : [
-    "title", "description", "category", "country", "city"
-  ];
-  
+  const searchFields =
+    fields.length > 0
+      ? fields
+      : ["title", "description", "category", "country", "city"];
+
   return {
-    $or: searchFields.map(field => ({
-      [`${field}.${locale}`]: regex
-    }))
+    $or: searchFields.map((field) => ({
+      [`${field}.${locale}`]: regex,
+    })),
   };
 };
 
@@ -221,10 +238,10 @@ export const buildLocalizedSearchQuery = (keyword, locale = "en", fields = []) =
 export const buildCategorySearchQuery = (category, locale = "en") => {
   const regex = new RegExp(category, "i");
   const supportedLocales = getSupportedLocales();
-  
+
   return {
-    $or: supportedLocales.map(lang => ({
-      [`category.${lang}`]: regex
-    }))
+    $or: supportedLocales.map((lang) => ({
+      [`category.${lang}`]: regex,
+    })),
   };
 };

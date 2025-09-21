@@ -291,7 +291,7 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
   }
 
   const apiFeature = new ApiFeature(
-    tourModel.find().populate({ path: "destination", select: "city country" }),
+    tourModel.find().populate({ path: "destination", select: "city country slug" }),
     req.query
   )
     .paginate()

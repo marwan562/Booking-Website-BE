@@ -8,15 +8,16 @@ import tourModel from "../../models/tourModel.js";
 import reviewModel from "../../models/reviewModel.js";
 import { updatePopularDestinations } from "../../../utilities/updatePopularDestinations.js";
 import { scheduleJob } from "node-schedule";
-import { 
+import {
   transformTours,
   transformDestination,
   transformDestinations,
   getLocalizedValue,
   getLocalizedAggregationValue,
   isValidLocale,
-  getSupportedLocales 
+  getSupportedLocales,
 } from "../../utilities/localizationUtils.js";
+import deslugify from "../../../utilities/desulgify.js";
 
 const buildLocalizedQuery = (value) => ({
   $or: [
@@ -151,80 +152,8 @@ const buildTourMatchStage = ({
   return matchStage;
 };
 
-const buildTourAggregationPipeline = (matchStage, sortStage, page, limit) => [
-  { $match: matchStage },
-  {
-    $addFields: {
-      effectiveDurationInDays: {
-        $cond: {
-          if: { $gt: ["$durationInDays", 0] },
-          then: "$durationInDays",
-          else: {
-            $cond: {
-              if: { $gt: ["$durationInMinutes", 0] },
-              then: { $ceil: { $divide: ["$durationInMinutes", 1440] } },
-              else: 1,
-            },
-          },
-        },
-      },
-    },
-  },
-  {
-    $facet: {
-      tours: [
-        { $sort: sortStage },
-        { $skip: (parseInt(page) - 1) * parseInt(limit) },
-        { $limit: parseInt(limit) },
-        {
-          $project: {
-            _id: 1,
-            title: 1,
-            description: 1,
-            price: 1,
-            discountPercent: 1,
-            averageRating: 1,
-            totalReviews: 1,
-            totalTravelers: 1,
-            mainImg: 1,
-            duration: 1,
-            category: 1,
-            features: 1,
-            slug: 1,
-          },
-        },
-      ],
-      totalCount: [{ $count: "total" }],
-      categories: [
-        { $group: { _id: "$category", count: { $sum: 1 } } },
-        { $project: { _id: 0, category: "$_id", count: 1 } },
-        { $sort: { category: 1 } },
-      ],
-      features: [
-        {
-          $match: { features: { $exists: true, $ne: [], $not: { $size: 0 } } },
-        },
-        { $unwind: "$features" },
-        { $group: { _id: "$features", count: { $sum: 1 } } },
-        { $project: { _id: 0, feature: "$_id", count: 1 } },
-        { $sort: { feature: 1 } },
-      ],
-      maxPriceAndDuration: [
-        {
-          $group: {
-            _id: null,
-            maxPrice: { $max: "$price" },
-            maxDurationInDays: { $max: "$effectiveDurationInDays" },
-          },
-        },
-        { $project: { _id: 0, maxPrice: 1, maxDurationInDays: 1 } },
-      ],
-    },
-  },
-];
-
 export const getDestination = catchAsyncError(async (req, res, next) => {
-  const { destination } = req.params;
+  let { destination } = req.params;
   const {
     page = 1,
     limit = 10,
@@ -241,13 +170,18 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
     sortBy = "popularity",
     locale = "en",
   } = req.query;
-
+  destination = deslugify(destination);
   // Validate inputs
   if (!destination) {
     return next(new AppError("Destination parameter is required", 400));
   }
   if (!isValidLocale(locale)) {
-    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
+    return next(
+      new AppError(
+        `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+        400
+      )
+    );
   }
 
   const destinationLower = destination.trim().toLowerCase();
@@ -328,7 +262,7 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
     })();
 
     const apiFeature = new ApiFeature(
-      tourModel.find(matchStage).populate("destination", "city country"),
+      tourModel.find(matchStage).populate("destination", "city country slug"),
       { page, limit }
     )
       .paginate()
@@ -360,8 +294,8 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
           { $match: { destination: destinationData._id } },
           {
             $addFields: {
-              categoryValue: getLocalizedAggregationValue("$category", locale)
-            }
+              categoryValue: getLocalizedAggregationValue("$category", locale),
+            },
           },
           { $group: { _id: "$categoryValue", count: { $sum: 1 } } },
           { $project: { _id: 0, category: "$_id", count: 1 } },
@@ -379,8 +313,8 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
           { $unwind: "$features" },
           {
             $addFields: {
-              featureValue: getLocalizedAggregationValue("$features", locale)
-            }
+              featureValue: getLocalizedAggregationValue("$features", locale),
+            },
           },
           { $group: { _id: "$featureValue", count: { $sum: 1 } } },
           { $project: { _id: 0, feature: "$_id", count: 1 } },
@@ -577,8 +511,8 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
         { $match: matchStage },
         {
           $addFields: {
-            categoryValue: getLocalizedAggregationValue("$category", locale)
-          }
+            categoryValue: getLocalizedAggregationValue("$category", locale),
+          },
         },
         { $group: { _id: "$categoryValue", count: { $sum: 1 } } },
         { $project: { _id: 0, category: "$_id", count: 1 } },
@@ -591,8 +525,8 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
         { $unwind: "$features" },
         {
           $addFields: {
-            featureValue: getLocalizedAggregationValue("$features", locale)
-          }
+            featureValue: getLocalizedAggregationValue("$features", locale),
+          },
         },
         { $group: { _id: "$featureValue", count: { $sum: 1 } } },
         { $project: { _id: 0, feature: "$_id", count: 1 } },
@@ -629,7 +563,10 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
   return res.status(200).json({
     status: "success",
     type: "country",
-    destination: transformDestination(destinationData, locale),
+    destination:
+      locale === "all"
+        ? destinationData
+        : transformDestination(destinationData, locale),
     lengthCities: cities.length,
     totalTravelers,
     totalTours,
@@ -651,7 +588,7 @@ export const getDestination = catchAsyncError(async (req, res, next) => {
     },
     data: {
       tours: transformedTours,
-      cities: transformDestinations(cities, locale),
+      cities: locale === "all" ? cities : transformDestinations(cities, locale),
       pagination: paginationMeta,
       categories,
       features: featuresData,
@@ -667,7 +604,8 @@ export const createDestination = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Missing required field: country", 400));
 
   const cityValue = city?.en || city?.ar || city?.es || city?.fr || "";
-  const countryValue = country.en || country.ar || country.es || country.fr || "";
+  const countryValue =
+    country.en || country.ar || country.es || country.fr || "";
   if (!cityValue || !countryValue)
     return next(new AppError("Missing city or country values", 400));
 

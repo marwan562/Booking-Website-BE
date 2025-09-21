@@ -243,7 +243,7 @@ const addToWishList = catchAsyncError(async (req, res, next) => {
       populate: {
         path: "destination",
         model: "destination",
-        select: "city country",
+        select: "city country slug",
       },
     })
     .lean();
@@ -299,7 +299,7 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
       populate: {
         path: "destination",
         model: "destination",
-        select: "city country",
+        select: "city country slug",
       },
     })
     .lean();
@@ -331,7 +331,7 @@ const getWishlist = catchAsyncError(async (req, res, next) => {
       populate: {
         path: "destination",
         model: "destination",
-        select: "city country",
+        select: "city country slug",
       },
     })
     .lean();

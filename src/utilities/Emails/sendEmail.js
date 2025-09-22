@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import verifyEmailHTML from "./verifyEmailTemplate.js";
 import forgetPasswordHTML from "./ForgetPasswordTemplete.js";
+import { contactDetailsHTML } from "./details-contact-message.js";
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -25,13 +26,22 @@ let sendEmail = async (option) => {
     }`,
   };
 
-  // Send the email
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error("Error sending email: " + error);
-    } else {
-      console.log("Email sent: " + option.email + info.response);
+  const mailOptionsContact = {
+    from: '"Yalla Egipto" <noreply@yallaegipto.com>',
+    to: `${option.email}`,
+    subject: "New Contact Message Received",
+    html: contactDetailsHTML(option.contactDetails),
+  };
+
+  transporter.sendMail(
+    option.sendToAdmins ? mailOptionsContact : mailOptions,
+    (error, info) => {
+      if (error) {
+        console.error("Error sending email: " + error);
+      } else {
+        console.log("Email sent: " + option.email + info.response);
+      }
     }
-  });
+  );
 };
 export default sendEmail;

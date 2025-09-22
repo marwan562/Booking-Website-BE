@@ -91,6 +91,8 @@ export const createTourSchema = joi.object({
   notIncludes: joi.array().items(localizedSchema),
   tags: joi.array().items(localizedSchema),
 
+  price: joi.number().optional(),
+
   repeatTime: joi.array().items(joi.string().min(1).max(10)).min(1),
   repeatDays: repeatDays.min(1),
 
@@ -139,6 +141,8 @@ export const updatedTourSchema = joi.object({
   includes: joi.array().items(localizedSchema),
   notIncludes: joi.array().items(localizedSchema),
   tags: joi.array().items(localizedSchema),
+
+  price: joi.number().optional(),
 
   repeatTime: joi.array().items(joi.string().min(1).max(10)).min(1),
   repeatDays: repeatDays.min(1),

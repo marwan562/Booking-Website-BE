@@ -1,7 +1,7 @@
-import { 
-  buildLocalizedSearchQuery, 
-  buildCategorySearchQuery, 
-  getSupportedLocales 
+import {
+  buildLocalizedSearchQuery,
+  buildCategorySearchQuery,
+  getSupportedLocales,
 } from "./localizationUtils.js";
 
 export class ApiFeature {
@@ -80,19 +80,24 @@ export class ApiFeature {
         this.queryString.locale === "all"
           ? "en"
           : this.queryString.locale || "en";
-      
+
       // Use centralized search query builder
       const searchQuery = buildLocalizedSearchQuery(keyword, locale, [
-        "title", "description", "category", "country", "city"
+        "title",
+        "description",
+        "category",
+        "country",
+        "city",
       ]);
-      
+
       // Add non-localized fields
       const regex = new RegExp(keyword, "i");
       searchQuery.$or.push(
         { bookingReference: regex },
         { name: regex },
         { lastname: regex },
-        { email: regex }
+        { email: regex },
+        { subject: regex }
       );
 
       this.mongoseQuery.find(searchQuery);
@@ -101,7 +106,7 @@ export class ApiFeature {
     if (this.queryString.category) {
       const category = this.queryString.category;
       const locale = this.queryString.locale || "en";
-      
+
       // Use centralized category search query builder
       const searchQuery = buildCategorySearchQuery(category, locale);
       this.mongoseQuery.find(searchQuery);
@@ -133,25 +138,26 @@ export class ApiFeature {
     // Add search conditions using centralized functions
     if (keyword) {
       const searchQuery = buildLocalizedSearchQuery(keyword, locale, [
-        "title", "description", "category", "country", "city"
+        "title",
+        "description",
+        "category",
+        "country",
+        "city",
       ]);
-      
+
       // Add non-localized fields
       const regex = new RegExp(keyword, "i");
       searchQuery.$or.push({ bookingReference: regex });
-      
+
       filter.$or = searchQuery.$or;
     }
 
     // Add category filter if provided
     if (category) {
       const categoryQuery = buildCategorySearchQuery(category, locale);
-      
+
       if (filter.$or) {
-        filter.$and = [
-          { $or: filter.$or },
-          { $or: categoryQuery.$or }
-        ];
+        filter.$and = [{ $or: filter.$or }, { $or: categoryQuery.$or }];
         delete filter.$or;
       } else {
         filter.$or = categoryQuery.$or;

@@ -117,18 +117,7 @@ export const saveImg = async (req, res, next) => {
     folderNameParts.push("s");
     return folderNameParts.join("");
   }
-
-  async function uploadSingleFile(fieldName, buffer) {
-    try {
-      return await handleFileUpload(fieldName, buffer);
-    } catch (error) {
-      throw new AppError(
-        `Failed to upload ${fieldName}: ${error.message}`,
-        500
-      );
-    }
-  }
-
+  
   async function uploadMultipleFiles(fieldName, files) {
     const uploadedFiles = await Promise.all(
       files.map((file) => handleFileUpload(fieldName, file.buffer))

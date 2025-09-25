@@ -8,12 +8,12 @@ import jwt from "jsonwebtoken";
 import tourModel from "../../models/tourModel.js";
 import { AppError } from "../../utilities/AppError.js";
 import mongoose from "mongoose";
-import { 
+import {
   getLocalizedValue,
   transformDestination,
   transformTour,
   isValidLocale,
-  getSupportedLocales 
+  getSupportedLocales,
 } from "../../utilities/localizationUtils.js";
 
 const checkEmail = catchAsyncError(async (req, res, next) => {
@@ -102,7 +102,7 @@ const register = catchAsyncError(async (req, res, next) => {
 
   const accessToken = await user.generateVerificationToken();
 
-  sendEmail({ email, id: accessToken });
+  sendEmail({ email, id: accessToken ,sendToAdmins:false});
 
   res.status(201).json({
     status: "success",
@@ -146,7 +146,7 @@ const login = catchAsyncError(async (req, res, next) => {
   }
   if (!user.verified) {
     const accessToken = await user.generateVerificationToken();
-    await sendEmail({ email, id: accessToken });
+    await sendEmail({ email, id: accessToken,sendToAdmins:false });
     return next(new AppError("Please verify your account", 401));
   }
 
@@ -222,7 +222,12 @@ const addToWishList = catchAsyncError(async (req, res, next) => {
   const { locale = "en" } = req.query;
 
   if (!isValidLocale(locale)) {
-    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
+    return next(
+      new AppError(
+        `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+        400
+      )
+    );
   }
 
   if (!id || id.length !== 24) {
@@ -268,7 +273,12 @@ const removeFromWishList = catchAsyncError(async (req, res, next) => {
   const { locale = "en" } = req.query;
 
   if (!isValidLocale(locale)) {
-    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
+    return next(
+      new AppError(
+        `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+        400
+      )
+    );
   }
 
   if (!id || id.length !== 24) {
@@ -319,7 +329,12 @@ const getWishlist = catchAsyncError(async (req, res, next) => {
   const { locale = "en" } = req.query;
 
   if (!isValidLocale(locale)) {
-    return next(new AppError(`Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`, 400));
+    return next(
+      new AppError(
+        `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+        400
+      )
+    );
   }
 
   const user = await userModel
@@ -379,7 +394,7 @@ const sendCode = catchAsyncError(async (req, res, next) => {
   user.code = code;
   await user.save();
   sendEmail({ email, code });
-  res.status(200).send({ message: "success" });
+  res.status(200).send({ message: "success", sendToAdmins: false });
 });
 
 const checkCode = catchAsyncError(async (req, res, next) => {

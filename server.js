@@ -1,6 +1,5 @@
 import express from "express";
 import morgan from "morgan";
-import cors from "cors";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import dbConnection from "./DataBase/index.js";

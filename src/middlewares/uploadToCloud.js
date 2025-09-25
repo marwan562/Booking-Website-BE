@@ -142,8 +142,8 @@ export const saveImg = async (req, res, next) => {
       const files = req.files[fieldName];
 
       const uploaded = await uploadMultipleFiles(fieldName, files);
-      if (fieldName === "mainImg") {
-        req.body[fieldName] = uploaded[0]
+      if (fieldName === "mainImg" || fieldName === "avatar") {
+        req.body[fieldName] = uploaded[0];
       } else {
         req.body[fieldName] = uploaded;
       }

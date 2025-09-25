@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as Destination from "./destination.controller.js";
 import { allowedTo, auth } from "../../middlewares/auth.js";
-import { uploadMixfile, uploadSingleFile } from "../../middlewares/fileUpload.js";
+import { uploadMixfile } from "../../middlewares/fileUpload.js";
 import { saveImg } from "../../middlewares/uploadToCloud.js";
 import { validation } from "../../middlewares/validation.js";
 import {
@@ -21,7 +21,7 @@ destinationRouter
   .post(
     auth,
     allowedTo("admin"),
-    uploadSingleFile([{ name: "mainImg", maxCount: 1 }]),
+    uploadMixfile([{ name: "mainImg", maxCount: 1 }]),
     saveImg,
     parseJsonFields,
     validation(createDestinationSchema),

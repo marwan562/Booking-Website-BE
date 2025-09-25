@@ -117,7 +117,7 @@ export const saveImg = async (req, res, next) => {
     folderNameParts.push("s");
     return folderNameParts.join("");
   }
-  
+
   async function uploadMultipleFiles(fieldName, files) {
     const uploadedFiles = await Promise.all(
       files.map((file) => handleFileUpload(fieldName, file.buffer))
@@ -142,7 +142,11 @@ export const saveImg = async (req, res, next) => {
       const files = req.files[fieldName];
 
       const uploaded = await uploadMultipleFiles(fieldName, files);
-      req.body[fieldName] = uploaded;
+      if (fieldName === "mainImg") {
+        req.body[fieldName] = uploaded[0]
+      } else {
+        req.body[fieldName] = uploaded;
+      }
     }
   } else {
     if (req.file && req.file.buffer) {

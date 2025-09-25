@@ -25,7 +25,7 @@ export const createDestinationSchema = joi.object({
 
   country: localizedStringSchema,
 
-  mainImg: imageSchema.required(),
+  mainImg: imageSchema,
 
   description: localizedStringSchema.optional(),
 

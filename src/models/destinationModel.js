@@ -24,7 +24,7 @@ const schema = new Schema(
     country: { type: localizedSchema, required: true },
     slug: {
       type: { country: localizedSchema, city: localizedSchema },
-      required: true,
+      required: false,
     },
     mainImg: {
       url: { type: String, required: true },

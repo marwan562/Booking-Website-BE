@@ -10,7 +10,7 @@ const schemaPassengers = joi.object({
     }),
     joi.string().uri(),
     joi.allow(null)
-  ),
+  ).optional(),
   dateOfBirth: joi.string().optional(),
   nationality: joi.string().required(),
 });
@@ -43,7 +43,7 @@ export const subscriptionSchema = joi
         })
       )
       .optional(),
-    passengers: joi.array().items(schemaPassengers),
+    passengers: joi.array().items(schemaPassengers).optional(),
     locale: joi.string().valid("en", "es", "ar", "fr"),
     numberOfAdults: joi.number().integer().min(0).required(),
     numberOfChildren: joi.number().integer().min(0).required(),

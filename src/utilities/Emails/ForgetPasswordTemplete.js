@@ -80,7 +80,7 @@ const forgetPasswordHTML = (code) => {
         border-collapse: collapse !important;
       }
       a {
-        color: #ea0558;
+        color: #333333;
       }
       img {
         height: auto;
@@ -90,10 +90,10 @@ const forgetPasswordHTML = (code) => {
         outline: none;
       }
       .brand-accent {
-        color: #ea0558;
+        color: #333333;
       }
       .reset-code {
-        background: linear-gradient(135deg, #ea0558, #d4045c);
+        background: #333333;
         color: white;
         font-family: 'Courier New', monospace;
         font-size: 24px;
@@ -102,12 +102,12 @@ const forgetPasswordHTML = (code) => {
         padding: 20px 30px;
         border-radius: 8px;
         text-align: center;
-        box-shadow: 0 4px 12px rgba(234, 5, 88, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         border: 2px solid #fff;
       }
       </style>
     </head>
-    <body style="background-color: #f8f9fa;">
+    <body style="background-color: #ffffff;">
     
       <!-- start preheader -->
       <div class="preheader" style="display: none; max-width: 0; max-height: 0; overflow: hidden; font-size: 1px; line-height: 1px; color: #fff; opacity: 0;">
@@ -120,7 +120,7 @@ const forgetPasswordHTML = (code) => {
     
         <!-- start logo -->
         <tr>
-          <td align="center" bgcolor="#f8f9fa">
+          <td align="center" bgcolor="#ffffff">
             <!--[if (gte mso 9)|(IE)]>
             <table align="center" border="0" cellpadding="0" cellspacing="0" width="600">
             <tr>
@@ -130,8 +130,8 @@ const forgetPasswordHTML = (code) => {
               <tr>
                 <td align="center" valign="top" style="padding: 36px 24px;">
                   <div style="display: inline-block;">
-                    <h2 style="margin: 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 700; color: #ea0558; text-decoration: none;">
-                      🏺 Yalla Egipto
+                    <h2 style="margin: 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 700; color: #333333; text-decoration: none;">
+                      Yalla Egipto
                     </h2>
                     <p style="margin: 4px 0 0 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #666; text-align: center;">
                       Discover Egypt's Ancient Wonders
@@ -151,7 +151,7 @@ const forgetPasswordHTML = (code) => {
     
         <!-- start hero -->
         <tr>
-          <td align="center" bgcolor="#f8f9fa">
+          <td align="center" bgcolor="#ffffff">
             <!--[if (gte mso 9)|(IE)]>
             <table align="center" border="0" cellpadding="0" cellspacing="0" width="600">
             <tr>
@@ -159,9 +159,9 @@ const forgetPasswordHTML = (code) => {
             <![endif]-->
             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
               <tr>
-                <td align="left" bgcolor="#ffffff" style="padding: 36px 24px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; border-top: 4px solid #ea0558; border-radius: 8px 8px 0 0;">
+                <td align="left" bgcolor="#f8f9fa" style="padding: 36px 24px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; border-top: 4px solid #333333; border-radius: 8px 8px 0 0;">
                   <h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -1px; line-height: 48px; color: #2c3e50;">
-                    Password Reset Request 🔐
+                    Password Reset Request
                   </h1>
                 </td>
               </tr>
@@ -177,7 +177,7 @@ const forgetPasswordHTML = (code) => {
     
         <!-- start copy block -->
         <tr>
-          <td align="center" bgcolor="#f8f9fa">
+          <td align="center" bgcolor="#ffffff">
             <!--[if (gte mso 9)|(IE)]>
             <table align="center" border="0" cellpadding="0" cellspacing="0" width="600">
             <tr>
@@ -187,12 +187,12 @@ const forgetPasswordHTML = (code) => {
     
               <!-- start copy -->
               <tr>
-                <td align="left" bgcolor="#ffffff" style="padding: 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 24px;">
+                <td align="left" bgcolor="#f8f9fa" style="padding: 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 24px;">
                   <p style="margin: 0; margin-bottom: 16px;">
-                    <strong>Ma'salama!</strong> No worries, we've all been there.
+                    <strong>Hello,</strong>
                   </p>
                   <p style="margin: 0; margin-bottom: 16px;">
-                    We received a request to reset your password for your <span class="brand-accent" style="color: #ea0558; font-weight: 600;">Yalla Egipto</span> account. Use the verification code below to set a new password and get back to exploring Egypt's magnificent treasures!
+                    We received a request to reset your password for your <span class="brand-accent" style="color: #333333; font-weight: 600;">Yalla Egipto</span> account. Use the verification code below to set a new password and get back to exploring Egypt's magnificent treasures.
                   </p>
                   <p style="margin: 0; margin-bottom: 16px; color: #666; font-size: 14px;">
                     This code will expire in <strong>15 minutes</strong> for your security.
@@ -203,8 +203,8 @@ const forgetPasswordHTML = (code) => {
     
               <!-- start reset code -->
               <tr>
-                <td align="center" bgcolor="#ffffff" style="padding: 12px 24px 24px;">
-                  <div class="reset-code" style="background: linear-gradient(135deg, #ea0558, #d4045c); color: white; font-family: 'Courier New', monospace; font-size: 24px; font-weight: 700; letter-spacing: 4px; padding: 20px 30px; border-radius: 8px; text-align: center; box-shadow: 0 4px 12px rgba(234, 5, 88, 0.3); border: 2px solid #fff; display: inline-block;">
+                <td align="center" bgcolor="#f8f9fa" style="padding: 12px 24px 24px;">
+                  <div class="reset-code" style="background: #333333; color: white; font-family: 'Courier New', monospace; font-size: 24px; font-weight: 700; letter-spacing: 4px; padding: 20px 30px; border-radius: 8px; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); border: 2px solid #fff; display: inline-block;">
                     ${code}
                   </div>
                   <p style="margin: 12px 0 0 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 12px; color: #666; text-align: center;">
@@ -216,13 +216,13 @@ const forgetPasswordHTML = (code) => {
     
               <!-- start security notice -->
               <tr>
-                <td align="left" bgcolor="#ffffff" style="padding: 0 24px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif;">
-                  <div style="background: #fff5f8; border-left: 4px solid #ea0558; padding: 16px 20px; border-radius: 4px;">
-                    <p style="margin: 0; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #ea0558;">
-                      🛡️ Security Notice
+                <td align="left" bgcolor="#f8f9fa" style="padding: 0 24px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif;">
+                  <div style="background: #ffffff; border-left: 4px solid #333333; padding: 16px 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+                    <p style="margin: 0; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #333333;">
+                      Security Notice
                     </p>
                     <p style="margin: 0; color: #555; font-size: 14px; line-height: 20px;">
-                      If you didn't request this password reset, someone else might be trying to access your account. Please contact our support team immediately at <a href="mailto:security@yallaegipto.com" style="color: #ea0558;">security@yallaegipto.com</a>
+                      If you didn't request this password reset, someone else might be trying to access your account. Please contact our support team immediately at <a href="mailto:security@yallaegipto.com" style="color: #333333;">security@yallaegipto.com</a>
                     </p>
                   </div>
                 </td>
@@ -231,10 +231,10 @@ const forgetPasswordHTML = (code) => {
     
               <!-- start tips -->
               <tr>
-                <td align="left" bgcolor="#ffffff" style="padding: 0 24px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; border-radius: 0 0 8px 8px;">
-                  <div style="border-top: 1px solid #f1f1f1; padding-top: 20px;">
-                    <p style="margin: 0; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: #ea0558;">
-                      💡 Password Tips:
+                <td align="left" bgcolor="#f8f9fa" style="padding: 0 24px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; border-radius: 0 0 8px 8px;">
+                  <div style="border-top: 1px solid #e9ecef; padding-top: 20px;">
+                    <p style="margin: 0; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: #333333;">
+                      Password Tips:
                     </p>
                     <ul style="margin: 0; padding-left: 20px; color: #555; font-size: 14px; line-height: 20px;">
                       <li style="margin-bottom: 4px;">Use at least 8 characters with a mix of letters, numbers, and symbols</li>
@@ -259,7 +259,7 @@ const forgetPasswordHTML = (code) => {
     
         <!-- start footer -->
         <tr>
-          <td align="center" bgcolor="#f8f9fa" style="padding: 24px;">
+          <td align="center" bgcolor="#ffffff" style="padding: 24px;">
             <!--[if (gte mso 9)|(IE)]>
             <table align="center" border="0" cellpadding="0" cellspacing="0" width="600">
             <tr>
@@ -269,7 +269,7 @@ const forgetPasswordHTML = (code) => {
     
               <!-- start permission -->
               <tr>
-                <td align="center" bgcolor="#f8f9fa" style="padding: 12px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #666;">
+                <td align="center" bgcolor="#ffffff" style="padding: 12px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #666;">
                   <p style="margin: 0;">
                     You received this email because a password reset was requested for your Yalla Egipto account. If you didn't request this reset, you can safely ignore this email.
                   </p>
@@ -279,13 +279,13 @@ const forgetPasswordHTML = (code) => {
     
               <!-- start company info -->
               <tr>
-                <td align="center" bgcolor="#f8f9fa" style="padding: 12px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #666;">
+                <td align="center" bgcolor="#ffffff" style="padding: 12px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #666;">
                   <p style="margin: 0; margin-bottom: 8px;">
-                    <strong style="color: #ea0558;">Yalla Egipto Tours & Travel</strong><br>
+                    <strong style="color: #333333;">Yalla Egipto Tours & Travel</strong><br>
                     Your trusted partner for authentic Egyptian experiences
                   </p>
                   <p style="margin: 0; font-size: 12px;">
-                    📍 Cairo, Egypt | 📧 info@yallaegipto.com | 📞 +20 xxx-xxx-xxxx
+                    Cairo, Egypt | info@yallaegipto.com | +20 xxx-xxx-xxxx
                   </p>
                 </td>
               </tr>
@@ -293,12 +293,12 @@ const forgetPasswordHTML = (code) => {
     
               <!-- start support -->
               <tr>
-                <td align="center" bgcolor="#f8f9fa" style="padding: 0 24px 12px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #666;">
+                <td align="center" bgcolor="#ffffff" style="padding: 0 24px 12px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #666;">
                   <p style="margin: 0; font-size: 12px;">
                     Need help? Contact us: 
-                    <a href="mailto:support@yallaegipto.com" style="color: #ea0558; text-decoration: none; margin: 0 4px;">Email</a> |
-                    <a href="#" style="color: #ea0558; text-decoration: none; margin: 0 4px;">WhatsApp</a> |
-                    <a href="#" style="color: #ea0558; text-decoration: none; margin: 0 4px;">Live Chat</a>
+                    <a href="mailto:support@yallaegipto.com" style="color: #333333; text-decoration: none; margin: 0 4px;">Email</a> |
+                    <a href="#" style="color: #333333; text-decoration: none; margin: 0 4px;">WhatsApp</a> |
+                    <a href="#" style="color: #333333; text-decoration: none; margin: 0 4px;">Live Chat</a>
                   </p>
                 </td>
               </tr>

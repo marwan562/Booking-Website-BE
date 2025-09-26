@@ -23,7 +23,6 @@ router.use("/admin", auth, allowedTo("admin"));
 router.get("/admin", adminController.getAllBlogs);
 router.post(
   "/admin",
-  blogValidation,
   uploadMixfile([{ name: "image", maxCount: 1 }]),
   saveImg,
   adminController.createBlog

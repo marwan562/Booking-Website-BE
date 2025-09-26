@@ -72,91 +72,104 @@ class AdminController {
 
   async createBlog(req, res) {
     try {
+      // Validate request using express-validator
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         return res.status(400).json({
           success: false,
-          message: "Validation errors",
+          message: "Validation failed",
           errors: errors.array(),
         });
       }
 
       const {
         title,
+        excerpt,
         content,
         category,
+        status,
+        featured,
+        trending,
         tags,
-        author,
-        published,
-        publishDate,
-        imagesToKeep,
-        imagesToDelete,
+        readTime,
+        views,
+        likes,
+        seo,
+        publishedAt,
+        scheduledFor,
+        image: imageData,
       } = req.body;
 
       // Parse JSON fields if they come as strings (from FormData)
       const parsedData = {
         title: typeof title === "string" ? JSON.parse(title) : title,
+        excerpt: typeof excerpt === "string" ? JSON.parse(excerpt) : excerpt,
         content: typeof content === "string" ? JSON.parse(content) : content,
-        category: typeof category === "string" ? JSON.parse(category) : category,
+        category:
+          typeof category === "string" ? JSON.parse(category) : category,
         tags: typeof tags === "string" ? JSON.parse(tags) : tags,
-        imagesToKeep:
-          typeof imagesToKeep === "string" ? JSON.parse(imagesToKeep) : imagesToKeep,
-        imagesToDelete:
-          typeof imagesToDelete === "string" ? JSON.parse(imagesToDelete) : imagesToDelete,
+        seo: typeof seo === "string" ? JSON.parse(seo) : seo,
+        status: status || "draft",
+        featured:
+          featured !== undefined
+            ? featured === "true" || featured === true
+            : false,
+        trending:
+          trending !== undefined
+            ? trending === "true" || trending === true
+            : false,
+        readTime: readTime !== undefined ? Number(readTime) : 5,
+        views: views !== undefined ? Number(views) : 0,
+        likes: likes !== undefined ? Number(likes) : 0,
+        publishedAt: publishedAt || null,
+        scheduledFor: scheduledFor || null,
+        image:
+          typeof imageData === "string" ? JSON.parse(imageData) : imageData,
       };
 
-      // Generate slug based on English title
-      const slug = slugify(parsedData.title.en, { lower: true, strict: true });
-
-      // Handle main image upload
-      let mainImg = null;
-      if (req.files && req.files.mainImg) {
-        const result = await cloudinary.uploader.upload(req.files.mainImg.path);
-        mainImg = {
+      // Handle image upload
+      let image = null;
+      if (req.files && req.files.image) {
+        const result = await cloudinary.uploader.upload(req.files.image.path);
+        image = {
           url: result.secure_url,
           public_id: result.public_id,
+          alt: parsedData.image?.alt || "",
+          caption: parsedData.image?.caption || { en: "", es: "", fr: "" },
         };
-      }
-
-      // Handle additional images
-      let images = parsedData.imagesToKeep ? [...parsedData.imagesToKeep] : [];
-      if (req.files && req.files.images) {
-        const newImages = Array.isArray(req.files.images)
-          ? req.files.images
-          : [req.files.images];
-        for (const file of newImages) {
-          const result = await cloudinary.uploader.upload(file.path);
-          images.push({
-            url: result.secure_url,
-            public_id: result.public_id,
-          });
-        }
-      }
-
-      // Delete images if specified
-      if (parsedData.imagesToDelete && parsedData.imagesToDelete.length > 0) {
-        for (const public_id of parsedData.imagesToDelete) {
-          await cloudinary.uploader.destroy(public_id);
-        }
+      } else if (parsedData.image?.url) {
+        image = {
+          url: parsedData.image.url,
+          public_id: parsedData.image.public_id || "",
+          alt: parsedData.image.alt || "",
+          caption: parsedData.image.caption || { en: "", es: "", fr: "" },
+        };
       }
 
       const blogData = {
         title: parsedData.title,
-        slug,
+        excerpt: parsedData.excerpt,
         content: parsedData.content,
         category: parsedData.category,
-        mainImg,
-        images,
+        image,
+        status: parsedData.status,
+        featured: parsedData.featured,
+        trending: parsedData.trending,
         tags: parsedData.tags || [],
-        author: author || req.user.id, // Assuming req.user.id from auth middleware
-        published: published === "true" || published === true,
-        publishDate: publishDate || (published ? new Date() : null),
-        featured: false,
-        trending: false,
-        views: 0,
-        likes: 0,
-        totalComments: 0,
-        averageRating: 0,
+        readTime: parsedData.readTime,
+        views: parsedData.views,
+        likes: parsedData.likes,
+        seo: parsedData.seo || {
+          metaTitle: { en: "", es: "", fr: "" },
+          metaDescription: { en: "", es: "", fr: "" },
+          keywords: [],
+        },
+        publishedAt: parsedData.publishedAt
+          ? new Date(parsedData.publishedAt)
+          : null,
+        scheduledFor: parsedData.scheduledFor
+          ? new Date(parsedData.scheduledFor)
+          : null,
       };
 
       const blog = new Blog(blogData);
@@ -168,6 +181,7 @@ class AdminController {
         data: blog,
       });
     } catch (error) {
+      console.error("Error creating blog:", error);
       if (error.code === 11000) {
         return res.status(400).json({
           success: false,
@@ -201,12 +215,17 @@ class AdminController {
       const parsedData = {
         title: typeof title === "string" ? JSON.parse(title) : title,
         content: typeof content === "string" ? JSON.parse(content) : content,
-        category: typeof category === "string" ? JSON.parse(category) : category,
+        category:
+          typeof category === "string" ? JSON.parse(category) : category,
         tags: typeof tags === "string" ? JSON.parse(tags) : tags,
         imagesToKeep:
-          typeof imagesToKeep === "string" ? JSON.parse(imagesToKeep) : imagesToKeep,
+          typeof imagesToKeep === "string"
+            ? JSON.parse(imagesToKeep)
+            : imagesToKeep,
         imagesToDelete:
-          typeof imagesToDelete === "string" ? JSON.parse(imagesToDelete) : imagesToDelete,
+          typeof imagesToDelete === "string"
+            ? JSON.parse(imagesToDelete)
+            : imagesToDelete,
       };
 
       // Generate new slug if title.en changes
@@ -236,7 +255,9 @@ class AdminController {
       }
 
       // Handle additional images
-      let images = parsedData.imagesToKeep ? [...parsedData.imagesToKeep] : existingBlog.images;
+      let images = parsedData.imagesToKeep
+        ? [...parsedData.imagesToKeep]
+        : existingBlog.images;
       if (req.files && req.files.images) {
         const newImages = Array.isArray(req.files.images)
           ? req.files.images
@@ -255,7 +276,9 @@ class AdminController {
         for (const public_id of parsedData.imagesToDelete) {
           await cloudinary.uploader.destroy(public_id);
         }
-        images = images.filter((img) => !parsedData.imagesToDelete.includes(img.public_id));
+        images = images.filter(
+          (img) => !parsedData.imagesToDelete.includes(img.public_id)
+        );
       }
 
       const updateData = {
@@ -267,7 +290,10 @@ class AdminController {
         images,
         tags: parsedData.tags || existingBlog.tags,
         author: author || existingBlog.author,
-        published: published !== undefined ? published === "true" || published === true : existingBlog.published,
+        published:
+          published !== undefined
+            ? published === "true" || published === true
+            : existingBlog.published,
         publishDate: publishDate || existingBlog.publishDate,
       };
 
@@ -346,7 +372,9 @@ class AdminController {
 
       res.status(200).json({
         success: true,
-        message: `Blog ${blog.featured ? "featured" : "unfeatured"} successfully`,
+        message: `Blog ${
+          blog.featured ? "featured" : "unfeatured"
+        } successfully`,
         data: blog,
       });
     } catch (error) {
@@ -375,7 +403,9 @@ class AdminController {
 
       res.status(200).json({
         success: true,
-        message: `Blog ${blog.trending ? "marked as trending" : "removed from trending"} successfully`,
+        message: `Blog ${
+          blog.trending ? "marked as trending" : "removed from trending"
+        } successfully`,
         data: blog,
       });
     } catch (error) {

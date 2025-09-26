@@ -1,5 +1,5 @@
 import { validationResult } from "express-validator";
-import Blog from "../../models/blogModel";
+import Blog from "../../models/blogModel.js";
 import slugify from "slugify";
 
 class AdminController {

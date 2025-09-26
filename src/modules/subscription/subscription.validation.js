@@ -43,7 +43,6 @@ export const subscriptionSchema = joi
         })
       )
       .optional(),
-    passengers: joi.array().items(schemaPassengers).optional(),
     locale: joi.string().valid("en", "es", "ar", "fr"),
     numberOfAdults: joi.number().integer().min(0).required(),
     numberOfChildren: joi.number().integer().min(0).required(),

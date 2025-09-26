@@ -1,28 +1,10 @@
-import nodemailer from "nodemailer";
+import Resend from "resend";
 import verifyEmailHTML from "./verifyEmailTemplate.js";
 import forgetPasswordHTML from "./ForgetPasswordTemplete.js";
 import { contactDetailsHTML } from "./details-contact-message.js";
 import { AppError } from "../AppError.js";
 
-const createTransporter = () => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new AppError("Email configuration is missing", 500);
-  }
-
-  return nodemailer.createTransport({
-    service: "gmail",
-    host: "smtp.cairo-studio.com",
-    port: process.env.NODE_ENV === "development" ? 587 : 465,
-    secure: process.env.NODE_ENV !== "development",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  });
-};
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendEmail = async (option) => {
   try {
@@ -30,38 +12,35 @@ const sendEmail = async (option) => {
       throw new AppError("Email recipient is required", 400);
     }
 
-    const transporter = createTransporter();
+    const from = "shehab@cairo-studio.com";
+    const to = option.email;
+    const replyTo = "support@cairo-studio.com";
 
-    const mailOptions = option.sendToAdmins
-      ? {
-          from: {
-            name: "Yalla Egipto",
-            address: "shehab@cairo-studio.com",
-          },
-          replyTo: "support@cairo-studio.com",
-          to: option.email,
-          subject: "New Contact Message Received",
-          html: contactDetailsHTML(option.contactDetails),
-        }
-      : {
-          from: {
-            name: "Yalla Egipto",
-            address: "shehab@cairo-studio.com",
-          },
-          replyTo: "support@cairo-studio.com",
-          to: option.email,
-          subject: option.id ? "Verify Email" : "Reset Password",
-          html: option.id
-            ? verifyEmailHTML(option.id)
-            : forgetPasswordHTML(option.code),
-        };
+    let subject;
+    let html;
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent successfully:", info.messageId);
-    return info;
+    if (option.sendToAdmins) {
+      subject = "New Contact Message Received";
+      html = contactDetailsHTML(option.contactDetails);
+    } else {
+      subject = option.id ? "Verify Email" : "Reset Password";
+      html = option.id ? verifyEmailHTML(option.id) : forgetPasswordHTML(option.code);
+    }
+
+    const response = await resend.emails.send({
+      from,
+      to,
+      reply_to: replyTo,
+      subject,
+      html,
+    });
+
+    console.log("Email sent successfully:", response.id);
+    return response;
   } catch (error) {
     console.error("Failed to send email:", error);
     throw new AppError("Failed to send email. Please try again later.", 500);
   }
 };
+
 export default sendEmail;

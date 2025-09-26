@@ -5,7 +5,7 @@ import { contactDetailsHTML } from "./details-contact-message.js";
 import { AppError } from "../AppError.js";
 import "dotenv/config";
 
-if (!RESEND_API_KEY) {
+if (!process.env.RESEND_API_KEY) {
   throw new Error("RESEND_API_KEY is not defined");
 }
 

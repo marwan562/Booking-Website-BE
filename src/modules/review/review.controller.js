@@ -77,14 +77,14 @@ export const createReview = catchAsyncError(async (req, res, next) => {
 
 export const editReview = catchAsyncError(async (req, res, next) => {
   const { id: reviewId } = req.params;
-  const { _id: userId } = req.user;
-  
+  const { _id: userId, role } = req.user;
   req.body.images = JSON.parse(req.body.images);
 
   // Validate review ID
   if (!reviewId || reviewId.length !== 24) {
     return next(new AppError("Invalid review ID", 400));
   }
+
   const query = {
     _id: reviewId,
   };
@@ -92,6 +92,7 @@ export const editReview = catchAsyncError(async (req, res, next) => {
   if (role === "user") {
     query.user = userId;
   }
+
   const review = await reviewModel.findOneAndUpdate(query, req.body, {
     new: true,
     runValidators: true,
@@ -117,6 +118,7 @@ export const deleteReview = catchAsyncError(async (req, res, next) => {
   if (!reviewId || reviewId.length !== 24) {
     return next(new AppError("Invalid review ID", 400));
   }
+
   const query = {
     _id: reviewId,
   };
@@ -125,10 +127,7 @@ export const deleteReview = catchAsyncError(async (req, res, next) => {
     query.user = userId;
   }
 
-  const review = await reviewModel.findOneAndDelete({
-    _id: reviewId,
-    user: userId,
-  });
+  const review = await reviewModel.findOneAndDelete(query);
 
   if (!review) {
     return next(

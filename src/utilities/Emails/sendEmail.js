@@ -34,13 +34,19 @@ const sendEmail = async (option) => {
 
     const mailOptions = option.sendToAdmins
       ? {
-          from: '"Yalla Egipto" <shehab@cairo-studio.com>',
+          from: {
+            name: "Yalla Egipto",
+            address: "shehab@cairo-studio.com",
+          },
           to: option.email,
           subject: "New Contact Message Received",
           html: contactDetailsHTML(option.contactDetails),
         }
       : {
-          from: '"Yalla Egipto" <shehab@cairo-studio.com>',
+          from: {
+            name: "Yalla Egipto",
+            address: "shehab@cairo-studio.com",
+          },
           to: option.email,
           subject: option.id ? "Verify Email" : "Reset Password",
           html: option.id

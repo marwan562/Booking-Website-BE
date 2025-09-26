@@ -25,7 +25,6 @@ const childrenPricing = joi.array().items(
 
 const localizedSchema = joi.object({
   en: joi.string().required(),
-  ar: joi.string().required(),
   es: joi.string().required(),
   fr: joi.string(),
 });

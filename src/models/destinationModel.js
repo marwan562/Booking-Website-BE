@@ -1,17 +1,9 @@
 import mongoose, { Schema } from "mongoose";
 import slugify from "slugify";
 
-const slugifyArabic = (text) => {
-  return text
-    .trim()
-    .replace(/[؟،!.,;:"'«»()]/g, "")
-    .replace(/\s+/g, "-");
-};
-
 const localizedSchema = new Schema(
   {
     en: { type: String, required: true },
-    ar: { type: String, required: true },
     es: { type: String, required: true },
     fr: { type: String, required: true },
   },
@@ -44,21 +36,18 @@ schema.index({ country: 1, "city.en": 1 }, { unique: true });
 schema.index({ "city.en": 1 });
 schema.index({ country: 1 });
 schema.index({ "slug.country.en": 1, "slug.city.en": 1 }, { unique: true });
-schema.index({ "slug.country.ar": 1, "slug.city.ar": 1 }, { unique: true });
 schema.index({ "slug.country.es": 1, "slug.city.es": 1 }, { unique: true });
 schema.index({ "slug.country.fr": 1, "slug.city.fr": 1 }, { unique: true });
 
 schema.pre("save", function (next) {
   if (this.country) {
     if (this.country.en) this.country.en = this.country.en.trim().toLowerCase();
-    if (this.country.ar) this.country.ar = this.country.ar.trim();
     if (this.country.es) this.country.es = this.country.es.trim().toLowerCase();
     if (this.country.fr) this.country.fr = this.country.fr.trim().toLowerCase();
   }
 
   if (this.city) {
     if (this.city.en) this.city.en = this.city.en.trim().toLowerCase();
-    if (this.city.ar) this.city.ar = this.city.ar.trim();
     if (this.city.es) this.city.es = this.city.es.trim().toLowerCase();
     if (this.city.fr) this.city.fr = this.city.fr.trim().toLowerCase();
   }
@@ -67,7 +56,7 @@ schema.pre("save", function (next) {
 });
 
 schema.pre("save", async function (next) {
-  const langs = ["en", "ar", "es", "fr"];
+  const langs = ["en", "es", "fr"];
   const isNewDoc = this.isNew;
 
   this.slug = this.slug || { country: {}, city: {} };
@@ -79,15 +68,12 @@ schema.pre("save", async function (next) {
         !this.slug.country?.[lang] ||
         isNewDoc)
     ) {
-      let baseCountrySlug =
-        lang === "ar"
-          ? slugifyArabic(this.country[lang])
-          : slugify(this.country[lang], {
-              lower: true,
-              locale: lang,
-              trim: true,
-              remove: /[*+~.()'"!:@،؟]/g,
-            });
+      let baseCountrySlug = slugify(this.country[lang], {
+        lower: true,
+        locale: lang,
+        trim: true,
+        remove: /[*+~.()'"!:@،؟]/g,
+      });
 
       let countrySlug = baseCountrySlug;
       let count = 1;
@@ -109,15 +95,12 @@ schema.pre("save", async function (next) {
       this.city?.[lang] &&
       (this.isModified(`city.${lang}`) || !this.slug.city?.[lang] || isNewDoc)
     ) {
-      let baseCitySlug =
-        lang === "ar"
-          ? slugifyArabic(this.city[lang])
-          : slugify(this.city[lang], {
-              lower: true,
-              locale: lang,
-              trim: true,
-              remove: /[*+~.()'"!:@،؟]/g,
-            });
+      let baseCitySlug = slugify(this.city[lang], {
+        lower: true,
+        locale: lang,
+        trim: true,
+        remove: /[*+~.()'"!:@،؟]/g,
+      });
 
       let citySlug = baseCitySlug;
       let count = 1;

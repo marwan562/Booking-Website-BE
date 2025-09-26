@@ -4,7 +4,6 @@ import slugify from "slugify";
 const localizedSchema = new Schema(
   {
     en: { type: String, required: true },
-    ar: { type: String, required: true },
     es: { type: String, required: true },
     fr: { type: String, required: false },
   },
@@ -140,11 +139,9 @@ const schema = new Schema(
 
 schema.index({
   "title.en": "text",
-  "title.ar": "text",
   "title.es": "text",
   "title.fr": "text",
   "description.en": "text",
-  "description.ar": "text",
   "description.es": "text",
   "description.fr": "text",
   category: 1,
@@ -155,15 +152,8 @@ schema.index({
   createdAt: -1,
 });
 
-const slugifyArabic = (text) => {
-  return text
-    .trim()
-    .replace(/[؟،!.,;:"'«»()]/g, "")
-    .replace(/\s+/g, "-");
-};
-
 schema.pre("save", async function (next) {
-  const langs = ["en", "ar", "es", "fr"];
+  const langs = ["en", "es", "fr"];
   const isNewDoc = this.isNew;
 
   if (
@@ -179,16 +169,12 @@ schema.pre("save", async function (next) {
       if (this.isModified(`title.${lang}`) || !this.slug[lang]) {
         let baseSlug;
 
-        if (lang === "ar") {
-          baseSlug = slugifyArabic(this.title[lang]);
-        } else {
-          baseSlug = slugify(this.title[lang], {
-            lower: true,
-            locale: lang,
-            trim: true,
-            remove: /[*+~.()'"!:@،؟]/g,
-          });
-        }
+        baseSlug = slugify(this.title[lang], {
+          lower: true,
+          locale: lang,
+          trim: true,
+          remove: /[*+~.()'"!:@،؟]/g,
+        });
 
         let slug = baseSlug;
         let count = 1;

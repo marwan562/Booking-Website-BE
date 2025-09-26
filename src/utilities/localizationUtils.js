@@ -6,7 +6,7 @@
 /**
  * Get localized value with fallback chain
  * @param {Object} field - The localized field object
- * @param {string} locale - The requested locale (en, ar, es, fr)
+ * @param {string} locale - The requested locale (en, es, fr)
  * @returns {string} - The localized value or fallback
  */
 export const getLocalizedValue = (field, locale = "en") => {
@@ -16,7 +16,6 @@ export const getLocalizedValue = (field, locale = "en") => {
   return (
     field[locale] ||
     field.en ||
-    field.ar ||
     field.es ||
     field.fr ||
     field[Object.keys(field)[0]] ||
@@ -39,16 +38,11 @@ export const getLocalizedAggregationValue = (fieldPath, locale = "en") => {
           `${fieldPath}.en`,
           {
             $ifNull: [
-              `${fieldPath}.ar`,
+              `${fieldPath}.es`,
               {
                 $ifNull: [
-                  `${fieldPath}.es`,
-                  {
-                    $ifNull: [
-                      `${fieldPath}.fr`,
-                      { $arrayElemAt: [{ $objectToArray: fieldPath }, 0] },
-                    ],
-                  },
+                  `${fieldPath}.fr`,
+                  { $arrayElemAt: [{ $objectToArray: fieldPath }, 0] },
                 ],
               },
             ],
@@ -57,6 +51,54 @@ export const getLocalizedAggregationValue = (fieldPath, locale = "en") => {
       },
     ],
   };
+};
+
+/**
+ * Transform blog object with localization
+ * @param {Object} blog - The blog object
+ * @param {string} locale - The requested locale
+ * @returns {Object} - Transformed blog object
+ */
+export const transformBlog = (blog, locale = "en") => {
+  if (!blog) return null;
+
+  const transformed = { ...blog };
+
+  // Transform basic localized fields
+  transformed.title = getLocalizedValue(blog.title, locale);
+  transformed.slug = getLocalizedValue(blog.slug, locale);
+  transformed.excerpt = getLocalizedValue(blog.excerpt, locale);
+  transformed.content = getLocalizedValue(blog.content, locale);
+  transformed.category = getLocalizedValue(blog.category, locale);
+
+  // Transform image object
+  transformed.image = {
+    ...blog.image,
+    alt: getLocalizedValue(blog.image?.alt, locale),
+    caption: getLocalizedValue(blog.image?.caption, locale),
+  };
+
+  // Transform author object
+  transformed.author = {
+    ...blog.author,
+    bio: getLocalizedValue(blog.author?.bio, locale),
+  };
+
+  // Transform SEO object
+  transformed.seo = {
+    ...blog.seo,
+    metaTitle: getLocalizedValue(blog.seo?.metaTitle, locale),
+    metaDescription: getLocalizedValue(blog.seo?.metaDescription, locale),
+    keywords: blog.seo?.keywords?.map((keyword) => getLocalizedValue(keyword, locale)) || [],
+  };
+
+  // Transform tags array
+  transformed.tags = blog.tags?.map((tag) => getLocalizedValue(tag, locale)) || [];
+
+  // Preserve virtuals and other fields
+  transformed.formattedPublishDate = blog.formattedPublishDate || null;
+
+  return transformed;
 };
 
 /**
@@ -192,7 +234,7 @@ export const transformDestinations = (destinations, locale = "en") => {
  * @returns {boolean} - Whether the locale is valid
  */
 export const isValidLocale = (locale) => {
-  const validLocales = ["en", "ar", "es", "fr"];
+  const validLocales = ["en", "es", "fr"];
   return validLocales.includes(locale);
 };
 
@@ -201,7 +243,7 @@ export const isValidLocale = (locale) => {
  * @returns {Array} - Array of supported locale codes
  */
 export const getSupportedLocales = () => {
-  return ["en", "ar", "es", "fr"];
+  return ["en", "es", "fr"];
 };
 
 /**

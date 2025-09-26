@@ -3,8 +3,8 @@ import { AdminController } from "./blog.controller.js";
 import { auth, allowedTo } from "../../middlewares/auth.js";
 import { blogValidation } from "./blog.validation.js";
 import { uploadMixfile } from "../../middlewares/fileUpload.js";
-import express from "express";
 import { saveImg } from "../../middlewares/uploadToCloud.js";
+import express from "express";
 
 const router = express.Router();
 const blogController = new BlogController();

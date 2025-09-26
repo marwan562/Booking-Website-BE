@@ -46,21 +46,6 @@ const blogSchema = new mongoose.Schema(
       caption: { type: localizedSchema },
     },
 
-    author: {
-      name: {
-        type: String,
-        required: [true, "Author name is required"],
-      },
-      email: {
-        type: String,
-        required: [true, "Author email is required"],
-      },
-      avatar: {
-        type: String,
-        default: "",
-      },
-    },
-
     status: {
       type: String,
       enum: ["draft", "published", "archived"],

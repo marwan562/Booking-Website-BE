@@ -92,23 +92,6 @@ app.all("*", (req, _, next) => {
 // Global error handler
 app.use(customErrorHandler);
 
-// Enhanced process event handlers
-process.on("uncaughtException", (err) => {
-  logger.error(`Uncaught Exception: ${err.message}`);
-  logger.error(`Stack: ${err.stack}`);
-  process.exit(1);
-});
-
-process.on("unhandledRejection", (reason, promise) => {
-  logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
-  process.exit(1);
-});
-
-process.on("SIGTERM", () => {
-  logger.info("SIGTERM received. Shutting down gracefully.");
-  process.exit(0);
-});
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`Server started on port ${PORT} in ${process.env.NODE_ENV} mode`);

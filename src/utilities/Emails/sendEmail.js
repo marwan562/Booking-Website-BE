@@ -1,8 +1,9 @@
-import Resend from "resend";
+import { Resend } from "resend";
 import verifyEmailHTML from "./verifyEmailTemplate.js";
 import forgetPasswordHTML from "./ForgetPasswordTemplete.js";
 import { contactDetailsHTML } from "./details-contact-message.js";
 import { AppError } from "../AppError.js";
+import "dotenv/config";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -24,7 +25,9 @@ const sendEmail = async (option) => {
       html = contactDetailsHTML(option.contactDetails);
     } else {
       subject = option.id ? "Verify Email" : "Reset Password";
-      html = option.id ? verifyEmailHTML(option.id) : forgetPasswordHTML(option.code);
+      html = option.id
+        ? verifyEmailHTML(option.id)
+        : forgetPasswordHTML(option.code);
     }
 
     const response = await resend.emails.send({

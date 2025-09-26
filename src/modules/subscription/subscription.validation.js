@@ -2,7 +2,6 @@ import joi from "joi";
 
 const schemaPassengers = joi.object({
   name: joi.string().min(2).max(50).required(),
-  lastName: joi.string().min(2).max(50).required(),
   passport: joi.alternatives().try(
     joi.object({
       url: joi.string().uri().allow(null).optional(),

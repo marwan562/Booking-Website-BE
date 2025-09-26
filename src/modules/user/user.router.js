@@ -90,6 +90,6 @@ userRouter
     allowedTo("admin"),
     validation(UserValidation.userSchemaUpdate),
     User.updateUser
-  );
+  ).delete(auth,allowedTo("admin"),User.deleteUser)
 
 export default userRouter;

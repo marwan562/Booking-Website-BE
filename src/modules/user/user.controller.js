@@ -7,10 +7,7 @@ import { ApiFeature } from "../../utilities/AppFeature.js";
 import jwt from "jsonwebtoken";
 import tourModel from "../../models/tourModel.js";
 import { AppError } from "../../utilities/AppError.js";
-import mongoose from "mongoose";
 import {
-  getLocalizedValue,
-  transformDestination,
   transformTour,
   isValidLocale,
   getSupportedLocales,
@@ -25,6 +22,21 @@ const checkEmail = catchAsyncError(async (req, res, next) => {
       .status(200)
       .send({ message: "Email is already in use", isEmail: true });
   res.status(200).send({ message: "Email is not in use", isEmail: false });
+});
+
+const deleteUser = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+
+  const exist = await userModel.findById(id);
+  if (!exist) {
+    return new AppError("User not found.");
+  }
+
+  await userModel.deleteOne({ _id: id });
+  res.status(200).json({
+    status: "success",
+    message: "User Deleted Successfully.",
+  });
 });
 
 const verifyUser = catchAsyncError(async (req, res, next) => {
@@ -102,7 +114,7 @@ const register = catchAsyncError(async (req, res, next) => {
 
   const accessToken = await user.generateVerificationToken();
 
-  sendEmail({ email, id: accessToken ,sendToAdmins:false});
+  sendEmail({ email, id: accessToken, sendToAdmins: false });
 
   res.status(201).json({
     status: "success",
@@ -146,7 +158,7 @@ const login = catchAsyncError(async (req, res, next) => {
   }
   if (!user.verified) {
     const accessToken = await user.generateVerificationToken();
-    await sendEmail({ email, id: accessToken,sendToAdmins:false });
+    await sendEmail({ email, id: accessToken, sendToAdmins: false });
     return next(new AppError("Please verify your account", 401));
   }
 
@@ -465,4 +477,5 @@ export {
   refreshToken,
   checkEmail,
   verifyUser,
+  deleteUser,
 };

@@ -17,7 +17,7 @@ const sendEmail = async (option) => {
       throw new AppError("Email recipient is required", 400);
     }
 
-    const from = "yallaegipto.com";
+    const from = "Yalla Egipto <yallaegipto.com>";
     const to = option.email;
 
     let subject;

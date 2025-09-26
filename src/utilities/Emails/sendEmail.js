@@ -11,7 +11,7 @@ const createTransporter = () => {
 
   return nodemailer.createTransport({
     service: "gmail",
-    host: "mail.cairo-studio.com",
+    host: "smtp.cairo-studio.com",
     port: process.env.NODE_ENV === "development" ? 587 : 465,
     secure: process.env.NODE_ENV !== "development",
     auth: {
@@ -38,6 +38,7 @@ const sendEmail = async (option) => {
             name: "Yalla Egipto",
             address: "shehab@cairo-studio.com",
           },
+          replyTo: "support@cairo-studio.com",
           to: option.email,
           subject: "New Contact Message Received",
           html: contactDetailsHTML(option.contactDetails),
@@ -47,6 +48,7 @@ const sendEmail = async (option) => {
             name: "Yalla Egipto",
             address: "shehab@cairo-studio.com",
           },
+          replyTo: "support@cairo-studio.com",
           to: option.email,
           subject: option.id ? "Verify Email" : "Reset Password",
           html: option.id

@@ -11,7 +11,7 @@ const createTransporter = () => {
 
   return nodemailer.createTransport({
     service: "gmail",
-    host: "smtp.gmail.com",
+    host: "mail.cairo-studio.com",
     port: process.env.NODE_ENV === "development" ? 587 : 465,
     secure: process.env.NODE_ENV !== "development",
     auth: {

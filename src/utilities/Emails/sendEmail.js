@@ -17,9 +17,8 @@ const sendEmail = async (option) => {
       throw new AppError("Email recipient is required", 400);
     }
 
-    const from = "shehab@cairo-studio.com";
+    const from = "yallaegipto.com";
     const to = option.email;
-    const replyTo = "support@cairo-studio.com";
 
     let subject;
     let html;
@@ -37,7 +36,6 @@ const sendEmail = async (option) => {
     const response = await resend.emails.send({
       from,
       to,
-      reply_to: replyTo,
       subject,
       html,
     });

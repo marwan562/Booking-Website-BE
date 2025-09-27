@@ -254,6 +254,67 @@ class BlogController {
     }
   }
 
+  transformBlogSimple(blog, locale = "en") {
+    if (!blog) return null;
+
+    try {
+      return {
+        _id: blog._id.toString(),
+        title: blog.title?.[locale] || blog.title?.en || "No title",
+        excerpt: blog.excerpt?.[locale] || blog.excerpt?.en || "No excerpt",
+        content: blog.content?.[locale] || blog.content?.en || "No content",
+        slug: blog.slug?.[locale] || blog.slug?.en || "no-slug",
+        category: blog.category?.[locale] || blog.category?.en || "General",
+        image: blog.image
+          ? {
+              url: blog.image.url || "",
+              public_id: blog.image.public_id || "",
+              alt: blog.image.alt || "",
+              caption:
+                blog.image.caption?.[locale] || blog.image.caption?.en || "",
+            }
+          : { url: "", public_id: "", alt: "", caption: "" },
+        status: blog.status,
+        featured: blog.featured || false,
+        trending: blog.trending || false,
+        tags:
+          blog.tags
+            ?.map((tag) =>
+              typeof tag === "string" ? tag : tag[locale] || tag.en || ""
+            )
+            .filter(Boolean) || [],
+        readTime: blog.readTime || 5,
+        views: blog.views || 0,
+        likes: blog.likes || 0,
+        seo: blog.seo
+          ? {
+              metaTitle:
+                blog.seo.metaTitle?.[locale] || blog.seo.metaTitle?.en || "",
+              metaDescription:
+                blog.seo.metaDescription?.[locale] ||
+                blog.seo.metaDescription?.en ||
+                "",
+              keywords:
+                blog.seo.keywords
+                  ?.map((keyword) =>
+                    typeof keyword === "string"
+                      ? keyword
+                      : keyword[locale] || keyword.en || ""
+                  )
+                  .filter(Boolean) || [],
+            }
+          : undefined,
+        publishedAt: blog.publishedAt || blog.createdAt,
+        scheduledFor: blog.scheduledFor,
+        createdAt: blog.createdAt,
+        updatedAt: blog.updatedAt,
+      };
+    } catch (error) {
+      console.error("Error transforming blog:", error);
+      return null;
+    }
+  }
+  
   async getCategories(req, res) {
     try {
       console.log("getCategories called");

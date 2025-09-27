@@ -253,9 +253,9 @@ async getAllBlogs(req, res) {
         });
       }
 
-      const slug = parsedData.title.en
-        ? slugify(parsedData.title.en, { lower: true, strict: true })
-        : existingBlog.slug;
+      const slug = parsedData.title?.en
+        ? slugify(parsedData.title?.en, { lower: true, strict: true })
+        : existingBlog?.slug;
 
       // Handle main image update
       let mainImg = existingBlog.mainImg;

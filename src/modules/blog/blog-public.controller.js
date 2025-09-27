@@ -90,22 +90,32 @@ class BlogController {
 
   async getTrendingBlogs(req, res) {
     try {
-      const limit = parseInt(req.query.limit) || 6;
-      const locale = isValidLocale(req.query.locale) ? req.query.locale : "en";
+      console.log("getTrendingBlogs called with query:", req.query);
 
-      const blogs = await Blog.getTrending(locale)
+      const limit = parseInt(req.query.limit) || 6;
+      const locale = req.query.locale || "en";
+
+      const blogs = await Blog.find({
+        status: "published",
+        trending: true,
+      })
+        .sort("-views")
         .limit(limit)
         .select("-content")
         .lean();
 
-      // Transform blogs for localization
-      const transformedBlogs = blogs.map((blog) => transformBlog(blog, locale));
+      console.log(`Found ${blogs.length} trending blogs`);
+
+      const transformedBlogs = blogs
+        .map((blog) => this.transformBlogSimple(blog, locale))
+        .filter(Boolean);
 
       res.status(200).json({
         success: true,
         data: transformedBlogs,
       });
     } catch (error) {
+      console.error("Error fetching trending blogs:", error);
       res.status(500).json({
         success: false,
         message: "Error fetching trending blogs",
@@ -113,28 +123,34 @@ class BlogController {
       });
     }
   }
-
   async getBlogBySlug(req, res) {
     try {
       const { slug } = req.params;
-      const locale = isValidLocale(req.query.locale) ? req.query.locale : "en";
+      const locale = req.query.locale || "en";
+
+      console.log(`Looking for blog with slug: ${slug}, locale: ${locale}`);
 
       const blog = await Blog.findOneAndUpdate(
-        { [`slug.${locale}`]: slug, status: "published" },
+        {
+          [`slug.${locale}`]: slug,
+          status: "published",
+        },
         { $inc: { views: 1 } },
         { new: true }
       ).lean();
 
       if (!blog) {
+        console.log(`Blog with slug '${slug}' not found`);
         return res.status(404).json({
           success: false,
           message: "Blog not found",
         });
       }
 
-      // Get related blogs (same category, excluding current blog)
+      // Get related blogs
+      const categoryValue = blog.category?.[locale] || blog.category?.en;
       const relatedBlogs = await Blog.find({
-        [`category.${locale}`]: blog.category[locale],
+        [`category.${locale}`]: categoryValue,
         _id: { $ne: blog._id },
         status: "published",
       })
@@ -142,11 +158,10 @@ class BlogController {
         .select("-content")
         .lean();
 
-      // Transform blog and related blogs for localization
-      const transformedBlog = transformBlog(blog, locale);
-      const transformedRelatedBlogs = relatedBlogs.map((blog) =>
-        transformBlog(blog, locale)
-      );
+      const transformedBlog = this.transformBlogSimple(blog, locale);
+      const transformedRelatedBlogs = relatedBlogs
+        .map((blog) => this.transformBlogSimple(blog, locale))
+        .filter(Boolean);
 
       res.status(200).json({
         success: true,
@@ -156,6 +171,7 @@ class BlogController {
         },
       });
     } catch (error) {
+      console.error("Error fetching blog by slug:", error);
       res.status(500).json({
         success: false,
         message: "Error fetching blog",
@@ -240,17 +256,22 @@ class BlogController {
 
   async getCategories(req, res) {
     try {
-      const locale = isValidLocale(req.query.locale) ? req.query.locale : "en";
+      console.log("getCategories called");
+
+      const locale = req.query.locale || "en";
 
       const categories = await Blog.distinct(`category.${locale}`, {
         status: "published",
       });
 
+      console.log(`Found categories:`, categories);
+
       res.status(200).json({
         success: true,
-        data: categories,
+        data: categories.filter(Boolean),
       });
     } catch (error) {
+      console.error("Error fetching categories:", error);
       res.status(500).json({
         success: false,
         message: "Error fetching categories",

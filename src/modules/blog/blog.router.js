@@ -20,7 +20,7 @@ router.post(
   saveImg,
   adminController.createBlog
 );
-router.put("/admin/:id", auth, allowedTo("admin"), blogValidation, adminController.updateBlog);
+router.put("/admin/:id", auth, allowedTo("admin"), adminController.updateBlog);
 router.delete("/admin/:id", auth, allowedTo("admin"), adminController.deleteBlog);
 router.patch("/admin/:id/featured", auth, allowedTo("admin"), adminController.toggleFeatured);
 router.patch("/admin/:id/trending", auth, allowedTo("admin"), adminController.toggleTrending);

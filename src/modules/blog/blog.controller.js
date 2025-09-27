@@ -70,132 +70,111 @@ class AdminController {
     }
   }
 
-  async createBlog(req, res) {
-    try {
-      // Validate request using express-validator
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: "Validation failed",
-          errors: errors.array(),
-        });
-      }
-
-      const {
-        title,
-        excerpt,
-        content,
-        category,
-        status,
-        featured,
-        trending,
-        tags,
-        readTime,
-        views,
-        likes,
-        seo,
-        publishedAt,
-        scheduledFor,
-        image: imageData,
-      } = req.body;
-
-      // Parse JSON fields if they come as strings (from FormData)
-      const parsedData = {
-        title: typeof title === "string" ? JSON.parse(title) : title,
-        excerpt: typeof excerpt === "string" ? JSON.parse(excerpt) : excerpt,
-        content: typeof content === "string" ? JSON.parse(content) : content,
-        category:
-          typeof category === "string" ? JSON.parse(category) : category,
-        tags: typeof tags === "string" ? JSON.parse(tags) : tags,
-        seo: typeof seo === "string" ? JSON.parse(seo) : seo,
-        status: status || "draft",
-        featured:
-          featured !== undefined
-            ? featured === "true" || featured === true
-            : false,
-        trending:
-          trending !== undefined
-            ? trending === "true" || trending === true
-            : false,
-        readTime: readTime !== undefined ? Number(readTime) : 5,
-        views: views !== undefined ? Number(views) : 0,
-        likes: likes !== undefined ? Number(likes) : 0,
-        publishedAt: publishedAt || null,
-        scheduledFor: scheduledFor || null,
-        image:
-          typeof imageData === "string" ? JSON.parse(imageData) : imageData,
-      };
-
-      // Handle image upload
-      let image = null;
-      if (req.files && req.files.image) {
-        const result = await cloudinary.uploader.upload(req.files.image.path);
-        image = {
-          url: result.secure_url,
-          public_id: result.public_id,
-          alt: parsedData.image?.alt || "",
-          caption: parsedData.image?.caption || { en: "", es: "", fr: "" },
-        };
-      } else if (parsedData.image?.url) {
-        image = {
-          url: parsedData.image.url,
-          public_id: parsedData.image.public_id || "",
-          alt: parsedData.image.alt || "",
-          caption: parsedData.image.caption || { en: "", es: "", fr: "" },
-        };
-      }
-
-      const blogData = {
-        title: parsedData.title,
-        excerpt: parsedData.excerpt,
-        content: parsedData.content,
-        category: parsedData.category,
-        image,
-        status: parsedData.status,
-        featured: parsedData.featured,
-        trending: parsedData.trending,
-        tags: parsedData.tags || [],
-        readTime: parsedData.readTime,
-        views: parsedData.views,
-        likes: parsedData.likes,
-        seo: parsedData.seo || {
-          metaTitle: { en: "", es: "", fr: "" },
-          metaDescription: { en: "", es: "", fr: "" },
-          keywords: [],
-        },
-        publishedAt: parsedData.publishedAt
-          ? new Date(parsedData.publishedAt)
-          : null,
-        scheduledFor: parsedData.scheduledFor
-          ? new Date(parsedData.scheduledFor)
-          : null,
-      };
-
-      const blog = new Blog(blogData);
-      await blog.save();
-
-      res.status(201).json({
-        success: true,
-        message: "Blog created successfully",
-        data: blog,
-      });
-    } catch (error) {
-      console.error("Error creating blog:", error);
-      if (error.code === 11000) {
-        return res.status(400).json({
-          success: false,
-          message: "Blog with this slug already exists",
-        });
-      }
-      res.status(500).json({
+async createBlog(req, res) {
+  try {
+    // Validate request using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
         success: false,
-        message: "Error creating blog",
-        error: error.message,
+        message: "Validation failed",
+        errors: errors.array(),
       });
     }
-  }
 
+    const {
+      title,
+      excerpt,
+      content,
+      category,
+      status,
+      featured,
+      trending,
+      tags,
+      readTime,
+      views,
+      likes,
+      seo,
+      publishedAt,
+      scheduledFor,
+      image: imageData, // This will contain the Cloudinary result from saveImg middleware
+    } = req.body;
+
+    // Parse JSON fields if they come as strings (from FormData)
+    const parsedData = {
+      title: typeof title === "string" ? JSON.parse(title) : title,
+      excerpt: typeof excerpt === "string" ? JSON.parse(excerpt) : excerpt,
+      content: typeof content === "string" ? JSON.parse(content) : content,
+      category: typeof category === "string" ? JSON.parse(category) : category,
+      tags: typeof tags === "string" ? JSON.parse(tags) : tags,
+      seo: typeof seo === "string" ? JSON.parse(seo) : seo,
+      status: status || "draft",
+      featured: featured !== undefined ? featured === "true" || featured === true : false,
+      trending: trending !== undefined ? trending === "true" || trending === true : false,
+      readTime: readTime !== undefined ? Number(readTime) : 5,
+      views: views !== undefined ? Number(views) : 0,
+      likes: likes !== undefined ? Number(likes) : 0,
+      publishedAt: publishedAt || null,
+      scheduledFor: scheduledFor || null,
+    };
+
+    // Handle image - it's already processed by saveImg middleware
+    let image = null;
+    if (req.body.image) {
+      // Image was uploaded and processed by saveImg middleware
+      image = {
+        url: req.body.image.secure_url || req.body.image.url,
+        public_id: req.body.image.public_id,
+        alt: typeof imageData === "string" ? JSON.parse(imageData)?.alt || "" : imageData?.alt || "",
+        caption: typeof imageData === "string" ? JSON.parse(imageData)?.caption || { en: "", es: "", fr: "" } : imageData?.caption || { en: "", es: "", fr: "" },
+      };
+    }
+
+    const blogData = {
+      title: parsedData.title,
+      excerpt: parsedData.excerpt,
+      content: parsedData.content,
+      category: parsedData.category,
+      image,
+      status: parsedData.status,
+      featured: parsedData.featured,
+      trending: parsedData.trending,
+      tags: parsedData.tags || [],
+      readTime: parsedData.readTime,
+      views: parsedData.views,
+      likes: parsedData.likes,
+      seo: parsedData.seo || {
+        metaTitle: { en: "", es: "", fr: "" },
+        metaDescription: { en: "", es: "", fr: "" },
+        keywords: [],
+      },
+      publishedAt: parsedData.publishedAt ? new Date(parsedData.publishedAt) : null,
+      scheduledFor: parsedData.scheduledFor ? new Date(parsedData.scheduledFor) : null,
+    };
+
+    const blog = new Blog(blogData);
+    await blog.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Blog created successfully",
+      data: blog,
+    });
+  } catch (error) {
+    console.error("Error creating blog:", error);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Blog with this slug already exists",
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: "Error creating blog",
+      error: error.message,
+    });
+  }
+}
   async updateBlog(req, res) {
     try {
       const { id } = req.params;

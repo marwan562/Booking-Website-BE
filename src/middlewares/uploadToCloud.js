@@ -109,10 +109,9 @@ function uploadToCloudinary(buffer, folderName) {
       .end(buffer);
   });
 }
-
 export const saveImg = async (req, res, next) => {
   function getFolderName() {
-    let folderNameParts = req.baseUrl.split("");
+    let folderNameParts = req.baseUrl.split("/");
     folderNameParts.shift();
     folderNameParts.push("s");
     return folderNameParts.join("");
@@ -124,6 +123,7 @@ export const saveImg = async (req, res, next) => {
     );
     return uploadedFiles;
   }
+
   async function handleFileUpload(fieldName, buffer) {
     try {
       const folder = getFolderName();
@@ -137,29 +137,29 @@ export const saveImg = async (req, res, next) => {
     }
   }
 
-  if (req.files) {
-    for (const fieldName in req.files) {
-      const files = req.files[fieldName];
+  try {
+    if (req.files && Object.keys(req.files).length > 0) {
+      for (const fieldName in req.files) {
+        const files = req.files[fieldName];
 
-      const uploaded = await uploadMultipleFiles(fieldName, files);
-      if (
-        fieldName === "mainImg" ||
-        fieldName === "avatar" ||
-        fieldName === "passport" ||
-        fieldName === "image"
-      ) {
-        req.body[fieldName] = uploaded[0];
-      } else {
-        req.body[fieldName] = uploaded;
+        const uploaded = await uploadMultipleFiles(fieldName, files);
+        if (
+          fieldName === "mainImg" ||
+          fieldName === "avatar" ||
+          fieldName === "passport" ||
+          fieldName === "image"
+        ) {
+          req.body[fieldName] = uploaded[0];
+        } else {
+          req.body[fieldName] = uploaded;
+        }
       }
+    } else if (req.file && req.file.buffer) {
+      req.body[req.file.fieldname] = await handleFileUpload(req.file.fieldname, req.file.buffer);
     }
-  } else {
-    if (req.file && req.file.buffer) {
-      req.body[req.file.fieldname] = [
-        await handleFileUpload(req.file.fieldname, req.file.buffer),
-      ];
-    }
+    next();
+  } catch (error) {
+    console.error("Error in saveImg middleware:", error);
+    next(error);
   }
-
-  next();
 };

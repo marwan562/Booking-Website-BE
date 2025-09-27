@@ -90,8 +90,6 @@ class BlogController {
 
   async getTrendingBlogs(req, res) {
     try {
-      console.log("getTrendingBlogs called with query:", req.query);
-
       const limit = parseInt(req.query.limit) || 6;
       const locale = req.query.locale || "en";
 
@@ -106,9 +104,7 @@ class BlogController {
 
       console.log(`Found ${blogs.length} trending blogs`);
 
-      const transformedBlogs = blogs
-        .map((blog) => this.transformBlogSimple(blog, locale))
-        .filter(Boolean);
+      const transformedBlogs = blogs.map((blog) => transformBlog(blog, locale));
 
       res.status(200).json({
         success: true,
@@ -314,7 +310,7 @@ class BlogController {
       return null;
     }
   }
-  
+
   async getCategories(req, res) {
     try {
       console.log("getCategories called");

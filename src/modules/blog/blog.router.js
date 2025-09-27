@@ -20,10 +20,32 @@ router.post(
   saveImg,
   adminController.createBlog
 );
-router.put("/admin/:id", auth, allowedTo("admin"), adminController.updateBlog);
-router.delete("/admin/:id", auth, allowedTo("admin"), adminController.deleteBlog);
-router.patch("/admin/:id/featured", auth, allowedTo("admin"), adminController.toggleFeatured);
-router.patch("/admin/:id/trending", auth, allowedTo("admin"), adminController.toggleTrending);
+router.put(
+  "/admin/:id",
+  auth,
+  allowedTo("admin"),
+  uploadMixfile([{ name: "image", maxCount: 1 }]),
+  saveImg,
+  adminController.updateBlog
+);
+router.delete(
+  "/admin/:id",
+  auth,
+  allowedTo("admin"),
+  adminController.deleteBlog
+);
+router.patch(
+  "/admin/:id/featured",
+  auth,
+  allowedTo("admin"),
+  adminController.toggleFeatured
+);
+router.patch(
+  "/admin/:id/trending",
+  auth,
+  allowedTo("admin"),
+  adminController.toggleTrending
+);
 router.post("/admin/bulk", adminController.bulkUpdate);
 
 // Static public routes (these should come before /:slug as well)

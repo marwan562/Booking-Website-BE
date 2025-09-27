@@ -4,80 +4,80 @@ import slugify from "slugify";
 import cloudinary from "cloudinary"; // Assuming Cloudinary for image uploads
 
 class AdminController {
-async getAllBlogs(req, res) {
-  try {
-    console.log("getAllBlogsAdmin called with query:", req.query);
-    
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
-    const category = req.query.category;
-    const search = req.query.search || req.query.keyword;
-    const sort = req.query.sort || "-createdAt";
-    const status = req.query.status;
-    const locale = req.query.locale || "en";
+  async getAllBlogs(req, res) {
+    try {
+      console.log("getAllBlogsAdmin called with query:", req.query);
 
-    let query = {};
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 12;
+      const category = req.query.category;
+      const search = req.query.search || req.query.keyword;
+      const sort = req.query.sort || "-createdAt";
+      const status = req.query.status;
+      const locale = req.query.locale || "en";
 
-    // Filter by status if specified
-    if (status && status !== "all") {
-      query.status = status;
+      let query = {};
+
+      // Filter by status if specified
+      if (status && status !== "all") {
+        query.status = status;
+      }
+
+      // Filter by category - check if buildCategorySearchQuery function exists
+      if (category && category !== "all") {
+        // Simple category filter if buildCategorySearchQuery is not available
+        query[`category.${locale}`] = new RegExp(category, "i");
+      }
+
+      // Search functionality - check if buildLocalizedSearchQuery function exists
+      if (search) {
+        // Simple search if buildLocalizedSearchQuery is not available
+        query.$or = [
+          { [`title.${locale}`]: { $regex: search, $options: "i" } },
+          { [`title.en`]: { $regex: search, $options: "i" } },
+          { [`excerpt.${locale}`]: { $regex: search, $options: "i" } },
+          { [`excerpt.en`]: { $regex: search, $options: "i" } },
+        ];
+      }
+
+      console.log("MongoDB query:", JSON.stringify(query, null, 2));
+
+      const blogs = await Blog.find(query)
+        .sort(sort)
+        .limit(limit * 1)
+        .skip((page - 1) * limit)
+        .lean(); // Don't exclude content for admin
+
+      const total = await Blog.countDocuments(query);
+
+      console.log(`Found ${blogs.length} blogs out of ${total} total`);
+
+      // For admin: Return raw data without transformation
+      const adminBlogs = blogs.map((blog) => ({
+        ...blog,
+        _id: blog._id.toString(),
+      }));
+
+      res.status(200).json({
+        success: true,
+        data: adminBlogs,
+        pagination: {
+          current: page,
+          total: Math.ceil(total / limit),
+          totalBlogs: total,
+          hasNext: page < Math.ceil(total / limit),
+          hasPrev: page > 1,
+        },
+      });
+    } catch (error) {
+      console.error("Error in getAllBlogsAdmin:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error fetching blogs for admin",
+        error: error.message,
+      });
     }
-
-    // Filter by category - check if buildCategorySearchQuery function exists
-    if (category && category !== "all") {
-      // Simple category filter if buildCategorySearchQuery is not available
-      query[`category.${locale}`] = new RegExp(category, "i");
-    }
-
-    // Search functionality - check if buildLocalizedSearchQuery function exists
-    if (search) {
-      // Simple search if buildLocalizedSearchQuery is not available
-      query.$or = [
-        { [`title.${locale}`]: { $regex: search, $options: "i" } },
-        { [`title.en`]: { $regex: search, $options: "i" } },
-        { [`excerpt.${locale}`]: { $regex: search, $options: "i" } },
-        { [`excerpt.en`]: { $regex: search, $options: "i" } }
-      ];
-    }
-
-    console.log("MongoDB query:", JSON.stringify(query, null, 2));
-
-    const blogs = await Blog.find(query)
-      .sort(sort)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .lean(); // Don't exclude content for admin
-
-    const total = await Blog.countDocuments(query);
-
-    console.log(`Found ${blogs.length} blogs out of ${total} total`);
-
-    // For admin: Return raw data without transformation
-    const adminBlogs = blogs.map((blog) => ({
-      ...blog,
-      _id: blog._id.toString(),
-    }));
-
-    res.status(200).json({
-      success: true,
-      data: adminBlogs,
-      pagination: {
-        current: page,
-        total: Math.ceil(total / limit),
-        totalBlogs: total,
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1,
-      },
-    });
-  } catch (error) {
-    console.error("Error in getAllBlogsAdmin:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching blogs for admin",
-      error: error.message,
-    });
   }
-}
 
   async createBlog(req, res) {
     try {
@@ -217,34 +217,59 @@ async getAllBlogs(req, res) {
       const { id } = req.params;
       const {
         title,
+        excerpt,
         content,
         category,
+        status,
+        featured,
+        trending,
         tags,
-        author,
-        published,
-        publishDate,
-        imagesToKeep,
-        imagesToDelete,
+        readTime,
+        views,
+        likes,
+        seo,
+        publishedAt,
+        scheduledFor,
+        image: imageData,
+        imageMetadata, // For file uploads with metadata
       } = req.body;
+
+      console.log("Update blog request for ID:", id);
+      console.log("Request body keys:", Object.keys(req.body));
 
       // Parse JSON fields if they come as strings (from FormData)
       const parsedData = {
         title: typeof title === "string" ? JSON.parse(title) : title,
+        excerpt: typeof excerpt === "string" ? JSON.parse(excerpt) : excerpt,
         content: typeof content === "string" ? JSON.parse(content) : content,
         category:
           typeof category === "string" ? JSON.parse(category) : category,
         tags: typeof tags === "string" ? JSON.parse(tags) : tags,
-        imagesToKeep:
-          typeof imagesToKeep === "string"
-            ? JSON.parse(imagesToKeep)
-            : imagesToKeep,
-        imagesToDelete:
-          typeof imagesToDelete === "string"
-            ? JSON.parse(imagesToDelete)
-            : imagesToDelete,
+        seo: typeof seo === "string" ? JSON.parse(seo) : seo,
+        status: status || "draft",
+        featured:
+          featured !== undefined
+            ? featured === "true" || featured === true
+            : false,
+        trending:
+          trending !== undefined
+            ? trending === "true" || trending === true
+            : false,
+        readTime: readTime !== undefined ? Number(readTime) : undefined,
+        views: views !== undefined ? Number(views) : undefined,
+        likes: likes !== undefined ? Number(likes) : undefined,
+        publishedAt: publishedAt || null,
+        scheduledFor: scheduledFor || null,
       };
 
-      // Generate new slug if title.en changes
+      // Parse image metadata if provided
+      const parsedImageMetadata = imageMetadata
+        ? typeof imageMetadata === "string"
+          ? JSON.parse(imageMetadata)
+          : imageMetadata
+        : null;
+
+      // Get existing blog
       const existingBlog = await Blog.findById(id);
       if (!existingBlog) {
         return res.status(404).json({
@@ -253,67 +278,104 @@ async getAllBlogs(req, res) {
         });
       }
 
-      const slug = parsedData.title?.en
-        ? slugify(parsedData.title?.en, { lower: true, strict: true })
-        : existingBlog?.slug;
-
-      // Handle main image update
-      let mainImg = existingBlog.mainImg;
-      if (req.files && req.files.mainImg) {
-        if (mainImg && mainImg.public_id) {
-          await cloudinary.uploader.destroy(mainImg.public_id);
-        }
-        const result = await cloudinary.uploader.upload(req.files.mainImg.path);
-        mainImg = {
-          url: result.secure_url,
-          public_id: result.public_id,
+      // Generate slug from English title if title is provided
+      let slug = existingBlog.slug;
+      if (
+        parsedData.title?.en &&
+        parsedData.title.en !== existingBlog.title?.en
+      ) {
+        const baseSlug = slugify(parsedData.title.en, {
+          lower: true,
+          strict: true,
+        });
+        // Check if slug exists for other blogs
+        const slugExists = await Blog.findOne({
+          _id: { $ne: id },
+          "slug.en": baseSlug,
+        });
+        slug = {
+          ...existingBlog.slug,
+          en: slugExists ? `${baseSlug}-${Date.now()}` : baseSlug,
         };
       }
 
-      // Handle additional images
-      let images = parsedData.imagesToKeep
-        ? [...parsedData.imagesToKeep]
-        : existingBlog.images;
-      if (req.files && req.files.images) {
-        const newImages = Array.isArray(req.files.images)
-          ? req.files.images
-          : [req.files.images];
-        for (const file of newImages) {
-          const result = await cloudinary.uploader.upload(file.path);
-          images.push({
-            url: result.secure_url,
-            public_id: result.public_id,
-          });
+      // Handle image update
+      let image = existingBlog.image;
+      if (
+        req.body.image &&
+        typeof req.body.image === "object" &&
+        req.body.image.secure_url
+      ) {
+        // New image was uploaded via middleware
+        if (existingBlog.image?.public_id) {
+          try {
+            await cloudinary.uploader.destroy(existingBlog.image.public_id);
+          } catch (error) {
+            console.warn("Failed to delete old image:", error.message);
+          }
         }
+
+        image = {
+          url: req.body.image.secure_url,
+          public_id: req.body.image.public_id,
+          alt: parsedImageMetadata?.alt || existingBlog.image?.alt || "",
+          caption: parsedImageMetadata?.caption ||
+            existingBlog.image?.caption || { en: "", es: "", fr: "" },
+        };
+      } else if (imageData && typeof imageData === "string") {
+        // Image data provided as JSON string (existing URL or new URL)
+        const parsedImageData = JSON.parse(imageData);
+        image = {
+          url: parsedImageData.url || existingBlog.image?.url,
+          public_id:
+            parsedImageData.public_id || existingBlog.image?.public_id || "",
+          alt: parsedImageData.alt || existingBlog.image?.alt || "",
+          caption: parsedImageData.caption ||
+            existingBlog.image?.caption || { en: "", es: "", fr: "" },
+        };
       }
 
-      // Delete images if specified
-      if (parsedData.imagesToDelete && parsedData.imagesToDelete.length > 0) {
-        for (const public_id of parsedData.imagesToDelete) {
-          await cloudinary.uploader.destroy(public_id);
-        }
-        images = images.filter(
-          (img) => !parsedData.imagesToDelete.includes(img.public_id)
-        );
-      }
-
+      // Prepare update data
       const updateData = {
         title: parsedData.title || existingBlog.title,
-        slug,
+        slug: slug,
+        excerpt: parsedData.excerpt || existingBlog.excerpt,
         content: parsedData.content || existingBlog.content,
         category: parsedData.category || existingBlog.category,
-        mainImg,
-        images,
-        tags: parsedData.tags || existingBlog.tags,
-        author: author || existingBlog.author,
-        published:
-          published !== undefined
-            ? published === "true" || published === true
-            : existingBlog.published,
-        publishDate: publishDate || existingBlog.publishDate,
+        image: image,
+        status: parsedData.status,
+        featured: parsedData.featured,
+        trending: parsedData.trending,
+        tags: parsedData.tags || existingBlog.tags || [],
+        readTime:
+          parsedData.readTime !== undefined
+            ? parsedData.readTime
+            : existingBlog.readTime,
+        views:
+          parsedData.views !== undefined
+            ? parsedData.views
+            : existingBlog.views,
+        likes:
+          parsedData.likes !== undefined
+            ? parsedData.likes
+            : existingBlog.likes,
+        seo: parsedData.seo ||
+          existingBlog.seo || {
+            metaTitle: { en: "", es: "", fr: "" },
+            metaDescription: { en: "", es: "", fr: "" },
+            keywords: [],
+          },
+        publishedAt: parsedData.publishedAt
+          ? new Date(parsedData.publishedAt)
+          : existingBlog.publishedAt,
+        scheduledFor: parsedData.scheduledFor
+          ? new Date(parsedData.scheduledFor)
+          : existingBlog.scheduledFor,
       };
 
-      const blog = await Blog.findByIdAndUpdate(id, updateData, {
+      console.log("Update data:", JSON.stringify(updateData, null, 2));
+
+      const updatedBlog = await Blog.findByIdAndUpdate(id, updateData, {
         new: true,
         runValidators: true,
       });
@@ -321,9 +383,10 @@ async getAllBlogs(req, res) {
       res.status(200).json({
         success: true,
         message: "Blog updated successfully",
-        data: blog,
+        data: updatedBlog,
       });
     } catch (error) {
+      console.error("Error updating blog:", error);
       res.status(500).json({
         success: false,
         message: "Error updating blog",

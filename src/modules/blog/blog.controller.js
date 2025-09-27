@@ -317,7 +317,9 @@ class AdminController {
         excerpt: parsedData.excerpt || existingBlog.excerpt,
         content: parsedData.content || existingBlog.content,
         category: parsedData.category || existingBlog.category,
-        image: imageData.url ? imageData : existingBlog.image,
+        image: imageData.url
+          ? { ...existingBlog.image, ...imageData }
+          : existingBlog.image,
         status: parsedData.status,
         featured: parsedData.featured,
         trending: parsedData.trending,

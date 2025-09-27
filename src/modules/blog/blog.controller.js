@@ -298,41 +298,16 @@ class AdminController {
           en: slugExists ? `${baseSlug}-${Date.now()}` : baseSlug,
         };
       }
-
-      // Handle image update
-      let image = existingBlog.image;
-      if (
-        req.body.image &&
-        typeof req.body.image === "object" &&
-        req.body.image.secure_url
-      ) {
-        // New image was uploaded via middleware
-        if (existingBlog.image?.public_id) {
-          try {
-            await cloudinary.uploader.destroy(existingBlog.image.public_id);
-          } catch (error) {
-            console.warn("Failed to delete old image:", error.message);
-          }
+      try {
+        if (req.body.image && destination.image?.public_id)
+          removeImage(destination.image.public_id);
+        if (req.body.images && destination.images?.length) {
+          destination.images.forEach((img) => {
+            if (img?.public_id) removeImage(img.public_id);
+          });
         }
-
-        image = {
-          url: req.body.image.secure_url,
-          public_id: req.body.image.public_id,
-          alt: parsedImageMetadata?.alt || existingBlog.image?.alt || "",
-          caption: parsedImageMetadata?.caption ||
-            existingBlog.image?.caption || { en: "", es: "", fr: "" },
-        };
-      } else if (imageData && typeof imageData === "string") {
-        // Image data provided as JSON string (existing URL or new URL)
-        const parsedImageData = JSON.parse(imageData);
-        image = {
-          url: parsedImageData.url || existingBlog.image?.url,
-          public_id:
-            parsedImageData.public_id || existingBlog.image?.public_id || "",
-          alt: parsedImageData.alt || existingBlog.image?.alt || "",
-          caption: parsedImageData.caption ||
-            existingBlog.image?.caption || { en: "", es: "", fr: "" },
-        };
+      } catch (error) {
+        console.error("Error cleaning up old images:", error);
       }
 
       // Prepare update data
@@ -342,7 +317,7 @@ class AdminController {
         excerpt: parsedData.excerpt || existingBlog.excerpt,
         content: parsedData.content || existingBlog.content,
         category: parsedData.category || existingBlog.category,
-        image: image,
+        image: imageData.url ? imageData : existingBlog.image,
         status: parsedData.status,
         featured: parsedData.featured,
         trending: parsedData.trending,
@@ -408,8 +383,8 @@ class AdminController {
       }
 
       // Delete associated images from Cloudinary
-      if (blog.mainImg && blog.mainImg.public_id) {
-        await cloudinary.uploader.destroy(blog.mainImg.public_id);
+      if (blog.image && blog.image.public_id) {
+        await cloudinary.uploader.destroy(blog.image.public_id);
       }
       if (blog.images && blog.images.length > 0) {
         for (const img of blog.images) {

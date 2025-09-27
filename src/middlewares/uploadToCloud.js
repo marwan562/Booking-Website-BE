@@ -109,6 +109,7 @@ function uploadToCloudinary(buffer, folderName) {
       .end(buffer);
   });
 }
+
 export const saveImg = async (req, res, next) => {
   function getFolderName() {
     let folderNameParts = req.baseUrl.split("");
@@ -117,6 +118,12 @@ export const saveImg = async (req, res, next) => {
     return folderNameParts.join("");
   }
 
+  async function uploadMultipleFiles(fieldName, files) {
+    const uploadedFiles = await Promise.all(
+      files.map((file) => handleFileUpload(fieldName, file.buffer))
+    );
+    return uploadedFiles;
+  }
   async function handleFileUpload(fieldName, buffer) {
     try {
       const folder = getFolderName();
@@ -130,41 +137,28 @@ export const saveImg = async (req, res, next) => {
     }
   }
 
-  async function uploadMultipleFiles(fieldName, files) {
-    const uploadedFiles = await Promise.all(
-      files.map((file) => handleFileUpload(fieldName, file.buffer))
-    );
-    return uploadedFiles;
-  }
-
-  if (req.baseUrl.includes("/admin") || req.baseUrl.includes("/blogs")) {
-    next();
-    return;
-  }
-
   if (req.files) {
     for (const fieldName in req.files) {
-      if (fieldName === "image") {
-        continue;
-      }
       const files = req.files[fieldName];
+
       const uploaded = await uploadMultipleFiles(fieldName, files);
       if (
         fieldName === "mainImg" ||
         fieldName === "avatar" ||
-        fieldName === "passport"
+        fieldName === "passport" ||
+        fieldName === "image"
       ) {
         req.body[fieldName] = uploaded[0];
       } else {
         req.body[fieldName] = uploaded;
       }
     }
-  }
-
-  if (req.file && req.file.buffer && req.file.fieldname !== "image") {
-    req.body[req.file.fieldname] = [
-      await handleFileUpload(req.file.fieldname, req.file.buffer),
-    ];
+  } else {
+    if (req.file && req.file.buffer) {
+      req.body[req.file.fieldname] = [
+        await handleFileUpload(req.file.fieldname, req.file.buffer),
+      ];
+    }
   }
 
   next();

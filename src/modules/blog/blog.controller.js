@@ -4,60 +4,60 @@ import slugify from "slugify";
 import cloudinary from "cloudinary"; // Assuming Cloudinary for image uploads
 
 class AdminController {
- async getAllBlogs(req, res) {
+async getAllBlogs(req, res) {
   try {
+    console.log("getAllBlogsAdmin called with query:", req.query);
+    
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 12;
     const category = req.query.category;
-    const search = req.query.search;
-    const sort = req.query.sort || "-createdAt"; // Default to newest first for admin
+    const search = req.query.search || req.query.keyword;
+    const sort = req.query.sort || "-createdAt";
     const status = req.query.status;
-    const locale = isValidLocale(req.query.locale) ? req.query.locale : "en";
+    const locale = req.query.locale || "en";
 
     let query = {};
 
-    // Filter by status if specified (admin can see all statuses)
+    // Filter by status if specified
     if (status && status !== "all") {
       query.status = status;
     }
 
-    // Filter by category
+    // Filter by category - check if buildCategorySearchQuery function exists
     if (category && category !== "all") {
-      query = { ...query, ...buildCategorySearchQuery(category, locale) };
+      // Simple category filter if buildCategorySearchQuery is not available
+      query[`category.${locale}`] = new RegExp(category, "i");
     }
 
-    // Search functionality
+    // Search functionality - check if buildLocalizedSearchQuery function exists
     if (search) {
-      query.$or = buildLocalizedSearchQuery(search, locale, [
-        "title",
-        "excerpt",
-        "tags",
-      ]);
+      // Simple search if buildLocalizedSearchQuery is not available
+      query.$or = [
+        { [`title.${locale}`]: { $regex: search, $options: "i" } },
+        { [`title.en`]: { $regex: search, $options: "i" } },
+        { [`excerpt.${locale}`]: { $regex: search, $options: "i" } },
+        { [`excerpt.en`]: { $regex: search, $options: "i" } }
+      ];
     }
 
-    console.log("Admin blog query:", JSON.stringify(query, null, 2));
+    console.log("MongoDB query:", JSON.stringify(query, null, 2));
 
-    const blogs = await Blog.find(query)
-      .sort(sort)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .select("-content") // Exclude content for list view
-      .lean();
+    const blogs = await Blog.find()
+      
 
     const total = await Blog.countDocuments(query);
 
     console.log(`Found ${blogs.length} blogs out of ${total} total`);
 
-    // For admin dashboard, return raw blogs with all language versions
-    // Don't use transformBlog here as admin needs access to all locales
-    const transformedBlogs = blogs.map((blog) => ({
+    // For admin: Return raw data without transformation
+    const adminBlogs = blogs.map((blog) => ({
       ...blog,
       _id: blog._id.toString(),
     }));
 
     res.status(200).json({
       success: true,
-      data: transformedBlogs,
+      data: blogs,
       pagination: {
         current: page,
         total: Math.ceil(total / limit),
@@ -67,10 +67,10 @@ class AdminController {
       },
     });
   } catch (error) {
-    console.error("Error fetching admin blogs:", error);
+    console.error("Error in getAllBlogsAdmin:", error);
     res.status(500).json({
       success: false,
-      message: "Error fetching blogs",
+      message: "Error fetching blogs for admin",
       error: error.message,
     });
   }

@@ -4,71 +4,78 @@ import slugify from "slugify";
 import cloudinary from "cloudinary"; // Assuming Cloudinary for image uploads
 
 class AdminController {
-  async getAllBlogs(req, res) {
-    try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const status = req.query.status || "all"; // 'all', 'published', 'draft', 'archived'
-      const category = req.query.category;
-      const search = req.query.search;
-      const locale = req.query.locale || "all"; // 'en', 'ar', 'es', 'fr', 'all'
+ async getAllBlogs(req, res) {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const category = req.query.category;
+    const search = req.query.search;
+    const sort = req.query.sort || "-createdAt"; // Default to newest first for admin
+    const status = req.query.status;
+    const locale = isValidLocale(req.query.locale) ? req.query.locale : "en";
 
-      let query = {};
+    let query = {};
 
-      // Filter by status
-      if (status !== "all") {
-        query.published = status === "published";
-      }
-
-      // Filter by category (match on specified locale or English by default)
-      if (category && category !== "all") {
-        if (locale === "all") {
-          query["category.en"] = category;
-        } else {
-          query[`category.${locale}`] = category;
-        }
-      }
-
-      // Search functionality (search in title and content for the specified locale)
-      if (search) {
-        if (locale === "all") {
-          query.$or = [
-            { "title.en": { $regex: search, $options: "i" } },
-            { "content.en": { $regex: search, $options: "i" } },
-          ];
-        } else {
-          query.$or = [
-            { [`title.${locale}`]: { $regex: search, $options: "i" } },
-            { [`content.${locale}`]: { $regex: search, $options: "i" } },
-          ];
-        }
-      }
-
-      const blogs = await Blog.find(query)
-        .sort({ updatedAt: -1 })
-        .limit(limit)
-        .skip((page - 1) * limit);
-
-      const total = await Blog.countDocuments(query);
-
-      res.status(200).json({
-        success: true,
-        data: blogs,
-        pagination: {
-          current: page,
-          total: Math.ceil(total / limit),
-          count: blogs.length,
-          totalBlogs: total,
-        },
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Error fetching blogs",
-        error: error.message,
-      });
+    // Filter by status if specified (admin can see all statuses)
+    if (status && status !== "all") {
+      query.status = status;
     }
+
+    // Filter by category
+    if (category && category !== "all") {
+      query = { ...query, ...buildCategorySearchQuery(category, locale) };
+    }
+
+    // Search functionality
+    if (search) {
+      query.$or = buildLocalizedSearchQuery(search, locale, [
+        "title",
+        "excerpt",
+        "tags",
+      ]);
+    }
+
+    console.log("Admin blog query:", JSON.stringify(query, null, 2));
+
+    const blogs = await Blog.find(query)
+      .sort(sort)
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .select("-content") // Exclude content for list view
+      .lean();
+
+    const total = await Blog.countDocuments(query);
+
+    console.log(`Found ${blogs.length} blogs out of ${total} total`);
+
+    // For admin dashboard, return raw blogs with all language versions
+    // Don't use transformBlog here as admin needs access to all locales
+    const transformedBlogs = blogs.map((blog) => ({
+      ...blog,
+      _id: blog._id.toString(),
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: transformedBlogs,
+      pagination: {
+        current: page,
+        total: Math.ceil(total / limit),
+        totalBlogs: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching admin blogs:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching blogs",
+      error: error.message,
+    });
   }
+}
+
   async createBlog(req, res) {
     try {
       // Validate request using express-validator

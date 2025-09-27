@@ -63,64 +63,31 @@ export const transformBlog = (blog, locale = "en") => {
   if (!blog) return null;
 
   try {
-    const transformed = { ...blog };
-
-    // Transform basic localized fields - with null checks
-    transformed.title = getLocalizedValue(blog.title, locale);
-    transformed.slug = getLocalizedValue(blog.slug, locale);
-    transformed.excerpt = getLocalizedValue(blog.excerpt, locale);
-    transformed.content = getLocalizedValue(blog.content, locale);
-    transformed.category = getLocalizedValue(blog.category, locale);
-
-    // Transform image object - handle null/undefined image
-    if (blog.image) {
-      transformed.image = {
+    return {
+      ...blog,
+      _id: blog._id.toString(),
+      title: getLocalizedValue(blog.title, locale),
+      excerpt: getLocalizedValue(blog.excerpt, locale),
+      content: getLocalizedValue(blog.content, locale),
+      category: getLocalizedValue(blog.category, locale),
+      tags: blog.tags?.map(tag => getLocalizedValue(tag, locale)) || [],
+      image: blog.image ? {
         ...blog.image,
-        alt: getLocalizedValue(blog.image?.alt, locale) || "",
-        caption: getLocalizedValue(blog.image?.caption, locale) || "",
-      };
-    } else {
-      transformed.image = null;
-    }
-
-    // Transform author object - handle null/undefined author
-    if (blog.author) {
-      transformed.author = {
-        ...blog.author,
-        bio: getLocalizedValue(blog.author?.bio, locale),
-      };
-    } else {
-      transformed.author = null;
-    }
-
-    // Transform SEO object - handle null/undefined SEO
-    if (blog.seo) {
-      transformed.seo = {
-        ...blog.seo,
-        metaTitle: getLocalizedValue(blog.seo?.metaTitle, locale) || "",
-        metaDescription: getLocalizedValue(blog.seo?.metaDescription, locale) || "",
-        keywords: blog.seo?.keywords?.map((keyword) => getLocalizedValue(keyword, locale)).filter(Boolean) || [],
-      };
-    } else {
-      transformed.seo = {
-        metaTitle: "",
-        metaDescription: "",
-        keywords: []
-      };
-    }
-
-    // Transform tags array - handle null/undefined tags
-    transformed.tags = blog.tags?.map((tag) => getLocalizedValue(tag, locale)).filter(Boolean) || [];
-
-    // Preserve other fields
-    transformed.formattedPublishDate = blog.formattedPublishDate || null;
-    transformed._id = blog._id?.toString() || blog._id;
-
-    return transformed;
+        alt: getLocalizedValue(blog.image.alt, locale),
+        caption: getLocalizedValue(blog.image.caption, locale)
+      } : null,
+      seo: blog.seo ? {
+        metaTitle: getLocalizedValue(blog.seo.metaTitle, locale),
+        metaDescription: getLocalizedValue(blog.seo.metaDescription, locale),
+        keywords: blog.seo.keywords?.map(keyword => getLocalizedValue(keyword, locale)) || []
+      } : null
+    };
   } catch (error) {
-    console.error("Error transforming blog:", error);
-    console.error("Blog data:", blog);
-    return null;
+    console.error("Error in transformBlog:", error);
+    return {
+      ...blog,
+      _id: blog._id.toString()
+    };
   }
 };
 

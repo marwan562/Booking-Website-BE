@@ -12,7 +12,7 @@ class BlogController {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 12;
       const category = req.query.category;
-      const search = req.query.search;
+      const search = req.query.search; // Changed from keyword to search for consistency
       const sort = req.query.sort || "-publishedAt";
       const locale = isValidLocale(req.query.locale) ? req.query.locale : "en";
 
@@ -39,7 +39,7 @@ class BlogController {
 
       const total = await Blog.countDocuments(query);
 
-      // Transform blogs for localization
+      // Transform blogs for public consumption (localized)
       const transformedBlogs = blogs.map((blog) => transformBlog(blog, locale));
 
       res.status(200).json({
@@ -48,11 +48,13 @@ class BlogController {
         pagination: {
           current: page,
           total: Math.ceil(total / limit),
+          totalBlogs: total,
           hasNext: page < Math.ceil(total / limit),
           hasPrev: page > 1,
         },
       });
     } catch (error) {
+      console.error("Error fetching public blogs:", error);
       res.status(500).json({
         success: false,
         message: "Error fetching blogs",

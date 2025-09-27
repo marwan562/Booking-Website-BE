@@ -42,8 +42,11 @@ async getAllBlogs(req, res) {
 
     console.log("MongoDB query:", JSON.stringify(query, null, 2));
 
-    const blogs = await Blog.find()
-      
+    const blogs = await Blog.find(query)
+      .sort(sort)
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .lean(); // Don't exclude content for admin
 
     const total = await Blog.countDocuments(query);
 
@@ -57,7 +60,7 @@ async getAllBlogs(req, res) {
 
     res.status(200).json({
       success: true,
-      data: blogs,
+      data: adminBlogs,
       pagination: {
         current: page,
         total: Math.ceil(total / limit),

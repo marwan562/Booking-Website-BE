@@ -70,23 +70,34 @@ export const transformBlog = (blog, locale = "en") => {
       excerpt: getLocalizedValue(blog.excerpt, locale),
       content: getLocalizedValue(blog.content, locale),
       category: getLocalizedValue(blog.category, locale),
-      tags: blog.tags?.map(tag => getLocalizedValue(tag, locale)) || [],
-      image: blog.image ? {
-        ...blog.image,
-        alt: getLocalizedValue(blog.image.alt, locale),
-        caption: getLocalizedValue(blog.image.caption, locale)
-      } : null,
-      seo: blog.seo ? {
-        metaTitle: getLocalizedValue(blog.seo.metaTitle, locale),
-        metaDescription: getLocalizedValue(blog.seo.metaDescription, locale),
-        keywords: blog.seo.keywords?.map(keyword => getLocalizedValue(keyword, locale)) || []
-      } : null
+      tags: blog.tags?.map((tag) => getLocalizedValue(tag, locale)) || [],
+      image: blog.image
+        ? {
+            ...blog.image,
+            alt: getLocalizedValue(blog.image.alt, locale),
+            caption: getLocalizedValue(blog.image.caption, locale),
+          }
+        : null,
+      seo: blog.seo
+        ? {
+            metaTitle: getLocalizedValue(blog.seo.metaTitle, locale),
+            metaDescription: getLocalizedValue(
+              blog.seo.metaDescription,
+              locale
+            ),
+            keywords:
+              blog.seo.keywords?.map((keyword) =>
+                getLocalizedValue(keyword, locale)
+              ) || [],
+          }
+        : null,
+      slug: getLocalizedValue(blog.slug, locale),
     };
   } catch (error) {
     console.error("Error in transformBlog:", error);
     return {
       ...blog,
-      _id: blog._id.toString()
+      _id: blog._id.toString(),
     };
   }
 };
@@ -94,10 +105,10 @@ export const transformBlog = (blog, locale = "en") => {
 // 3. Alternative: Don't transform for admin - return raw data
 export const transformBlogForAdmin = (blog) => {
   if (!blog) return null;
-  
+
   return {
     ...blog,
-    _id: blog._id?.toString() || blog._id
+    _id: blog._id?.toString() || blog._id,
   };
 };
 

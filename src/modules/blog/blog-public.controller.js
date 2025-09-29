@@ -27,14 +27,16 @@ class BlogController {
           "title",
           "excerpt",
           "tags",
+          "relatedTopics",
         ]);
       }
 
       const blogs = await Blog.find(query)
+        .populate("author", "name lastname avatar city role")
         .sort(sort)
         .limit(limit * 1)
         .skip((page - 1) * limit)
-        .select("-content")
+        .select("-content -comments -contentSections")
         .lean();
 
       const total = await Blog.countDocuments(query);
@@ -68,8 +70,9 @@ class BlogController {
       const locale = isValidLocale(req.query.locale) ? req.query.locale : "en";
 
       const blogs = await Blog.getFeatured(locale)
+        .populate("author", "name lastname avatar")
         .limit(limit)
-        .select("-content")
+        .select("-content -comments -contentSections")
         .lean();
 
       // Transform blogs for localization
@@ -97,9 +100,10 @@ class BlogController {
         status: "published",
         trending: true,
       })
+        .populate("author", "name lastname avatar")
         .sort("-views")
         .limit(limit)
-        .select("-content")
+        .select("-content -comments -contentSections")
         .lean();
 
       console.log(`Found ${blogs.length} trending blogs`);
@@ -119,6 +123,7 @@ class BlogController {
       });
     }
   }
+
   async getBlogBySlug(req, res) {
     try {
       const { slug } = req.params;
@@ -133,7 +138,21 @@ class BlogController {
         },
         { $inc: { views: 1 } },
         { new: true }
-      ).lean();
+      )
+        .populate({
+          path: "author",
+          select: "name lastname avatar city instagram role",
+        })
+        .populate({
+          path: "comments.author",
+          select: "name avatar",
+          match: { approved: true },
+        })
+        .populate({
+          path: "comments.replies.author",
+          select: "name avatar",
+        })
+        .lean();
 
       if (!blog) {
         console.log(`Blog with slug '${slug}' not found`);
@@ -143,20 +162,26 @@ class BlogController {
         });
       }
 
-      // Get related blogs
+      // Filter approved comments only
+      if (blog.comments) {
+        blog.comments = blog.comments.filter((comment) => comment.approved);
+      }
+
+      // Get related blogs using the enhanced method
       const categoryValue = blog.category?.[locale] || blog.category?.en;
-      const relatedBlogs = await Blog.find({
-        [`category.${locale}`]: categoryValue,
-        _id: { $ne: blog._id },
-        status: "published",
-      })
-        .limit(4)
-        .select("-content")
+      const relatedBlogs = await Blog.getRelatedPosts(
+        blog._id,
+        categoryValue,
+        locale,
+        4
+      )
+        .select("title slug excerpt image publishedAt readTime views author")
+        .populate("author", "name nationality avatar")
         .lean();
 
-      const transformedBlog = this.transformBlogSimple(blog, locale);
+      const transformedBlog = transformBlog(blog, locale);
       const transformedRelatedBlogs = relatedBlogs
-        .map((blog) => this.transformBlogSimple(blog, locale))
+        .map((blog) => transformBlog(blog, locale))
         .filter(Boolean);
 
       res.status(200).json({
@@ -184,9 +209,10 @@ class BlogController {
       const locale = isValidLocale(req.query.locale) ? req.query.locale : "en";
 
       const blogs = await Blog.getByCategory(category, locale)
+        .populate("author", "name lastname avatar")
         .limit(limit * 1)
         .skip((page - 1) * limit)
-        .select("-content")
+        .select("-content -comments -contentSections")
         .lean();
 
       const total = await Blog.countDocuments({
@@ -225,7 +251,9 @@ class BlogController {
         id,
         { $inc: { likes: 1 } },
         { new: true }
-      ).lean();
+      )
+        .populate("author", "name lastname avatar")
+        .lean();
 
       if (!blog) {
         return res.status(404).json({
@@ -250,64 +278,153 @@ class BlogController {
     }
   }
 
-  transformBlogSimple(blog, locale = "en") {
-    if (!blog) return null;
-
+  async disLikeBlog(req, res) {
     try {
-      return {
-        _id: blog._id.toString(),
-        title: blog.title?.[locale] || blog.title?.en || "No title",
-        excerpt: blog.excerpt?.[locale] || blog.excerpt?.en || "No excerpt",
-        content: blog.content?.[locale] || blog.content?.en || "No content",
-        slug: blog.slug?.[locale] || blog.slug?.en || "no-slug",
-        category: blog.category?.[locale] || blog.category?.en || "General",
-        image: blog.image
-          ? {
-              url: blog.image.url || "",
-              public_id: blog.image.public_id || "",
-              alt: blog.image.alt || "",
-              caption:
-                blog.image.caption?.[locale] || blog.image.caption?.en || "",
-            }
-          : { url: "", public_id: "", alt: "", caption: "" },
-        status: blog.status,
-        featured: blog.featured || false,
-        trending: blog.trending || false,
-        tags:
-          blog.tags
-            ?.map((tag) =>
-              typeof tag === "string" ? tag : tag[locale] || tag.en || ""
-            )
-            .filter(Boolean) || [],
-        readTime: blog.readTime || 5,
-        views: blog.views || 0,
-        likes: blog.likes || 0,
-        seo: blog.seo
-          ? {
-              metaTitle:
-                blog.seo.metaTitle?.[locale] || blog.seo.metaTitle?.en || "",
-              metaDescription:
-                blog.seo.metaDescription?.[locale] ||
-                blog.seo.metaDescription?.en ||
-                "",
-              keywords:
-                blog.seo.keywords
-                  ?.map((keyword) =>
-                    typeof keyword === "string"
-                      ? keyword
-                      : keyword[locale] || keyword.en || ""
-                  )
-                  .filter(Boolean) || [],
-            }
-          : undefined,
-        publishedAt: blog.publishedAt || blog.createdAt,
-        scheduledFor: blog.scheduledFor,
-        createdAt: blog.createdAt,
-        updatedAt: blog.updatedAt,
-      };
+      const { id } = req.params;
+      const locale = isValidLocale(req.query.locale) ? req.query.locale : "en";
+
+      const blog = await Blog.findByIdAndUpdate(
+        id,
+        { $inc: { likes: -1 } },
+        { new: true }
+      )
+        .populate("author", "name lastname avatar")
+        .lean();
+
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      const transformedBlog = transformBlog(blog, locale);
+
+      res.status(200).json({
+        success: true,
+        data: { likes: transformedBlog.likes },
+      });
     } catch (error) {
-      console.error("Error transforming blog:", error);
-      return null;
+      res.status(500).json({
+        success: false,
+        message: "Error disliking blog",
+        error: error.message,
+      });
+    }
+  }
+
+  async shareBlog(req, res) {
+    try {
+      const { id } = req.params;
+
+      const blog = await Blog.findByIdAndUpdate(
+        id,
+        { $inc: { shares: 1 } },
+        { new: true }
+      )
+        .select("shares")
+        .lean();
+
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: { shares: blog.shares },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error sharing blog",
+        error: error.message,
+      });
+    }
+  }
+
+  // New method for adding comments
+  async addComment(req, res) {
+    try {
+      const { id } = req.params;
+      const { content, author } = req.body;
+
+      if (!content || !author?.name || !author?.email) {
+        return res.status(400).json({
+          success: false,
+          message: "Content, author name, and email are required",
+        });
+      }
+
+      const blog = await Blog.findById(id);
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      const comment = {
+        author: {
+          name: author.name,
+          email: author.email,
+          avatar: author.avatar || null,
+        },
+        content,
+        createdAt: new Date(),
+        approved: false,
+      };
+
+      blog.comments.push(comment);
+      await blog.save();
+
+      res.status(201).json({
+        success: true,
+        message:
+          "Comment added successfully. It will be visible after approval.",
+        data: comment,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error adding comment",
+        error: error.message,
+      });
+    }
+  }
+
+  // New method for newsletter signup tracking
+  async trackNewsletterSignup(req, res) {
+    try {
+      const { id } = req.params;
+
+      const blog = await Blog.findByIdAndUpdate(
+        id,
+        { $inc: { newsletterSignups: 1 } },
+        { new: true }
+      )
+        .select("newsletterSignups")
+        .lean();
+
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: { newsletterSignups: blog.newsletterSignups },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error tracking newsletter signup",
+        error: error.message,
+      });
     }
   }
 
@@ -332,6 +449,58 @@ class BlogController {
       res.status(500).json({
         success: false,
         message: "Error fetching categories",
+        error: error.message,
+      });
+    }
+  }
+
+  // New method for getting related topics
+  async getRelatedTopics(req, res) {
+    try {
+      const locale = req.query.locale || "en";
+      const limit = parseInt(req.query.limit) || 15;
+
+      const relatedTopics = await Blog.aggregate([
+        { $match: { status: "published" } },
+        { $unwind: "$relatedTopics" },
+        { $group: { _id: `$relatedTopics.${locale}`, count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: limit },
+      ]);
+
+      res.status(200).json({
+        success: true,
+        data: relatedTopics.map((topic) => ({
+          name: topic._id,
+          count: topic.count,
+        })),
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error fetching related topics",
+        error: error.message,
+      });
+    }
+  }
+
+  // New method for getting popular posts (for sidebar)
+  async getPopularPosts(req, res) {
+    try {
+      const limit = parseInt(req.query.limit) || 5;
+      const locale = req.query.locale || "en";
+
+      const posts = await Blog.getMostPopular(limit);
+      const transformedPosts = posts.map((blog) => transformBlog(blog, locale));
+
+      res.status(200).json({
+        success: true,
+        data: transformedPosts,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error fetching popular posts",
         error: error.message,
       });
     }

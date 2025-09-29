@@ -10,6 +10,18 @@ const localizedSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const commentSchema = new mongoose.Schema({
+  text: String,
+  approved: Boolean,
+  author: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+  replies: [
+    {
+      text: String,
+      author: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+    },
+  ],
+});
+
 const blogSchema = new mongoose.Schema(
   {
     title: { type: localizedSchema, required: true },
@@ -36,6 +48,7 @@ const blogSchema = new mongoose.Schema(
       },
     },
 
+    // Main hero image
     image: {
       url: {
         type: String,
@@ -44,6 +57,22 @@ const blogSchema = new mongoose.Schema(
       public_id: { type: String },
       alt: { type: String },
       caption: { type: localizedSchema },
+    },
+
+    additionalImages: [
+      {
+        url: { type: String, required: true },
+        public_id: { type: String },
+        alt: { type: String },
+        caption: { type: localizedSchema },
+        position: { type: String },
+      },
+    ],
+
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true,
     },
 
     status: {
@@ -64,6 +93,8 @@ const blogSchema = new mongoose.Schema(
 
     tags: [{ type: localizedSchema }],
 
+    relatedTopics: [{ type: localizedSchema }],
+
     readTime: {
       type: Number,
       default: 5,
@@ -79,10 +110,62 @@ const blogSchema = new mongoose.Schema(
       default: 0,
     },
 
+    shares: {
+      type: Number,
+      default: 0,
+    },
+
+    comments: [
+      {
+        author: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "user",
+          required: true,
+        },
+        content: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+        approved: { type: Boolean, default: false },
+        replies: [
+          {
+            author: {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: "user",
+              required: true,
+            },
+            content: { type: String, required: true },
+            createdAt: { type: Date, default: Date.now },
+            approved: { type: Boolean, default: false },
+          },
+        ],
+      },
+    ],
+
+    newsletterSignups: {
+      type: Number,
+      default: 0,
+    },
+
     seo: {
       metaTitle: { type: localizedSchema },
       metaDescription: { type: localizedSchema },
       keywords: [{ type: localizedSchema }],
+      ogImage: { type: String },
+      ogDescription: { type: localizedSchema },
+    },
+
+    structuredData: {
+      breadcrumbs: [
+        {
+          name: { type: localizedSchema },
+          url: { type: String },
+        },
+      ],
+      faq: [
+        {
+          question: { type: localizedSchema },
+          answer: { type: localizedSchema },
+        },
+      ],
     },
 
     publishedAt: {
@@ -94,6 +177,25 @@ const blogSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    lastUpdated: {
+      type: Date,
+      default: Date.now,
+    },
+
+    contentSections: [
+      {
+        type: {
+          type: String,
+          enum: ["tip", "paragraph", "image", "list", "quote"],
+        },
+        title: { type: localizedSchema },
+        content: { type: localizedSchema },
+        order: { type: Number },
+        icon: { type: String },
+        highlighted: { type: Boolean, default: false }, 
+      },
+    ],
   },
   {
     timestamps: true,
@@ -127,6 +229,9 @@ blogSchema.index({ "category.en": 1, status: 1 });
 blogSchema.index({ status: 1, publishedAt: -1 });
 blogSchema.index({ featured: 1, status: 1 });
 blogSchema.index({ trending: 1, status: 1 });
+blogSchema.index({ views: -1 });
+blogSchema.index({ likes: -1 });
+blogSchema.index({ "relatedTopics.en": 1 });
 
 blogSchema.virtual("formattedPublishDate").get(function () {
   if (this.publishedAt) {
@@ -137,6 +242,14 @@ blogSchema.virtual("formattedPublishDate").get(function () {
     });
   }
   return null;
+});
+
+blogSchema.virtual("readTimeDisplay").get(function () {
+  return `${this.readTime} min read`;
+});
+
+blogSchema.virtual("commentCount").get(function () {
+  return this.comments ? this.comments.filter((c) => c.approved).length : 0;
 });
 
 blogSchema.pre("save", async function (next) {
@@ -194,6 +307,10 @@ blogSchema.pre("save", async function (next) {
     this.readTime = Math.ceil(wordCount / 200);
   }
 
+  if (!isNewDoc) {
+    this.lastUpdated = new Date();
+  }
+
   next();
 });
 
@@ -218,6 +335,30 @@ blogSchema.statics.getByCategory = function (category, locale = "en") {
   }).sort({ publishedAt: -1 });
 };
 
+blogSchema.statics.getRelatedPosts = function (
+  blogId,
+  category,
+  locale = "en",
+  limit = 5
+) {
+  return this.find({
+    _id: { $ne: blogId },
+    status: "published",
+    [`category.${locale}`]: { $regex: category, $options: "i" },
+  })
+    .populate("author", "name lastname avatar")
+    .sort({ publishedAt: -1 })
+    .limit(limit)
+    .select("title slug excerpt image publishedAt readTime views author");
+};
+
+blogSchema.statics.getMostPopular = function (limit = 10) {
+  return this.find({ status: "published" })
+    .sort({ views: -1, likes: -1 })
+    .limit(limit)
+    .select("title slug views likes publishedAt");
+};
+
 blogSchema.statics.findOptimized = function (query = {}, options = {}) {
   const defaultOptions = {
     lean: true,
@@ -228,6 +369,21 @@ blogSchema.statics.findOptimized = function (query = {}, options = {}) {
 
 blogSchema.statics.aggregateOptimized = function (pipeline) {
   return this.aggregate(pipeline).allowDiskUse(true);
+};
+
+blogSchema.methods.incrementViews = function () {
+  this.views += 1;
+  return this.save();
+};
+
+blogSchema.methods.incrementLikes = function () {
+  this.likes += 1;
+  return this.save();
+};
+
+blogSchema.methods.incrementShares = function () {
+  this.shares += 1;
+  return this.save();
 };
 
 const blogModel = mongoose.model("blog", blogSchema);

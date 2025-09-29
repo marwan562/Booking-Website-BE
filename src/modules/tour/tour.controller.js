@@ -23,50 +23,105 @@ const getCategories = catchAsyncError(async (req, res) => {
   if (!isValidLocale(locale)) {
     return res.status(400).json({
       status: "error",
-      message: `Invalid locale. Use one of: ${getSupportedLocales().join(
-        ", "
-      )}`,
+      message: `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
     });
   }
 
   try {
     const categories = await tourModel.aggregate([
       {
+        $lookup: {
+          from: "destinations",
+          localField: "destination",
+          foreignField: "_id",
+          as: "destination",
+        },
+      },
+      {
+        $unwind: {
+          path: "$destination",
+          preserveNullAndEmptyArrays: false, 
+        },
+      },
+      {
         $group: {
-          _id: "$category",
+          _id: {
+            category: {
+              $ifNull: ["$category.en", "$category"],
+            },
+            destinationSlug: "$destination.slug.city",
+          },
           count: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.category",
+          totalCount: { $sum: "$count" },
+          destinations: {
+            $push: {
+              destinationSlug: "$_id.destinationSlug",
+              count: "$count",
+            },
+          },
         },
       },
       {
         $project: {
           _id: 0,
-          category: { $ifNull: ["$_id.en", "$_id"] },
-          count: 1,
+          category: "$_id",
+          totalCount: 1,
+          destinationSlug: {
+            $arrayElemAt: [
+              "$destinations.destinationSlug",
+              {
+                $indexOfArray: [
+                  "$destinations.count",
+                  { $max: "$destinations.count" },
+                ],
+              },
+            ],
+          },
         },
       },
       {
-        $sort: { category: 1 },
+        $sort: { totalCount: -1 },
       },
     ]);
 
-    const localizedCategories = categories.map((cat) => ({
-      ...cat,
-      category: getLocalizedValue(cat.category, locale),
-    }));
+    const localizedCategories = categories.map((item) => {
+      const localizedCategory = getLocalizedValue(item.category, locale);
+      const localizedCitySlug =
+        item.destinationSlug?.[locale] || item.destinationSlug?.en || "unknown";
+
+      if (localizedCitySlug === "unknown") {
+        console.warn(
+          `Warning: Unknown city slug for category ${localizedCategory}. Destination slug:`,
+          item.destinationSlug
+        );
+      }
+
+      return {
+        category: localizedCategory,
+        citySlug: localizedCitySlug,
+        count: item.totalCount,
+        link: `/${locale}/${localizedCitySlug}?category=${encodeURIComponent(localizedCategory)}`,
+      };
+    });
 
     res.status(200).json({
       status: "success",
       data: localizedCategories,
     });
   } catch (error) {
+    console.error("Error fetching categories:", error);
     res.status(500).json({
       status: "error",
-      message: "Failed to fetch categories",
+      message: "Failed to fetch categories with cities",
       error: error.message,
     });
   }
 });
-
 const createTour = catchAsyncError(async (req, res, next) => {
   // Validate required fields
   const {
@@ -291,7 +346,9 @@ const getAllTour = catchAsyncError(async (req, res, next) => {
   }
 
   const apiFeature = new ApiFeature(
-    tourModel.find().populate({ path: "destination", select: "city country slug" }),
+    tourModel
+      .find()
+      .populate({ path: "destination", select: "city country slug" }),
     req.query
   )
     .paginate()

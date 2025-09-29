@@ -13,6 +13,7 @@ import logger from "./logs/logger.js";
 import { AppError } from "./src/utilities/AppError.js";
 import customErrorHandler from "./src/middlewares/customErrorHandler.js";
 import paymentRouter from "./src/modules/payment/payment.router.js";
+import cors from "cors";
 import "dotenv/config";
 
 const app = express();
@@ -52,7 +53,7 @@ app.use(securityHeaders);
 app.use(sanitizeData);
 
 // CORS configuration
-// app.use(cors());
+app.use(cors());
 
 // Request parsing cookies
 app.use(cookieParser());

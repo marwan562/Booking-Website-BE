@@ -1,7 +1,7 @@
 import { validationResult } from "express-validator";
 import Blog from "../../models/blogModel.js";
 import slugify from "slugify";
-import cloudinary from "cloudinary"; // Assuming Cloudinary for image uploads
+import cloudinary from "cloudinary";
 
 class AdminController {
   async getAllBlogs(req, res) {
@@ -18,44 +18,45 @@ class AdminController {
 
       let query = {};
 
-      // Filter by status if specified
       if (status && status !== "all") {
         query.status = status;
       }
 
-      // Filter by category - check if buildCategorySearchQuery function exists
       if (category && category !== "all") {
-        // Simple category filter if buildCategorySearchQuery is not available
         query[`category.${locale}`] = new RegExp(category, "i");
       }
 
-      // Search functionality - check if buildLocalizedSearchQuery function exists
       if (search) {
-        // Simple search if buildLocalizedSearchQuery is not available
         query.$or = [
           { [`title.${locale}`]: { $regex: search, $options: "i" } },
           { [`title.en`]: { $regex: search, $options: "i" } },
           { [`excerpt.${locale}`]: { $regex: search, $options: "i" } },
           { [`excerpt.en`]: { $regex: search, $options: "i" } },
+          { [`relatedTopics.${locale}`]: { $regex: search, $options: "i" } },
         ];
       }
 
       console.log("MongoDB query:", JSON.stringify(query, null, 2));
 
       const blogs = await Blog.find(query)
+        .populate("author", "name lastname email avatar role")
+        .populate("comments.author", "name avatar")
+        .populate("comments.replies.author", "name avatar")
         .sort(sort)
         .limit(limit * 1)
         .skip((page - 1) * limit)
-        .lean(); // Don't exclude content for admin
+        .lean();
 
       const total = await Blog.countDocuments(query);
 
       console.log(`Found ${blogs.length} blogs out of ${total} total`);
 
-      // For admin: Return raw data without transformation
       const adminBlogs = blogs.map((blog) => ({
         ...blog,
         _id: blog._id.toString(),
+        commentCount: blog.comments
+          ? blog.comments.filter((c) => c.approved).length
+          : 0,
       }));
 
       res.status(200).json({
@@ -79,9 +80,54 @@ class AdminController {
     }
   }
 
+  async getBlogById(req, res) {
+    try {
+      const { id } = req.params;
+      const locale = req.query.locale || "en";
+
+      const blog = await Blog.findById(id)
+        .populate("author", "name lastname email avatar role city instagram")
+        .populate("comments.author", "name avatar")
+        .populate("comments.replies.author", "name avatar");
+
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      if (blog.status === "published") {
+        await Blog.findByIdAndUpdate(id, { $inc: { views: 1 } });
+        blog.views += 1;
+      }
+
+      const relatedBlogs = await Blog.getRelatedPosts(
+        id,
+        blog.category[locale] || blog.category.en,
+        locale,
+        5
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          blog,
+          relatedBlogs,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching blog details:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error fetching blog details",
+        error: error.message,
+      });
+    }
+  }
+
   async createBlog(req, res) {
     try {
-      // Validate request using express-validator
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         return res.status(400).json({
@@ -100,17 +146,22 @@ class AdminController {
         featured,
         trending,
         tags,
+        relatedTopics,
         readTime,
         views,
         likes,
+        shares,
         seo,
         publishedAt,
         scheduledFor,
         image: imageData,
-        imageMetadata, // New field for image metadata when file is uploaded
+        additionalImages,
+        imageMetadata,
+        author,
+        contentSections,
+        structuredData,
       } = req.body;
 
-      // Parse JSON fields if they come as strings (from FormData)
       const parsedData = {
         title: typeof title === "string" ? JSON.parse(title) : title,
         excerpt: typeof excerpt === "string" ? JSON.parse(excerpt) : excerpt,
@@ -118,7 +169,24 @@ class AdminController {
         category:
           typeof category === "string" ? JSON.parse(category) : category,
         tags: typeof tags === "string" ? JSON.parse(tags) : tags,
+        relatedTopics:
+          typeof relatedTopics === "string"
+            ? JSON.parse(relatedTopics)
+            : relatedTopics,
         seo: typeof seo === "string" ? JSON.parse(seo) : seo,
+        author: typeof author === "string" ? JSON.parse(author) : author,
+        additionalImages:
+          typeof additionalImages === "string"
+            ? JSON.parse(additionalImages)
+            : additionalImages,
+        contentSections:
+          typeof contentSections === "string"
+            ? JSON.parse(contentSections)
+            : contentSections,
+        structuredData:
+          typeof structuredData === "string"
+            ? JSON.parse(structuredData)
+            : structuredData,
         status: status || "draft",
         featured:
           featured !== undefined
@@ -131,21 +199,19 @@ class AdminController {
         readTime: readTime !== undefined ? Number(readTime) : 5,
         views: views !== undefined ? Number(views) : 0,
         likes: likes !== undefined ? Number(likes) : 0,
+        shares: shares !== undefined ? Number(shares) : 0,
         publishedAt: publishedAt || null,
         scheduledFor: scheduledFor || null,
       };
 
-      // Parse image metadata if provided
       const parsedImageMetadata = imageMetadata
         ? typeof imageMetadata === "string"
           ? JSON.parse(imageMetadata)
           : imageMetadata
         : null;
 
-      // Handle image - it's already processed by saveImg middleware if file was uploaded
       let image = null;
       if (req.body.image) {
-        // Image was uploaded and processed by saveImg middleware (Cloudinary result)
         image = {
           url: req.body.image.secure_url || req.body.image.url,
           public_id: req.body.image.public_id,
@@ -153,7 +219,6 @@ class AdminController {
           caption: parsedImageMetadata?.caption || { en: "", es: "", fr: "" },
         };
       } else if (imageData && typeof imageData === "string") {
-        // Image data provided as JSON string (existing URL)
         const parsedImageData = JSON.parse(imageData);
         image = {
           url: parsedImageData.url,
@@ -169,17 +234,30 @@ class AdminController {
         content: parsedData.content,
         category: parsedData.category,
         image,
+        author: parsedData.author || req.user?.id,
+        additionalImages: parsedData.additionalImages || [],
         status: parsedData.status,
         featured: parsedData.featured,
         trending: parsedData.trending,
         tags: parsedData.tags || [],
+        relatedTopics: parsedData.relatedTopics || [],
         readTime: parsedData.readTime,
         views: parsedData.views,
         likes: parsedData.likes,
+        shares: parsedData.shares,
+        comments: [],
+        newsletterSignups: 0,
+        contentSections: parsedData.contentSections || [],
         seo: parsedData.seo || {
           metaTitle: { en: "", es: "", fr: "" },
           metaDescription: { en: "", es: "", fr: "" },
           keywords: [],
+          ogImage: "",
+          ogDescription: { en: "", es: "", fr: "" },
+        },
+        structuredData: parsedData.structuredData || {
+          breadcrumbs: [],
+          faq: [],
         },
         publishedAt: parsedData.publishedAt
           ? new Date(parsedData.publishedAt)
@@ -212,6 +290,7 @@ class AdminController {
       });
     }
   }
+
   async updateBlog(req, res) {
     try {
       const { id } = req.params;
@@ -224,20 +303,25 @@ class AdminController {
         featured,
         trending,
         tags,
+        relatedTopics,
         readTime,
         views,
         likes,
+        shares,
         seo,
         publishedAt,
         scheduledFor,
         image: imageData,
-        imageMetadata, // For file uploads with metadata
+        additionalImages,
+        imageMetadata,
+        author,
+        contentSections,
+        structuredData,
       } = req.body;
 
       console.log("Update blog request for ID:", id);
       console.log("Request body keys:", Object.keys(req.body));
 
-      // Parse JSON fields if they come as strings (from FormData)
       const parsedData = {
         title: typeof title === "string" ? JSON.parse(title) : title,
         excerpt: typeof excerpt === "string" ? JSON.parse(excerpt) : excerpt,
@@ -245,7 +329,27 @@ class AdminController {
         category:
           typeof category === "string" ? JSON.parse(category) : category,
         tags: typeof tags === "string" ? JSON.parse(tags) : tags,
+        relatedTopics:
+          typeof relatedTopics === "string"
+            ? JSON.parse(relatedTopics)
+            : relatedTopics,
         seo: typeof seo === "string" ? JSON.parse(seo) : seo,
+        author: typeof author === "string" ? JSON.parse(author) : author,
+        image:
+          typeof imageData === "string" ? JSON.parse(imageData) : imageData,
+        // FIX: Properly parse additionalImages
+        additionalImages:
+          typeof additionalImages === "string"
+            ? JSON.parse(additionalImages)
+            : additionalImages || [],
+        contentSections:
+          typeof contentSections === "string"
+            ? JSON.parse(contentSections)
+            : contentSections,
+        structuredData:
+          typeof structuredData === "string"
+            ? JSON.parse(structuredData)
+            : structuredData,
         status: status || "draft",
         featured:
           featured !== undefined
@@ -258,18 +362,23 @@ class AdminController {
         readTime: readTime !== undefined ? Number(readTime) : undefined,
         views: views !== undefined ? Number(views) : undefined,
         likes: likes !== undefined ? Number(likes) : undefined,
+        shares: shares !== undefined ? Number(shares) : undefined,
         publishedAt: publishedAt || null,
         scheduledFor: scheduledFor || null,
       };
 
-      // Parse image metadata if provided
+      // Debug: Log the parsed image data
+      console.log("Parsed image data:", parsedData.image);
+      console.log("req.body.image:", req.body.image);
+
       const parsedImageMetadata = imageMetadata
         ? typeof imageMetadata === "string"
           ? JSON.parse(imageMetadata)
           : imageMetadata
         : null;
 
-      // Get existing blog
+      console.log("request data", parsedData);
+
       const existingBlog = await Blog.findById(id);
       if (!existingBlog) {
         return res.status(404).json({
@@ -278,7 +387,6 @@ class AdminController {
         });
       }
 
-      // Generate slug from English title if title is provided
       let slug = existingBlog.slug;
       if (
         parsedData.title?.en &&
@@ -288,7 +396,6 @@ class AdminController {
           lower: true,
           strict: true,
         });
-        // Check if slug exists for other blogs
         const slugExists = await Blog.findOne({
           _id: { $ne: id },
           "slug.en": baseSlug,
@@ -298,32 +405,166 @@ class AdminController {
           en: slugExists ? `${baseSlug}-${Date.now()}` : baseSlug,
         };
       }
+
       try {
-        if (req.body.image && destination.image?.public_id)
-          removeImage(destination.image.public_id);
-        if (req.body.images && destination.images?.length) {
-          destination.images.forEach((img) => {
-            if (img?.public_id) removeImage(img.public_id);
+        if (req.body.image && existingBlog.image?.public_id) {
+          await cloudinary.uploader.destroy(existingBlog.image.public_id);
+        }
+        if (
+          req.body.additionalImages &&
+          existingBlog.additionalImages?.length
+        ) {
+          existingBlog.additionalImages.forEach(async (img) => {
+            if (img?.public_id)
+              await cloudinary.uploader.destroy(img.public_id);
           });
         }
       } catch (error) {
         console.error("Error cleaning up old images:", error);
       }
 
-      // Prepare update data
+      let updatedImage = existingBlog.image;
+
+      // Handle image update logic
+      if (req.body.image && req.body.image.secure_url) {
+        // New file upload from multer
+        updatedImage = {
+          url: req.body.image.secure_url,
+          public_id: req.body.image.public_id,
+          alt: parsedImageMetadata?.alt || existingBlog.image?.alt || "",
+          caption: parsedImageMetadata?.caption ||
+            existingBlog.image?.caption || { en: "", es: "", fr: "" },
+        };
+      } else if (parsedData.image?.url) {
+        // Existing image data from JSON
+        updatedImage = {
+          url: parsedData.image.url,
+          public_id:
+            parsedData.image.public_id || existingBlog.image?.public_id || "",
+          alt: parsedData.image.alt || existingBlog.image?.alt || "",
+          caption: parsedData.image.caption ||
+            existingBlog.image?.caption || { en: "", es: "", fr: "" },
+        };
+      } else if (existingBlog.image?.url) {
+        // Keep existing image if no new image provided
+        updatedImage = existingBlog.image;
+      } else {
+        // This should not happen, but provide a fallback
+        console.error("No image data found, this might cause validation error");
+      }
+
+      // FIX: Handle additionalImages with simplified approach
+      let updatedAdditionalImages = [];
+
+      // Debug logs
+      console.log(
+        "req.body.additionalImages type:",
+        typeof req.body.additionalImages
+      );
+      console.log("req.body.additionalImages:", req.body.additionalImages);
+      console.log(
+        "req.body.existingAdditionalImages:",
+        req.body.existingAdditionalImages
+      );
+
+      // First, add existing images (if any)
+      if (req.body.existingAdditionalImages) {
+        try {
+          const existingImages =
+            typeof req.body.existingAdditionalImages === "string"
+              ? JSON.parse(req.body.existingAdditionalImages)
+              : req.body.existingAdditionalImages;
+
+          if (Array.isArray(existingImages)) {
+            updatedAdditionalImages.push(
+              ...existingImages.map((img) => ({
+                url: img.url,
+                public_id: img.public_id || "",
+                alt: img.alt || "",
+                caption: {
+                  en: img.caption?.en || "Image caption",
+                  es: img.caption?.es || "Descripción de imagen",
+                  fr: img.caption?.fr || "",
+                },
+                position: img.position || "",
+              }))
+            );
+          }
+        } catch (error) {
+          console.error("Error parsing existing additional images:", error);
+        }
+      }
+
+      // Then, add newly uploaded images (processed by saveImg middleware)
+      if (
+        req.body.additionalImages &&
+        Array.isArray(req.body.additionalImages)
+      ) {
+        const uploadedImages = req.body.additionalImages.map(
+          (uploadedFile) => ({
+            url: uploadedFile.secure_url || uploadedFile.url,
+            public_id: uploadedFile.public_id,
+            alt: parsedImageMetadata?.alt || "",
+            caption: {
+              en: parsedImageMetadata?.caption?.en || "Image caption",
+              es: parsedImageMetadata?.caption?.es || "Descripción de imagen",
+              fr: parsedImageMetadata?.caption?.fr || "",
+            },
+            position: "",
+          })
+        );
+
+        updatedAdditionalImages.push(...uploadedImages);
+      }
+      // Fallback: handle string data (legacy support)
+      else if (typeof req.body.additionalImages === "string") {
+        try {
+          const parsedImages = JSON.parse(req.body.additionalImages);
+          if (Array.isArray(parsedImages)) {
+            updatedAdditionalImages = parsedImages
+              .filter((img) => img.url && img.url.trim() !== "")
+              .map((img) => ({
+                url: img.url,
+                public_id: img.public_id || "",
+                alt: img.alt || "",
+                caption: {
+                  en: img.caption?.en || "Image caption",
+                  es: img.caption?.es || "Descripción de imagen",
+                  fr: img.caption?.fr || "",
+                },
+                position: img.position || "",
+              }));
+          }
+        } catch (error) {
+          console.error("Error parsing additionalImages string:", error);
+          updatedAdditionalImages = existingBlog.additionalImages || [];
+        }
+      }
+      // If no additional images data at all, keep existing
+      else if (
+        !req.body.additionalImages &&
+        !req.body.existingAdditionalImages
+      ) {
+        updatedAdditionalImages = existingBlog.additionalImages || [];
+      }
+
+      console.log("Final updatedAdditionalImages:", updatedAdditionalImages);
+
       const updateData = {
         title: parsedData.title || existingBlog.title,
         slug: slug,
         excerpt: parsedData.excerpt || existingBlog.excerpt,
         content: parsedData.content || existingBlog.content,
         category: parsedData.category || existingBlog.category,
-        image: imageData.url
-          ? { ...existingBlog.image, ...imageData }
-          : existingBlog.image,
+        image: updatedImage,
+        additionalImages: updatedAdditionalImages,
+        author: parsedData.author || existingBlog.author,
         status: parsedData.status,
         featured: parsedData.featured,
         trending: parsedData.trending,
         tags: parsedData.tags || existingBlog.tags || [],
+        relatedTopics:
+          parsedData.relatedTopics || existingBlog.relatedTopics || [],
         readTime:
           parsedData.readTime !== undefined
             ? parsedData.readTime
@@ -336,11 +577,24 @@ class AdminController {
           parsedData.likes !== undefined
             ? parsedData.likes
             : existingBlog.likes,
+        shares:
+          parsedData.shares !== undefined
+            ? parsedData.shares
+            : existingBlog.shares,
+        contentSections:
+          parsedData.contentSections || existingBlog.contentSections || [],
         seo: parsedData.seo ||
           existingBlog.seo || {
             metaTitle: { en: "", es: "", fr: "" },
             metaDescription: { en: "", es: "", fr: "" },
             keywords: [],
+            ogImage: "",
+            ogDescription: { en: "", es: "", fr: "" },
+          },
+        structuredData: parsedData.structuredData ||
+          existingBlog.structuredData || {
+            breadcrumbs: [],
+            faq: [],
           },
         publishedAt: parsedData.publishedAt
           ? new Date(parsedData.publishedAt)
@@ -348,6 +602,7 @@ class AdminController {
         scheduledFor: parsedData.scheduledFor
           ? new Date(parsedData.scheduledFor)
           : existingBlog.scheduledFor,
+        lastUpdated: new Date(),
       };
 
       console.log("Update data:", JSON.stringify(updateData, null, 2));
@@ -371,7 +626,6 @@ class AdminController {
       });
     }
   }
-
   async deleteBlog(req, res) {
     try {
       const { id } = req.params;
@@ -384,12 +638,12 @@ class AdminController {
         });
       }
 
-      // Delete associated images from Cloudinary
       if (blog.image && blog.image.public_id) {
         await cloudinary.uploader.destroy(blog.image.public_id);
       }
-      if (blog.images && blog.images.length > 0) {
-        for (const img of blog.images) {
+
+      if (blog.additionalImages && blog.additionalImages.length > 0) {
+        for (const img of blog.additionalImages) {
           if (img.public_id) {
             await cloudinary.uploader.destroy(img.public_id);
           }
@@ -406,6 +660,117 @@ class AdminController {
       res.status(500).json({
         success: false,
         message: "Error deleting blog",
+        error: error.message,
+      });
+    }
+  }
+
+  async approveComment(req, res) {
+    try {
+      const { id, commentId } = req.params;
+
+      const blog = await Blog.findById(id);
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      const comment = blog.comments.id(commentId);
+      if (!comment) {
+        return res.status(404).json({
+          success: false,
+          message: "Comment not found",
+        });
+      }
+
+      comment.approved = true;
+      await blog.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Comment approved successfully",
+        data: comment,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error approving comment",
+        error: error.message,
+      });
+    }
+  }
+
+  async deleteComment(req, res) {
+    try {
+      const { id, commentId } = req.params;
+
+      const blog = await Blog.findById(id);
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      blog.comments.id(commentId).remove();
+      await blog.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Comment deleted successfully",
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error deleting comment",
+        error: error.message,
+      });
+    }
+  }
+
+  async getBlogAnalytics(req, res) {
+    try {
+      const { id } = req.params;
+
+      const blog = await Blog.findById(id);
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      const analytics = {
+        views: blog.views,
+        likes: blog.likes,
+        shares: blog.shares,
+        commentCount: blog.comments
+          ? blog.comments.filter((c) => c.approved).length
+          : 0,
+        newsletterSignups: blog.newsletterSignups,
+        readTime: blog.readTime,
+        engagementRate:
+          blog.views > 0
+            ? (
+                ((blog.likes + blog.shares + blog.comments.length) /
+                  blog.views) *
+                100
+              ).toFixed(2)
+            : 0,
+        publishedAt: blog.publishedAt,
+        lastUpdated: blog.lastUpdated,
+      };
+
+      res.status(200).json({
+        success: true,
+        data: analytics,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error fetching blog analytics",
         error: error.message,
       });
     }
@@ -488,13 +853,13 @@ class AdminController {
 
       switch (action) {
         case "publish":
-          updateQuery = { published: true, publishDate: new Date() };
+          updateQuery = { status: "published", publishedAt: new Date() };
           break;
         case "unpublish":
-          updateQuery = { published: false };
+          updateQuery = { status: "draft" };
           break;
         case "archive":
-          updateQuery = { published: false }; // Assuming archived is unpublished
+          updateQuery = { status: "archived" };
           break;
         case "feature":
           updateQuery = { featured: value };
@@ -538,10 +903,13 @@ class AdminController {
             _id: null,
             totalBlogs: { $sum: 1 },
             publishedBlogs: {
-              $sum: { $cond: [{ $eq: ["$published", true] }, 1, 0] },
+              $sum: { $cond: [{ $eq: ["$status", "published"] }, 1, 0] },
             },
             draftBlogs: {
-              $sum: { $cond: [{ $eq: ["$published", false] }, 1, 0] },
+              $sum: { $cond: [{ $eq: ["$status", "draft"] }, 1, 0] },
+            },
+            archivedBlogs: {
+              $sum: { $cond: [{ $eq: ["$status", "archived"] }, 1, 0] },
             },
             featuredBlogs: {
               $sum: { $cond: ["$featured", 1, 0] },
@@ -551,29 +919,72 @@ class AdminController {
             },
             totalViews: { $sum: "$views" },
             totalLikes: { $sum: "$likes" },
+            totalShares: { $sum: "$shares" },
+            totalComments: { $sum: { $size: "$comments" } },
+            approvedComments: {
+              $sum: {
+                $size: {
+                  $filter: {
+                    input: "$comments",
+                    cond: { $eq: ["$$this.approved", true] },
+                  },
+                },
+              },
+            },
           },
         },
       ]);
 
       const categoryStats = await Blog.aggregate([
-        { $match: { published: true } },
-        { $group: { _id: "$category.en", count: { $sum: 1 } } }, // Group by English category
+        { $match: { status: "published" } },
+        { $group: { _id: "$category.en", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]);
 
       const monthlyStats = await Blog.aggregate([
-        { $match: { published: true, publishDate: { $exists: true } } },
+        { $match: { status: "published", publishedAt: { $exists: true } } },
         {
           $group: {
             _id: {
-              year: { $year: "$publishDate" },
-              month: { $month: "$publishDate" },
+              year: { $year: "$publishedAt" },
+              month: { $month: "$publishedAt" },
             },
             count: { $sum: 1 },
+            totalViews: { $sum: "$views" },
+            totalLikes: { $sum: "$likes" },
           },
         },
         { $sort: { "_id.year": -1, "_id.month": -1 } },
         { $limit: 12 },
+      ]);
+
+      const topPerformingBlogs = await Blog.aggregate([
+        { $match: { status: "published" } },
+        {
+          $addFields: {
+            engagementScore: {
+              $add: [
+                { $multiply: ["$views", 1] },
+                { $multiply: ["$likes", 5] },
+                { $multiply: ["$shares", 10] },
+                { $multiply: [{ $size: "$comments" }, 15] },
+              ],
+            },
+          },
+        },
+        { $sort: { engagementScore: -1 } },
+        { $limit: 10 },
+        {
+          $project: {
+            title: "$title.en",
+            views: 1,
+            likes: 1,
+            shares: 1,
+            commentCount: { $size: "$comments" },
+            engagementScore: 1,
+            publishedAt: 1,
+          },
+        },
       ]);
 
       res.status(200).json({
@@ -582,12 +993,101 @@ class AdminController {
           overview: stats[0] || {},
           categoryBreakdown: categoryStats,
           monthlyPublications: monthlyStats,
+          topPerformingBlogs: topPerformingBlogs,
         },
       });
     } catch (error) {
       res.status(500).json({
         success: false,
         message: "Error fetching blog statistics",
+        error: error.message,
+      });
+    }
+  }
+
+  async getRelatedTopics(req, res) {
+    try {
+      const relatedTopics = await Blog.aggregate([
+        { $match: { status: "published" } },
+        { $unwind: "$relatedTopics" },
+        { $group: { _id: "$relatedTopics.en", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 20 },
+      ]);
+
+      res.status(200).json({
+        success: true,
+        data: relatedTopics,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error fetching related topics",
+        error: error.message,
+      });
+    }
+  }
+
+  async updateContentSections(req, res) {
+    try {
+      const { id } = req.params;
+      const { contentSections } = req.body;
+
+      const blog = await Blog.findById(id);
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      blog.contentSections = contentSections;
+      blog.lastUpdated = new Date();
+      await blog.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Content sections updated successfully",
+        data: blog,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error updating content sections",
+        error: error.message,
+      });
+    }
+  }
+
+  async updateSEO(req, res) {
+    try {
+      const { id } = req.params;
+      const { seo, structuredData } = req.body;
+
+      const blog = await Blog.findById(id);
+      if (!blog) {
+        return res.status(404).json({
+          success: false,
+          message: "Blog not found",
+        });
+      }
+
+      if (seo) blog.seo = { ...blog.seo, ...seo };
+      if (structuredData)
+        blog.structuredData = { ...blog.structuredData, ...structuredData };
+      blog.lastUpdated = new Date();
+
+      await blog.save();
+
+      res.status(200).json({
+        success: true,
+        message: "SEO data updated successfully",
+        data: { seo: blog.seo, structuredData: blog.structuredData },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error updating SEO data",
         error: error.message,
       });
     }

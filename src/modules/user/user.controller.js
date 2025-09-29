@@ -405,7 +405,8 @@ const sendCode = catchAsyncError(async (req, res, next) => {
   const code = randomCode.toString();
   user.code = code;
   await user.save();
-  sendEmail({ email, code });
+  console.log(email, code);
+  await sendEmail({ email, code });
   res.status(200).send({ message: "success", sendToAdmins: false });
 });
 
@@ -417,6 +418,7 @@ const checkCode = catchAsyncError(async (req, res, next) => {
   }
   res.status(200).send({ message: "success", data: "correct code" });
 });
+
 const forgetPassword = catchAsyncError(async (req, res, next) => {
   const { email, code, newPassword, reNewPassword } = req.body;
   if (newPassword !== reNewPassword) {

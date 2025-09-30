@@ -10,6 +10,15 @@ const localizedSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const localizedSchemaOptional = new mongoose.Schema(
+  {
+    en: { type: String, required: false },
+    es: { type: String, required: false },
+    fr: { type: String, required: false },
+  },
+  { _id: false }
+);
+
 const commentSchema = new mongoose.Schema({
   text: String,
   approved: Boolean,
@@ -146,11 +155,18 @@ const blogSchema = new mongoose.Schema(
     },
 
     seo: {
-      metaTitle: { type: localizedSchema },
-      metaDescription: { type: localizedSchema },
-      keywords: [{ type: localizedSchema }],
+      metaTitle: { type: localizedSchemaOptional },
+      metaDescription: { type: localizedSchemaOptional },
+      keywords: {
+        type: [localizedSchemaOptional],
+        default: undefined,
+      },
       ogImage: { type: String },
-      ogDescription: { type: localizedSchema },
+      ogDescription: {
+        en: { type: String, required: false },
+        es: { type: String, required: false },
+        fr: { type: String, required: false },
+      },
     },
 
     structuredData: {
@@ -193,7 +209,7 @@ const blogSchema = new mongoose.Schema(
         content: { type: localizedSchema },
         order: { type: Number },
         icon: { type: String },
-        highlighted: { type: Boolean, default: false }, 
+        highlighted: { type: Boolean, default: false },
       },
     ],
   },

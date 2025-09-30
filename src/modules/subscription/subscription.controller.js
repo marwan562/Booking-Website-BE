@@ -44,11 +44,12 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     childrenPricing: sentChildrenPricing,
     options = [],
     passengers = [],
+    couponCode,
     time,
     date,
     day,
   } = req.body;
-  console.log(req.body);
+
   if (numberOfAdults === 0 && numberOfChildren === 0) {
     return next(
       new AppError("At least one adult or child must be selected", 400)
@@ -62,6 +63,47 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
   let totalPrice = 0;
   let discountAmount = 0;
   let discountPercent = tour.discountPercent || 0;
+  let coupon = null;
+
+  if (couponCode) {
+    const couponData = tour.coupons.find(
+      (c) => c.code.toUpperCase() === couponCode.toUpperCase()
+    );
+
+    if (couponData) {
+      coupon = {
+        code: couponData.code,
+        discountPercent: couponData.discountPercent,
+      };
+      discountPercent = couponData.discountPercent;
+    } else {
+      return next(new AppError("Invalid or expired coupon code", 400));
+    }
+    if (!couponData) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid coupon code",
+      });
+    }
+
+    if (!couponData.isActive) {
+      return res.status(400).json({
+        status: "error",
+        message: "Coupon is not active",
+      });
+    }
+
+    const currentDate = new Date();
+    if (
+      (couponData.validFrom && couponData.validFrom > currentDate) ||
+      (couponData.validTo && couponData.validTo < currentDate)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Coupon is not valid at this time",
+      });
+    }
+  }
 
   let adultTotal = 0;
   let adultUnitPrice = tour.price || 0;
@@ -209,12 +251,16 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     date,
     totalPrice: Number(totalPrice),
     discount: discountPercent,
+    coupon: coupon
+      ? { code: coupon.code, discountPercent: coupon.discountPercent }
+      : undefined,
     mainImg: tour.mainImg,
     title: tour.title,
     day,
     discountPercent,
   };
-  console.log(subscriptionData.totalPrice);
+
+  console.log(subscriptionData.coupon);
 
   const resultOfSubscription = new subscriptionModel(subscriptionData);
   await resultOfSubscription.save();
@@ -226,13 +272,23 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     subscriptionObj.tourDetails,
     locale
   );
+  console.log(couponCode);
+  console.log(subscriptionData.totalPrice);
 
   res.status(200).json({
     status: "success",
     message: "Subscription created successfully",
-    data: subscriptionObj,
+    data: {
+      ...subscriptionObj,
+      coupon: coupon
+        ? { code: coupon.code, discountPercent: coupon.discountPercent }
+        : undefined,
+      discount: discountPercent,
+    },
   });
 });
+
+export default createSubscription;
 
 const updateTourInCart = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
@@ -548,7 +604,7 @@ const getAllCart = catchAsyncError(async (req, res, next) => {
   const { _id } = req.user;
   const { locale = "en" } = req.query;
 
-  const validLocales = ["en", "ar", "es", "fr"];
+  const validLocales = ["en", "es", "fr"];
   if (!validLocales.includes(locale)) {
     return next(
       new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400)
@@ -871,7 +927,7 @@ const getSubscriptionsByRefs = catchAsyncError(async (req, res, next) => {
   const { refs } = req.query;
   const { locale = "en" } = req.query;
 
-  const validLocales = ["en", "ar", "es", "fr"];
+  const validLocales = ["en", "es", "fr"];
   if (!validLocales.includes(locale)) {
     return next(
       new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400)

@@ -16,7 +16,7 @@ const sendEmail = async (option) => {
     if (!option.email) {
       throw new AppError("Email recipient is required", 400);
     }
-
+    console.log("Sending email to:", option);
     const from = "hello@yallaegipto.com";
     const to = option.email;
 
@@ -26,11 +26,15 @@ const sendEmail = async (option) => {
     if (option.sendToAdmins) {
       subject = "New Contact Message Received";
       html = contactDetailsHTML(option.contactDetails);
+    } else if (option.id) {
+      subject = "Verify Email";
+      console.log("verify", option.id);
+      html = verifyEmailHTML(option.id);
+    } else if (option.code) {
+      subject = "Reset Password";
+      html = forgetPasswordHTML(option.code);
     } else {
-      subject = option.id ? "Verify Email" : "Reset Password";
-      html = option.id
-        ? verifyEmailHTML(option.id)
-        : forgetPasswordHTML(option.code);
+      throw new AppError("Missing required email parameters (id or code)", 400);
     }
 
     const response = await resend.emails.send({

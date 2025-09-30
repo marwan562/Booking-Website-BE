@@ -52,6 +52,10 @@ const schema = new Schema(
       default: "pending",
     },
     specialRequests: { type: String },
+    coupon: {
+      code: { type: String },
+      discountPercent: { type: Number, min: 0, max: 100, default: 0 },
+    },
     bookingReference: {
       type: String,
       unique: true,

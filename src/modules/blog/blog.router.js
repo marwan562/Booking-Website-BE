@@ -1,7 +1,6 @@
 import { BlogController } from "./blog-public.controller.js";
 import { AdminController } from "./blog.controller.js";
 import { auth, allowedTo } from "../../middlewares/auth.js";
-import { blogValidation } from "./blog.validation.js";
 import { uploadMixfile } from "../../middlewares/fileUpload.js";
 import { saveImg } from "../../middlewares/uploadToCloud.js";
 import express from "express";
@@ -11,7 +10,6 @@ const blogController = new BlogController();
 const adminController = new AdminController();
 
 // ===== ADMIN ROUTES =====
-// Basic CRUD operations
 router.get("/admin", adminController.getAllBlogs);
 router.get("/admin/:id/details", auth, allowedTo("admin"), adminController.getBlogById);
 router.post(

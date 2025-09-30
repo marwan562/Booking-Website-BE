@@ -1,19 +1,5 @@
 import joi from "joi";
 
-const schemaPassengers = joi.object({
-  name: joi.string().min(2).max(50).required(),
-  passport: joi.alternatives().try(
-    joi.object({
-      url: joi.string().uri().allow(null).optional(),
-      public_id: joi.string().allow(null).optional(),
-    }),
-    joi.string().uri(),
-    joi.allow(null)
-  ).optional(),
-  dateOfBirth: joi.string().optional(),
-  nationality: joi.string().required(),
-});
-
 export const subscriptionSchema = joi
   .object({
     id: joi.string().hex().length(24).required(),
@@ -42,7 +28,8 @@ export const subscriptionSchema = joi
         })
       )
       .optional(),
-    locale: joi.string().valid("en", "es", "ar", "fr"),
+    locale: joi.string().valid("en", "es", "fr"),
+    couponCode: joi.string().optional(),
     numberOfAdults: joi.number().integer().min(0).required(),
     numberOfChildren: joi.number().integer().min(0).required(),
   })
@@ -75,6 +62,7 @@ export const updateCartSchema = joi.object({
       })
     )
     .optional(),
+  couponCode: joi.string().optional(),
   adultPricing: joi.string().hex().length(24).optional(),
   childrenPricing: joi.string().hex().length(24).optional(),
   numberOfAdults: joi.number().integer().min(0).required(),

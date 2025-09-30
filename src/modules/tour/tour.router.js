@@ -50,4 +50,5 @@ tourRouter
     Tour.updateTour
   );
 
+tourRouter.route("/:id/apply-coupon").post(Tour.checkCoupon);
 export default tourRouter;

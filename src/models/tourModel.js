@@ -24,6 +24,27 @@ const optionSchema = new Schema(
   { _id: true }
 );
 
+const couponSchema = new Schema(
+  {
+    code: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true,
+    },
+    discountPercent: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100,
+    },
+    isActive: { type: Boolean, default: true },
+    validFrom: { type: Date },
+    validTo: { type: Date },
+  },
+  { _id: true }
+);
+
 const schema = new Schema(
   {
     title: { type: localizedSchema, required: true },
@@ -131,6 +152,10 @@ const schema = new Schema(
     totalReviews: { type: Number, default: 0 },
     ratingSum: { type: Number, default: 0 },
     totalTravelers: { type: Number, default: 0 },
+
+    coupons: [couponSchema],
+    isTrending: { type: Boolean, default: false, index: true },
+    isTopRated: { type: Boolean, default: false, index: true },
   },
   {
     timestamps: true,
@@ -151,6 +176,11 @@ schema.index({
   averageRating: -1,
   createdAt: -1,
 });
+schema.index({ isTrending: -1 });
+schema.index({ isTopRated: -1 });
+schema.index({ "slug.en": -1 });
+schema.index({ "slug.es": -1 });
+schema.index({ "slug.fr": -1 });
 
 schema.pre("save", async function (next) {
   const langs = ["en", "es", "fr"];

@@ -5,7 +5,7 @@ const localizedSchema = new Schema(
   {
     en: { type: String, required: true },
     es: { type: String, required: true },
-    fr: { type: String, required: true },
+    fr: { type: String, required: false },
   },
   { _id: false }
 );
@@ -17,6 +17,7 @@ const schema = new Schema(
     slug: {
       type: { country: localizedSchema, city: localizedSchema },
       required: false,
+      index: true,
     },
     mainImg: {
       url: { type: String, required: true },
@@ -32,6 +33,7 @@ const schema = new Schema(
   { timestamps: true }
 );
 
+schema.index({ popular: 1 });
 schema.index({ country: 1, "city.en": 1 }, { unique: true });
 schema.index({ "city.en": 1 });
 schema.index({ country: 1 });

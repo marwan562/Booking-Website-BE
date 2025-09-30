@@ -114,7 +114,7 @@ const register = catchAsyncError(async (req, res, next) => {
 
   const accessToken = await user.generateVerificationToken();
 
-  sendEmail({ email, id: accessToken, sendToAdmins: false });
+  await sendEmail({ email, id: accessToken });
 
   res.status(201).json({
     status: "success",
@@ -158,7 +158,8 @@ const login = catchAsyncError(async (req, res, next) => {
   }
   if (!user.verified) {
     const accessToken = await user.generateVerificationToken();
-    await sendEmail({ email, id: accessToken, sendToAdmins: false });
+    console.log(email, accessToken);
+    await sendEmail({ email, id: accessToken });
     return next(new AppError("Please verify your account", 401));
   }
 

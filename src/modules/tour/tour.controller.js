@@ -23,7 +23,9 @@ const getCategories = catchAsyncError(async (req, res) => {
   if (!isValidLocale(locale)) {
     return res.status(400).json({
       status: "error",
-      message: `Invalid locale. Use one of: ${getSupportedLocales().join(", ")}`,
+      message: `Invalid locale. Use one of: ${getSupportedLocales().join(
+        ", "
+      )}`,
     });
   }
 
@@ -40,7 +42,7 @@ const getCategories = catchAsyncError(async (req, res) => {
       {
         $unwind: {
           path: "$destination",
-          preserveNullAndEmptyArrays: false, 
+          preserveNullAndEmptyArrays: false,
         },
       },
       {
@@ -105,7 +107,9 @@ const getCategories = catchAsyncError(async (req, res) => {
         category: localizedCategory,
         citySlug: localizedCitySlug,
         count: item.totalCount,
-        link: `/${locale}/${localizedCitySlug}?category=${encodeURIComponent(localizedCategory)}`,
+        link: `/${locale}/${localizedCitySlug}?category=${encodeURIComponent(
+          localizedCategory
+        )}`,
       };
     });
 
@@ -221,11 +225,10 @@ const deleteTour = catchAsyncError(async (req, res, next) => {
     message: "Tour deleted successfully",
   });
 });
-
 const updateTour = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
   const { locale = "en" } = req.query;
-  console.log(req.body.imagesToDelete);
+
   // Validate tour ID
   if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid tour ID", 400));
@@ -239,40 +242,39 @@ const updateTour = catchAsyncError(async (req, res, next) => {
 
   let imagesToKeep = [];
   let imagesToDelete = [];
-  if (typeof req.body.imagesToKeep === "string") {
-    imagesToKeep = JSON.parse(req.body.imagesToKeep);
-  }
-  if (typeof req.body.imagesToDelete === "string") {
-    imagesToDelete = JSON.parse(req.body.imagesToDelete);
+
+  if (req.body.imagesToKeep && req.body.imagesToKeep.length > 0) {
+    imagesToKeep = req.body.imagesToKeep;
   }
 
-  // Clean up old images if new ones are provided
+  if (req.body.imagesToDelete && req.body.imagesToDelete.length > 0) {
+    imagesToDelete = req.body.imagesToDelete;
+  }
+
   try {
     if (req.body.mainImg && tour.mainImg && tour.mainImg.public_id) {
-      removeImage(tour.mainImg.public_id);
+      await removeImage(tour.mainImg.public_id);
     }
 
     for (const public_id of imagesToDelete) {
       if (public_id) await removeImage(public_id);
     }
-
-    if (req.body.images && tour.images && Array.isArray(tour.images)) {
-      tour.images.forEach((img) => {
-        if (img && img.public_id) {
-          removeImage(img.public_id);
-        }
-      });
-    }
   } catch (error) {
     console.error("Error cleaning up old images:", error);
   }
 
+  // Build final images array
   let finalImages = [];
 
-  if (Array.isArray(imagesToKeep)) {
-    finalImages = finalImages.concat(imagesToKeep);
+  // Add kept images (find full objects from existing tour.images)
+  if (Array.isArray(imagesToKeep) && imagesToKeep.length > 0) {
+    const keptImageObjects = tour.images.filter(
+      (img) => img && img.public_id && imagesToKeep.includes(img.public_id)
+    );
+    finalImages = finalImages.concat(keptImageObjects);
   }
 
+  // Add new images
   if (req.body.images && Array.isArray(req.body.images)) {
     finalImages = finalImages.concat(req.body.images);
   } else if (req.body.images && typeof req.body.images === "object") {
@@ -280,6 +282,8 @@ const updateTour = catchAsyncError(async (req, res, next) => {
   }
 
   req.body.images = finalImages;
+
+  console.log("Final images array:", finalImages);
 
   const updatedTour = await tourModel.findByIdAndUpdate(id, req.body, {
     new: true,
@@ -332,7 +336,6 @@ export const getTourBySlug = catchAsyncError(async (req, res, next) => {
 
 const getAllTour = catchAsyncError(async (req, res, next) => {
   const { locale = "en" } = req.query;
-
   // Validate locale
   if (locale !== "all" && !isValidLocale(locale)) {
     return next(
@@ -615,7 +618,68 @@ const searchTours = catchAsyncError(async (req, res, next) => {
   });
 });
 
+const checkCoupon = catchAsyncError(async (req, res, next) => {
+  const { id: tourId } = req.params;
+  const { couponCode } = req.body;
+
+  if (!tourId || !couponCode) {
+    return res.status(400).json({
+      status: "error",
+      message: "Tour ID and coupon code are required",
+    });
+  }
+
+  const tour = await tourModel.findById(tourId).select("coupons");
+
+  if (!tour) {
+    return res.status(404).json({
+      status: "error",
+      message: "Tour not found",
+    });
+  }
+
+  const coupon = tour.coupons.find(
+    (c) => c.code.toUpperCase() === couponCode.toUpperCase()
+  );
+
+  if (!coupon) {
+    return res.status(400).json({
+      status: "error",
+      message: "Invalid coupon code",
+    });
+  }
+
+  if (!coupon.isActive) {
+    return res.status(400).json({
+      status: "error",
+      message: "Coupon is not active",
+    });
+  }
+
+  const currentDate = new Date();
+  if (
+    (coupon.validFrom && coupon.validFrom > currentDate) ||
+    (coupon.validTo && coupon.validTo < currentDate)
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "Coupon is not valid at this time",
+    });
+  }
+
+  return res.status(200).json({
+    status: "success",
+    data: {
+      coupon: {
+        code: coupon.code,
+        discountPercent: coupon.discountPercent,
+      },
+    },
+  });
+});
+
 export {
+  checkCoupon,
   getCategories,
   createTour,
   deleteTour,

@@ -51,4 +51,8 @@ tourRouter
   );
 
 tourRouter.route("/:id/apply-coupon").post(Tour.checkCoupon);
+
+tourRouter.route("/get-all/admin", auth, allowedTo("admin")).get(Tour.getAllTourForAdmin);
+
+
 export default tourRouter;

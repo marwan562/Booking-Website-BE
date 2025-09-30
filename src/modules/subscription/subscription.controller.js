@@ -32,11 +32,12 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Invalid tour ID", 400));
   }
 
-  const tour = await tourModel.findById(tourId);
+  const tour = await tourModel.findById(tourId).select("+coupons");
   if (!tour) {
     return next(new AppError("Tour not found", 404));
   }
 
+  console.log(tour);
   const {
     numberOfAdults = 0,
     numberOfChildren = 0,
@@ -65,32 +66,18 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
   let discountPercent = tour.discountPercent || 0;
   let coupon = null;
 
+  // Validate coupon if provided
   if (couponCode) {
     const couponData = tour.coupons.find(
       (c) => c.code.toUpperCase() === couponCode.toUpperCase()
     );
 
-    if (couponData) {
-      coupon = {
-        code: couponData.code,
-        discountPercent: couponData.discountPercent,
-      };
-      discountPercent = couponData.discountPercent;
-    } else {
-      return next(new AppError("Invalid or expired coupon code", 400));
-    }
     if (!couponData) {
-      return res.status(400).json({
-        status: "error",
-        message: "Invalid coupon code",
-      });
+      return next(new AppError("Invalid or expired coupon code", 400));
     }
 
     if (!couponData.isActive) {
-      return res.status(400).json({
-        status: "error",
-        message: "Coupon is not active",
-      });
+      return next(new AppError("Coupon is not active", 400));
     }
 
     const currentDate = new Date();
@@ -98,20 +85,25 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       (couponData.validFrom && couponData.validFrom > currentDate) ||
       (couponData.validTo && couponData.validTo < currentDate)
     ) {
-      return res.status(400).json({
-        status: "error",
-        message: "Coupon is not valid at this time",
-      });
+      return next(new AppError("Coupon is not valid at this time", 400));
     }
+
+    // Coupon discount overrides tour discount
+    coupon = {
+      code: couponData.code,
+      discountPercent: couponData.discountPercent,
+    };
+    discountPercent = couponData.discountPercent;
   }
 
+  // Calculate adult pricing
   let adultTotal = 0;
   let adultUnitPrice = tour.price || 0;
   let selectedAdultPricing = null;
 
   if (numberOfAdults > 0) {
     selectedAdultPricing = tour.adultPricing.find(
-      (p) => p.adults === numberOfAdults
+      (p) => p.adults === Number(numberOfAdults)
     );
 
     if (selectedAdultPricing) {
@@ -129,9 +121,9 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       }
     }
 
-    adultTotal = adultUnitPrice * numberOfAdults;
+    adultTotal = adultUnitPrice * Number(numberOfAdults);
     selectedAdultPricing = {
-      adults: numberOfAdults,
+      adults: Number(numberOfAdults),
       price: adultUnitPrice,
       totalPrice: adultTotal,
       _id: selectedAdultPricing?._id || null,
@@ -140,13 +132,14 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     subtotalPrice += adultTotal;
   }
 
+  // Calculate children pricing
   let childTotal = 0;
   let childUnitPrice = tour.childPrice || 0;
   let selectedChildPricing = null;
 
   if (numberOfChildren > 0) {
     selectedChildPricing = tour.childrenPricing.find(
-      (p) => p.children === numberOfChildren
+      (p) => p.children === Number(numberOfChildren)
     );
 
     if (selectedChildPricing) {
@@ -164,9 +157,9 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       }
     }
 
-    childTotal = childUnitPrice * numberOfChildren;
+    childTotal = childUnitPrice * Number(numberOfChildren);
     selectedChildPricing = {
-      children: numberOfChildren,
+      children: Number(numberOfChildren),
       price: childUnitPrice,
       totalPrice: childTotal,
       _id: selectedChildPricing?._id || null,
@@ -175,6 +168,7 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     subtotalPrice += childTotal;
   }
 
+  // Calculate options pricing
   let selectedOptions = [];
   if (Array.isArray(options) && options.length > 0) {
     const optionIds = options
@@ -218,7 +212,7 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
 
         return {
           _id: option._id,
-          name: option.name[locale] || option.en,
+          name: option.name[locale] || option.name.en,
           number,
           numberOfChildren,
           price: option.price || 0,
@@ -230,19 +224,25 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       });
   }
 
+  // NOW calculate discount and total price (AFTER subtotalPrice is calculated)
   if (discountPercent > 0) {
     discountPercent = Math.min(discountPercent, 100);
-    discountAmount = Number((subtotalPrice * discountPercent) / 100).toFixed(2);
-    totalPrice = Number(subtotalPrice - discountAmount).toFixed(2);
+    discountAmount = (subtotalPrice * discountPercent) / 100;
+    totalPrice = subtotalPrice - discountAmount;
   } else {
-    totalPrice = subtotalPrice.toFixed(2);
+    totalPrice = subtotalPrice;
   }
+
+  // Round to 2 decimal places
+  discountAmount = Number(discountAmount.toFixed(2));
+  totalPrice = Number(totalPrice.toFixed(2));
+  subtotalPrice = Number(subtotalPrice.toFixed(2));
 
   const subscriptionData = {
     userDetails: userId,
     tourDetails: tourId,
-    numberOfAdults,
-    numberOfChildren,
+    numberOfAdults: Number(numberOfAdults),
+    numberOfChildren: Number(numberOfChildren),
     adultPricing: selectedAdultPricing,
     childrenPricing: selectedChildPricing,
     options: selectedOptions,
@@ -260,7 +260,10 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     discountPercent,
   };
 
-  console.log(subscriptionData.coupon);
+  console.log('Subtotal:', subtotalPrice);
+  console.log('Discount Amount:', discountAmount);
+  console.log('Total Price:', totalPrice);
+  console.log('Coupon:', subscriptionData.coupon);
 
   const resultOfSubscription = new subscriptionModel(subscriptionData);
   await resultOfSubscription.save();
@@ -272,8 +275,6 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     subscriptionObj.tourDetails,
     locale
   );
-  console.log(couponCode);
-  console.log(subscriptionData.totalPrice);
 
   res.status(200).json({
     status: "success",

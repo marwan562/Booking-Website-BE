@@ -618,6 +618,52 @@ const searchTours = catchAsyncError(async (req, res, next) => {
   });
 });
 
+export const getAllTourForAdmin = catchAsyncError(async (req, res, next) => {
+  const { locale = "en" } = req.query;
+  // Validate locale
+  if (locale !== "all" && !isValidLocale(locale)) {
+    return next(
+      new AppError(
+        `Invalid locale. Use one of: ${getSupportedLocales().join(
+          ", "
+        )}, or 'all'`,
+        400
+      )
+    );
+  }
+
+  const apiFeature = new ApiFeature(
+    tourModel
+      .find().select("+coupons")
+      .populate({ path: "destination", select: "city country slug" }),
+    req.query
+  )
+    .paginate()
+    .fields()
+    .filter()
+    .search()
+    .sort()
+    .lean();
+
+  const result = await apiFeature.mongoseQuery;
+
+  const totalCount = await apiFeature.getTotalCount();
+  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+  if (!result || result.length === 0) {
+    return next(new AppError("No tours found", 404));
+  }
+  const transformedTours =
+    locale === "all" ? result : transformTours(result, locale);
+  res.status(200).json({
+    status: "success",
+    data: {
+      tours: transformedTours,
+      pagination: paginationMeta,
+    },
+  });
+});
+
 const checkCoupon = catchAsyncError(async (req, res, next) => {
   const { id: tourId } = req.params;
   const { couponCode } = req.body;

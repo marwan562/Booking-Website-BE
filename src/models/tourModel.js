@@ -153,7 +153,10 @@ const schema = new Schema(
     ratingSum: { type: Number, default: 0 },
     totalTravelers: { type: Number, default: 0 },
 
-    coupons: [couponSchema],
+    coupons: {
+      type: [couponSchema],
+      select: false,
+    },
     isTrending: { type: Boolean, default: false, index: true },
     isTopRated: { type: Boolean, default: false, index: true },
   },

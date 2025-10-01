@@ -175,7 +175,7 @@ class BlogController {
         locale,
         4
       )
-        .select("title slug excerpt image publishedAt readTime views author")
+        .select("title slug excerpt image publishedAt readTime views author category")
         .populate("author", "name nationality avatar")
         .lean();
 

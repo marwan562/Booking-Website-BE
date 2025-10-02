@@ -81,7 +81,7 @@ const userSchemaCreate = joi.object({
       public_id: joi.string(),
     })
     .optional(),
-  age: joi.number().min(17).max(100).optional(),
+  age: joi.number().min(14).max(100).optional(),
   nationality: joi.string().optional(),
   passport: joi
     .object({

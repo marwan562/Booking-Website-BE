@@ -9,8 +9,8 @@ const adultPricing = joi.array().items(
   joi.object({
     _id: joi.string().hex().length(24),
     totalPrice: joi.number(),
-    adults: joi.number().min(1).max(30),
-    price: joi.number().min(1).max(10000),
+    adults: joi.number(),
+    price: joi.number(),
   })
 );
 
@@ -113,8 +113,8 @@ export const createTourSchema = joi.object({
   isRepeated: joi.boolean().required(),
   hasOffer: joi.boolean(),
 
-  adultPricing: adultPricing.min(1).required(),
-  childrenPricing: childrenPricing.min(0),
+  adultPricing: adultPricing.required(),
+  childrenPricing: childrenPricing,
 
   duration: joi.string().min(1).max(20).required(),
   durationInMinutes: joi.number().min(0),

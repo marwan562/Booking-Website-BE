@@ -609,19 +609,6 @@ export const createDestination = catchAsyncError(async (req, res, next) => {
   if (!cityValue || !countryValue)
     return next(new AppError("Missing city or country values", 400));
 
-  const query = {
-    ...buildLocalizedQuery(cityValue),
-    $or: [
-      { "country.en": { $regex: countryValue, $options: "i" } },
-      { "country.ar": { $regex: countryValue, $options: "i" } },
-      { "country.es": { $regex: countryValue, $options: "i" } },
-    ],
-  };
-
-  const existingDestination = await destinationModel.findOne(query);
-  if (existingDestination)
-    return next(new AppError("Destination already exists", 409));
-
   const destination = await destinationModel.create(req.body);
   if (!destination)
     return next(new AppError("Failed to create destination", 500));

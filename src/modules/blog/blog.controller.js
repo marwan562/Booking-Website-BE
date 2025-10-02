@@ -157,6 +157,7 @@ class AdminController {
         image: imageData,
         additionalImages,
         imageMetadata,
+        additionalImageData,
         author,
         contentSections,
         structuredData,
@@ -227,6 +228,23 @@ class AdminController {
           caption: parsedImageData.caption || { en: "", es: "", fr: "" },
         };
       }
+
+      const parsedAdditionalImageMetadata = additionalImageData
+        ? typeof additionalImageData === "string"
+          ? JSON.parse(additionalImageData)
+          : additionalImageData
+        : null;
+
+        if (req.body.additionalImages) {
+          req.body.additionalImages.forEach((image, index) => {
+            req.body.additionalImages[index] = {
+              url: image.secure_url || image.url,
+              public_id: image.public_id,
+              alt: parsedAdditionalImageMetadata[index]?.alt || "",
+              caption: parsedAdditionalImageMetadata[index]?.caption || { en: "", es: "", fr: "" },
+            };
+          });
+        }
 
       const blogData = {
         title: parsedData.title,

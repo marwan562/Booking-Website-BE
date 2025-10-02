@@ -1,18 +1,9 @@
 import joi from "joi";
 
 const localizedStringSchema = joi.object({
-  en: joi.string().messages({
-    "string.empty": "English value is required",
-  }),
-  ar: joi.string().messages({
-    "string.empty": "Arabic value is required",
-  }),
-  es: joi.string().messages({
-    "string.empty": "Spanish value is required",
-  }),
-  fr: joi.string().messages({
-    "string.empty": "French value is required",
-  }),
+  en: joi.string(),
+  es: joi.string(),
+  fr: joi.string(),
 });
 
 const imageSchema = joi.object({
@@ -43,5 +34,5 @@ export const updatedDestinationSchema = joi.object({
 
   description: localizedStringSchema.optional(),
   popular: joi.boolean().optional(),
-  totalTours: joi.number().optional()
+  totalTours: joi.number().optional(),
 });

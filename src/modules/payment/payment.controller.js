@@ -5,7 +5,10 @@ import jwt from "jsonwebtoken";
 import axios from "axios";
 import dotenv from "dotenv";
 import tourModel from "../../models/tourModel.js";
+import userModel from "../../models/userModel.js";
 import Stripe from "stripe";
+import sendConfirmationEmail from "../../utilities/Emails/send-confirmation-email.js";
+import mongoose from "mongoose";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("STRIPE_SECRET_KEY is not defined");
@@ -266,15 +269,49 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
-    const paymentIntent = event.data.object;
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "payment_intent.succeeded"
+  ) {
+    const eventObject = event.data.object;
 
-    const userId = paymentIntent.metadata.userId;
-    const bookingRefsString = paymentIntent.metadata.bookingRefs;
+    let paymentIntentId;
+    let metadata;
+
+    if (event.type === "checkout.session.completed") {
+      paymentIntentId = eventObject.payment_intent;
+      metadata = eventObject.metadata;
+      console.log(
+        "checkout.session.completed - PaymentIntent ID:",
+        paymentIntentId
+      );
+    } else if (event.type === "payment_intent.succeeded") {
+      paymentIntentId = eventObject.id;
+      metadata = eventObject.metadata;
+      console.log(
+        "payment_intent.succeeded - PaymentIntent ID:",
+        paymentIntentId
+      );
+    }
+
+    if (!paymentIntentId || !paymentIntentId.startsWith("pi_")) {
+      console.error("Invalid or missing payment intent ID:", paymentIntentId);
+      return res.status(400).json({ error: "Invalid payment intent ID" });
+    }
+
+    const locale = metadata.locale || "en";
+    const currency = metadata.currency || "USD";
+    const userId = metadata.userId;
+    const bookingRefsString = metadata.bookingRefs;
 
     if (!bookingRefsString) {
-      console.error("No bookingRefs found in payment intent metadata");
+      console.error("No bookingRefs found in metadata");
       return res.status(400).json({ error: "No bookingRefs found" });
+    }
+
+    if (!userId) {
+      console.error("No userId found in metadata");
+      return res.status(400).json({ error: "No userId found" });
     }
 
     const bookingRefsArray = bookingRefsString
@@ -296,19 +333,97 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
 
       if (subscriptions.length === 0) {
         console.warn("No pending subscriptions found for user:", userId);
+        console.warn("Booking refs searched:", bookingRefsArray);
         return res.json({
           received: true,
           message: "No matching subscriptions found",
         });
       }
 
-      await Promise.all(
-        subscriptions.map((subscription) => {
-          subscription.payment = "success";
-          return subscription.save();
-        })
+      console.log(
+        `Found ${subscriptions.length} pending subscriptions to update`
       );
+
+      const updatePromises = subscriptions.map((subscription) => {
+        subscription.payment = "success";
+        subscription.paymentIntentId = paymentIntentId;
+        console.log(
+          `Updating booking ${subscription.bookingReference} with paymentIntentId: ${paymentIntentId}`
+        );
+        return subscription.save();
+      });
+
+      await Promise.all(updatePromises);
+
+      console.log("All subscriptions updated successfully");
+
+      const populatedSubscriptions = await subscriptionModel
+        .find({
+          _id: { $in: subscriptions.map((s) => s._id) },
+        })
+        .populate("tourDetails userDetails");
+
+      if (populatedSubscriptions.length === 0) {
+        console.error("No populated subscriptions found after update");
+        return res
+          .status(500)
+          .json({ error: "Failed to fetch booking details" });
+      }
+
+      const user = populatedSubscriptions[0].userDetails;
+      if (!user || !user.email) {
+        console.error("User details or email missing for subscriptions");
+        return res.status(500).json({ error: "User details incomplete" });
+      }
+
+      const emailData = {
+        bookings: populatedSubscriptions,
+        totalAmount: populatedSubscriptions.reduce(
+          (sum, b) => sum + b.totalPrice,
+          0
+        ),
+        user,
+        currency,
+        locale,
+        coupon: populatedSubscriptions.every(
+          (b) =>
+            JSON.stringify(b.coupon) ===
+            JSON.stringify(populatedSubscriptions[0].coupon)
+        )
+          ? populatedSubscriptions[0].coupon
+          : null,
+        sendToAdmins: false,
+      };
+
+      try {
+        await sendConfirmationEmail({
+          email: user.email,
+          type: "confirmation",
+          data: emailData,
+        });
+      } catch (error) {
+        console.error("Failed to send user email:", error.message);
+      }
+
+      // const admins = await userModel.find({ role: "admin" });
+      // const adminEmails = admins.map((admin) => admin.email);
+      // if (adminEmails.length > 0) {
+      //   try {
+      //     await sendConfirmationEmail({
+      //       email: adminEmails,
+      //       type: "confirmation",
+      //       data: { ...emailData, sendToAdmins: true, locale: "en" },
+      //       sendToAdmins: true,
+      //     });
+      //   } catch (error) {
+      //     console.error("Failed to send admin emails:", error.message);
+      //   }
+      // } else {
+      //   console.warn("No admin emails found for notification");
+      // }
     } catch (dbError) {
+      console.error("Database error:", dbError.message);
+      console.error("Full error:", dbError);
       return res.status(500).json({ error: "Database update failed" });
     }
   }
@@ -316,3 +431,249 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
   res.json({ received: true });
 });
 
+export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
+  const { _id: userId } = req.user;
+  const { bookingReference } = req.body;
+
+  if (!bookingReference || typeof bookingReference !== "string") {
+    return res.status(400).json({
+      error: "Invalid booking reference provided",
+    });
+  }
+
+  const booking = await subscriptionModel
+    .findOne({
+      bookingReference,
+      userDetails: userId,
+    })
+    .select("+paymentIntentId")
+    .populate("tourDetails", "title slug mainImg discountPercent")
+    .populate("userDetails", "name email");
+
+  if (!booking) {
+    return res.status(404).json({
+      error:
+        "Booking not found or you don't have permission to refund this booking",
+    });
+  }
+
+  if (booking.payment === "refunded") {
+    return res.status(400).json({
+      error: "This booking has already been refunded",
+      bookingReference: booking.bookingReference,
+    });
+  }
+
+  if (booking.payment === "pending") {
+    return res.status(400).json({
+      error:
+        "Cannot refund a pending payment. Payment must be successful first.",
+    });
+  }
+
+  if (booking.payment !== "success") {
+    return res.status(400).json({
+      error: `Cannot refund booking with payment status: ${booking.payment}`,
+    });
+  }
+
+  if (!booking.paymentIntentId) {
+    return res.status(400).json({
+      error: "Failed to refund booking.",
+    });
+  }
+
+  const bookingDateTime = new Date(`${booking.date} ${booking.time}`);
+  const now = new Date();
+  const hoursUntilBooking = (bookingDateTime - now) / (1000 * 60 * 60);
+
+  const REFUND_CUTOFF_HOURS = 24;
+
+  if (hoursUntilBooking < REFUND_CUTOFF_HOURS && hoursUntilBooking > 0) {
+    return res.status(400).json({
+      error: `Refunds are not allowed within ${REFUND_CUTOFF_HOURS} hours of the booking time`,
+      bookingTime: bookingDateTime.toISOString(),
+      hoursRemaining: Math.round(hoursUntilBooking * 10) / 10,
+    });
+  }
+
+  if (bookingDateTime < now) {
+    return res.status(400).json({
+      error: "Cannot refund a booking that has already occurred",
+      bookingTime: bookingDateTime.toISOString(),
+    });
+  }
+
+  try {
+    const existingRefunds = await stripe.refunds.list({
+      payment_intent: booking.paymentIntentId,
+      limit: 1,
+    });
+
+    if (existingRefunds.data.length > 0) {
+      if (booking.payment !== "refunded") {
+        booking.payment = "refunded";
+        await booking.save();
+      }
+
+      return res.status(400).json({
+        error: "This payment has already been refunded",
+        refundId: existingRefunds.data[0].id,
+        refundedAt: existingRefunds.data[0].created,
+      });
+    }
+  } catch (stripeError) {
+    console.error("Stripe refund check error:", stripeError);
+    return res.status(500).json({
+      error: "Unable to verify refund status with payment provider",
+      detail: stripeError.message,
+    });
+  }
+
+  let paymentIntent;
+  try {
+    paymentIntent = await stripe.paymentIntents.retrieve(
+      booking.paymentIntentId
+    );
+
+    if (!paymentIntent.id || !paymentIntent.id.startsWith("pi_")) {
+      console.error("Invalid or missing payment intent ID:", paymentIntent.id);
+      return res.status(400).json({ error: "Invalid payment intent ID" });
+    }
+
+    if (paymentIntent.status !== "succeeded") {
+      return res.status(400).json({
+        error: `Cannot refund payment with status: ${paymentIntent.status}`,
+      });
+    }
+
+    if (paymentIntent.amount <= 0) {
+      return res.status(400).json({
+        error: "Invalid payment amount for refund",
+      });
+    }
+  } catch (stripeError) {
+    console.error("Stripe payment intent retrieval error:", stripeError);
+    return res.status(500).json({
+      error: "Unable to retrieve payment information",
+      detail: stripeError.message,
+    });
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const refund = await stripe.refunds.create({
+      payment_intent: booking.paymentIntentId,
+      reason: "requested_by_customer",
+      metadata: {
+        bookingReference: booking.bookingReference,
+        userId: userId.toString(),
+        refundedAt: new Date().toISOString(),
+      },
+    });
+
+    booking.payment = "refunded";
+    await booking.save({ session });
+
+    if (booking.tourDetails) {
+      const adults = booking.adultPricing?.adults || 0;
+      const children = booking.childrenPricing?.children || 0;
+      const optionsTotal =
+        booking.options?.reduce((sum, opt) => {
+          return sum + (opt.number || 0) + (opt.numberOfChildren || 0);
+        }, 0) || 0;
+
+      const totalTravelers = adults + children + optionsTotal;
+
+      if (totalTravelers > 0) {
+        await tourModel.findByIdAndUpdate(
+          booking.tourDetails._id,
+          { $inc: { totalTravelers: -totalTravelers } },
+          { session }
+        );
+      }
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    const locale =
+      req.headers["accept-language"]?.split(",")[0]?.split("-")[0] || "en";
+
+    const emailData = {
+      booking: booking,
+      refundAmount: booking.totalPrice,
+      refundId: refund.id,
+      refundedAt: new Date(refund.created * 1000).toISOString(),
+      user: booking.userDetails,
+      locale: locale,
+      currency: paymentIntent.currency?.toUpperCase() || "USD",
+    };
+
+    await sendConfirmationEmail({
+      email: booking.userDetails.email,
+      type: "refund",
+      data: {
+        ...emailData,
+        sendToAdmins: false,
+      },
+    });
+
+    const admins = await userModel.find({ role: "admin" });
+    const adminEmails = admins.map((admin) => admin.email);
+    if (adminEmails.length > 0) {
+      try {
+        await sendConfirmationEmail({
+          email: adminEmails,
+          type: "refund",
+          data: {
+            ...emailData,
+            sendToAdmins: true,
+          },
+          sendToAdmins: true,
+        });
+      } catch (error) {
+        console.error("Failed to send admin emails:", error.message);
+      }
+    } else {
+      console.warn("No admin emails found for notification");
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Refund processed successfully",
+      refund: {
+        id: refund.id,
+        amount: refund.amount / 100,
+        currency: refund.currency,
+        status: refund.status,
+        refundedAt: new Date(refund.created * 1000).toISOString(),
+      },
+      booking: {
+        reference: booking.bookingReference,
+        tourTitle: booking.tourDetails?.title,
+        originalAmount: booking.totalPrice,
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Refund processing error:", error);
+
+    if (error.type === "StripeInvalidRequestError") {
+      return res.status(400).json({
+        error: "Invalid refund request",
+        detail: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      error: "Refund processing failed. Please contact support.",
+      detail:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+      reference: booking.bookingReference,
+    });
+  }
+});

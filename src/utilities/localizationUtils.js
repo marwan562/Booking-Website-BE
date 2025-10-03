@@ -137,8 +137,8 @@ export const transformTour = (tour, locale = "en") => {
   };
 
   // Transform arrays
-  if (tour.features) {
-    transformed.features = tour.features.map((feature) =>
+  if (tour?.features) {
+    transformed.features = tour.features?.map((feature) =>
       getLocalizedValue(feature, locale)
     );
   }

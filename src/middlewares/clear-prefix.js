@@ -29,7 +29,6 @@ export const clearPrefix = (req, res, next) => {
       }
     });
   }
-
   req.body = cleanedBody;
 
   next();

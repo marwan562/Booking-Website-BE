@@ -48,9 +48,11 @@ const schema = new Schema(
     totalPrice: { type: Number, required: true },
     payment: {
       type: String,
-      enum: ["pending", "success"],
+      enum: ["pending", "success", "refunded"],
       default: "pending",
     },
+    paymentIntentId: { type: String, unique: true ,  select: false },
+    chargeId: { type: String },
     specialRequests: { type: String },
     coupon: {
       code: { type: String },

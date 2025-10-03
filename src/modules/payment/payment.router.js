@@ -1,13 +1,14 @@
 import express from "express";
 import { auth } from "../../middlewares/auth.js";
 import { validation } from "../../middlewares/validation.js";
-import { fwaterkSchema } from "./payment.validation.js";
+import { fwaterkSchema, refundSchema } from "./payment.validation.js";
 import {
   fwaterk,
   handleFaildPayment,
   handlePendingPayment,
   handleSuccessPayment,
   stripeSessionCompleted,
+  stripeRefundPayment
 } from "./payment.controller.js";
 
 const paymentRouter = express.Router();
@@ -25,5 +26,11 @@ paymentRouter.get("/handelFaildPass/:token", handleFaildPayment);
 // paymentRouter.post("/fwaterk/:id", auth, fwaterk);
 
 paymentRouter.post("/", stripeSessionCompleted);
+paymentRouter.post(
+  "/refund",
+  auth,
+  validation(refundSchema),
+  stripeRefundPayment
+);
 
 export default paymentRouter;

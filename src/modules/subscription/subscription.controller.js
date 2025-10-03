@@ -37,7 +37,6 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Tour not found", 404));
   }
 
-  console.log(tour);
   const {
     numberOfAdults = 0,
     numberOfChildren = 0,
@@ -65,11 +64,10 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
   let discountAmount = 0;
   let discountPercent = tour.discountPercent || 0;
   let coupon = null;
-
-  // Validate coupon if provided
-  if (couponCode) {
+  let parseCouponCode = couponCode ? JSON.parse(couponCode) : undefined;
+  if (parseCouponCode) {
     const couponData = tour.coupons.find(
-      (c) => c.code.toUpperCase() === couponCode.toUpperCase()
+      (c) => c.code.toUpperCase() === parseCouponCode.code.toUpperCase()
     );
 
     if (!couponData) {
@@ -85,7 +83,7 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       (couponData.validFrom && couponData.validFrom > currentDate) ||
       (couponData.validTo && couponData.validTo < currentDate)
     ) {
-      return next(new AppError("Coupon is not valid at this time", 400));
+      return next(new AppError("Invalid or expired coupon code", 400));
     }
 
     // Coupon discount overrides tour discount
@@ -260,11 +258,6 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     discountPercent,
   };
 
-  console.log('Subtotal:', subtotalPrice);
-  console.log('Discount Amount:', discountAmount);
-  console.log('Total Price:', totalPrice);
-  console.log('Coupon:', subscriptionData.coupon);
-
   const resultOfSubscription = new subscriptionModel(subscriptionData);
   await resultOfSubscription.save();
 
@@ -332,6 +325,18 @@ function localizeData(data, locale = "en") {
           "description",
           locale
         ),
+        slug: {
+          city: getLocalizedValue(
+            localizedItem.destination.slug,
+            "city",
+            locale
+          ),
+          country: getLocalizedValue(
+            localizedItem.destination.slug,
+            "country",
+            locale
+          ),
+        },
       };
     }
 
@@ -438,6 +443,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
                 totalPrice: "$totalPrice",
                 options: "$options",
                 payment: "$payment",
+                coupon: "$coupon",
                 specialRequests: "$specialRequests",
                 tourDetails: {
                   _id: "$tourDetails._id",
@@ -482,6 +488,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       if (!result || result.length === 0) {
         return next(new AppError("No bookings by destination found.", 404));
       }
+      console.log("result", result);
 
       return res
         .status(200)
@@ -524,34 +531,115 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       },
     });
   }
-
   if (role === "admin") {
-    // Admin subscriptions - Update populate to include includes and notIncludes
-    const apiFeature = new ApiFeature(
-      subscriptionModel.find().populate("userDetails").populate({
-        path: "tourDetails",
-        select:
-          "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes",
-      }),
-      req.query
-    )
-      .paginate()
-      .fields()
-      .filter()
-      .sort()
-      .search()
-      .lean();
+    const matchConditions = {};
 
-    const result = await apiFeature.mongoseQuery.exec();
+    if (req.query.startDate || req.query.endDate) {
+      matchConditions.createdAt = {};
 
-    if (!result || result.length === 0) {
-      return next(new AppError("No subscriptions found.", 404));
+      if (req.query.startDate) {
+        const startDate = new Date(req.query.startDate);
+        if (isNaN(startDate.getTime())) {
+          return next(new AppError("Invalid startDate format.", 400));
+        }
+        matchConditions.createdAt.$gte = startDate;
+      }
+
+      if (req.query.endDate) {
+        const endDate = new Date(req.query.endDate);
+        if (isNaN(endDate.getTime())) {
+          return next(new AppError("Invalid endDate format.", 400));
+        }
+        matchConditions.createdAt.$lte = endDate;
+      }
+
+      if (
+        req.query.startDate &&
+        req.query.endDate &&
+        new Date(req.query.startDate) > new Date(req.query.endDate)
+      ) {
+        return next(new AppError("startDate cannot be after endDate.", 400));
+      }
     }
 
-    const totalCount = await apiFeature.getTotalCount();
-    const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+    const pipeline = [
+      { $match: matchConditions },
+      {
+        $lookup: {
+          from: "users",
+          localField: "userDetails",
+          foreignField: "_id",
+          as: "userDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$userDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "tours",
+          localField: "tourDetails",
+          foreignField: "_id",
+          as: "tourDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$tourDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ];
 
-    const aggregationResult = await subscriptionModel.aggregate([
+    if (req.query.keyword) {
+      pipeline.unshift({
+        $match: {
+          $or: [
+            { bookingReference: { $regex: req.query.keyword, $options: "i" } },
+            {
+              "userDetails.name": { $regex: req.query.keyword, $options: "i" },
+            },
+            {
+              "userDetails.email": { $regex: req.query.keyword, $options: "i" },
+            },
+          ],
+        },
+      });
+    }
+
+    if (req.query.payment && req.query.payment !== "all") {
+      pipeline.push({
+        $match: { payment: req.query.payment },
+      });
+    }
+
+    const countPipeline = [...pipeline, { $count: "total" }];
+    const countResult = await subscriptionModel.aggregate(countPipeline);
+    const totalCount = countResult[0]?.total || 0;
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    pipeline.push({ $skip: skip }, { $limit: limit });
+
+    const result = await subscriptionModel.aggregate(pipeline);
+
+    const totalPages = Math.ceil(totalCount / limit);
+    const paginationMeta = {
+      currentPage: page,
+      totalPages: totalPages,
+      totalItems: totalCount,
+      itemsPerPage: limit,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    };
+
+    const metricsAgg = await subscriptionModel.aggregate([
+      { $match: matchConditions },
       {
         $facet: {
           totalRevenue: [
@@ -570,16 +658,11 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-    let totalRevenue = 0;
-    let totalSuccessPayments = 0;
-    let totalPendingPayments = 0;
-
-    if (aggregationResult.length) {
-      const facet = aggregationResult[0];
-      totalRevenue = facet.totalRevenue[0]?.total || 0;
-      totalSuccessPayments = facet.successPayments[0]?.count || 0;
-      totalPendingPayments = facet.pendingPayments[0]?.count || 0;
-    }
+    const metrics = {
+      totalRevenue: metricsAgg[0]?.totalRevenue[0]?.total || 0,
+      totalSuccessPayments: metricsAgg[0]?.successPayments[0]?.count || 0,
+      totalPendingPayments: metricsAgg[0]?.pendingPayments[0]?.count || 0,
+    };
 
     const transformedSubscriptions = result.map((booking) => ({
       ...booking,
@@ -591,11 +674,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       data: {
         result: transformedSubscriptions,
         pagination: paginationMeta,
-        metrics: {
-          totalRevenue,
-          totalSuccessPayments,
-          totalPendingPayments,
-        },
+        metrics: metrics,
       },
     });
   }
@@ -607,9 +686,7 @@ const getAllCart = catchAsyncError(async (req, res, next) => {
 
   const validLocales = ["en", "es", "fr"];
   if (!validLocales.includes(locale)) {
-    return next(
-      new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400)
-    );
+    return next(new AppError("Invalid locale. Use 'en', 'es', or 'fr'", 400));
   }
 
   // Use ApiFeature to build the query
@@ -806,6 +883,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
               totalPrice: "$totalPrice",
               options: "$options",
               payment: "$payment",
+              coupon: "$coupon",
               specialRequests: "$specialRequests",
               tourDetails: {
                 _id: "$tourDetails._id",
@@ -848,7 +926,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
     if (!result || result.length === 0) {
       return next(new AppError("No Bookings by destination found.", 404));
     }
-
+    console.log("result", result);
     return res
       .status(200)
       .json(localizeData({ message: "Success", data: result }, locale));
@@ -925,14 +1003,13 @@ const transformTourByRefs = (tour, locale) => {
 };
 
 const getSubscriptionsByRefs = catchAsyncError(async (req, res, next) => {
+  const { _id: userId } = req.user;
   const { refs } = req.query;
   const { locale = "en" } = req.query;
 
   const validLocales = ["en", "es", "fr"];
   if (!validLocales.includes(locale)) {
-    return next(
-      new AppError("Invalid locale. Use 'en', 'ar', 'es', or 'fr'", 400)
-    );
+    return next(new AppError("Invalid locale. Use 'en', 'es', or 'fr'", 400));
   }
 
   if (!refs) {
@@ -949,7 +1026,7 @@ const getSubscriptionsByRefs = catchAsyncError(async (req, res, next) => {
   }
 
   const subscriptions = await subscriptionModel
-    .find({ bookingReference: { $in: refsArray } })
+    .find({ bookingReference: { $in: refsArray }, userDetails: userId })
     .lean();
 
   if (!subscriptions || subscriptions.length === 0) {

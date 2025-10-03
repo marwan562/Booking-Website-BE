@@ -162,7 +162,7 @@ class AdminController {
         contentSections,
         structuredData,
       } = req.body;
-
+      console.log("Request body keys:", imageData);
       const parsedData = {
         title: typeof title === "string" ? JSON.parse(title) : title,
         excerpt: typeof excerpt === "string" ? JSON.parse(excerpt) : excerpt,
@@ -229,22 +229,39 @@ class AdminController {
         };
       }
 
-      const parsedAdditionalImageMetadata = additionalImageData
-        ? typeof additionalImageData === "string"
-          ? JSON.parse(additionalImageData)
-          : additionalImageData
-        : null;
+      const parsedAdditionalImageMetadata = [];
 
-        if (req.body.additionalImages) {
-          req.body.additionalImages.forEach((image, index) => {
-            req.body.additionalImages[index] = {
+      Object.keys(req.body).forEach((key) => {
+        if (key.startsWith("additionalImageData_")) {
+          try {
+            const parsed = JSON.parse(req.body[key]);
+            parsedAdditionalImageMetadata.push(parsed);
+          } catch (e) {
+            console.error(`Failed to parse ${key}:`, e);
+            parsedAdditionalImageMetadata.push({
+              alt: "",
+              caption: { en: "", es: "", fr: "" },
+            });
+          }
+        }
+      });
+
+      if (
+        parsedData.additionalImages &&
+        Array.isArray(parsedData.additionalImages)
+      ) {
+        parsedData.additionalImages = parsedData.additionalImages.map(
+          (image, index) => {
+            const metadata = parsedAdditionalImageMetadata[index] || {};
+            return {
               url: image.secure_url || image.url,
               public_id: image.public_id,
-              alt: parsedAdditionalImageMetadata[index]?.alt || "",
-              caption: parsedAdditionalImageMetadata[index]?.caption || { en: "", es: "", fr: "" },
+              alt: metadata.alt || "",
+              caption: metadata.caption || { en: "", es: "", fr: "" },
             };
-          });
-        }
+          }
+        );
+      }
 
       const blogData = {
         title: parsedData.title,

@@ -103,8 +103,8 @@ export const createTourSchema = joi.object({
 
   price: joi.number().optional(),
 
-  repeatTime: joi.array().items(joi.string().min(1).max(10)).min(1),
-  repeatDays: repeatDays.min(1),
+  repeatTime: joi.array().items(joi.string()),
+  repeatDays: repeatDays,
 
   location: location.required(),
   mapDetails: joi.string().allow(""),
@@ -116,11 +116,11 @@ export const createTourSchema = joi.object({
   adultPricing: adultPricing.required(),
   childrenPricing: childrenPricing,
 
-  duration: joi.string().min(1).max(20).required(),
+  duration: joi.string().max(20).required(),
   durationInMinutes: joi.number().min(0),
   durationInDays: joi.number().min(0),
 
-  itinerary: joi.array().items(itinerarySchema).min(1).required(),
+  itinerary: joi.array().items(itinerarySchema).required(),
 
   discountPercent: joi.number().min(0).max(100),
 

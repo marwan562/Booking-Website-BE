@@ -65,7 +65,7 @@ const blogSchema = new mongoose.Schema(
       },
       public_id: { type: String },
       alt: { type: String },
-      caption: { type: localizedSchema },
+      caption: { type: localizedSchemaOptional },
     },
 
     additionalImages: [
@@ -73,7 +73,7 @@ const blogSchema = new mongoose.Schema(
         url: { type: String, required: true },
         public_id: { type: String },
         alt: { type: String },
-        caption: { type: localizedSchema },
+        caption: { type: localizedSchemaOptional },
         position: { type: String },
       },
     ],

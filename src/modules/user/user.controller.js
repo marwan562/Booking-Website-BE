@@ -182,6 +182,70 @@ const login = catchAsyncError(async (req, res, next) => {
   });
 });
 
+const googleSignIn = catchAsyncError(async (req, res, next) => {
+  const { email, name, avatar, googleId } = req.body;
+
+  if (!email) {
+    return next(new AppError("Email is required", 400));
+  }
+
+  let user = await userModel.findOne({ email });
+
+  if (user) {
+    const accessToken = await user.generateAccessToken();
+    const refreshToken = await user.generateRefreshToken();
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        user,
+        accessToken,
+      },
+    });
+  } else {
+    const nameParts = name ? name.split(" ") : ["User"];
+    const applyName = nameParts[0] + " " + nameParts[1];
+
+    user = await userModel.create({
+      authProvider: "google",
+      name: applyName,
+      email,
+      password: Math.random().toString(36).slice(-8) + "Aa1!",
+      avatar: avatar ? { url: avatar } : undefined,
+      googleId,
+      confirmedEmail: true,
+      verified: true,
+      gender: "other",
+    });
+
+    const accessToken = await user.generateAccessToken();
+    const refreshToken = await user.generateRefreshToken();
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(201).json({
+      status: "success",
+      message: "Account created successfully with Google",
+      data: {
+        user,
+        accessToken,
+      },
+    });
+  }
+});
+
 const refreshToken = catchAsyncError(async (req, res, next) => {
   const token = req.cookies.refreshToken;
   if (!token) return next(new AppError("Refresh token missing", 401));
@@ -462,6 +526,7 @@ const getUserProfile = catchAsyncError(async (req, res, next) => {
 });
 
 export {
+  googleSignIn,
   login,
   register,
   getUserProfile,

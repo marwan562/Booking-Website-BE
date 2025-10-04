@@ -32,6 +32,8 @@ userRouter
   .route("/login")
   .post(validation(UserValidation.userSchemaLogin), User.login);
 
+userRouter.post("/google-signin", User.googleSignIn);
+
 userRouter.route("/refreshToken").get(strictLimiter, User.refreshToken);
 
 userRouter.route("/sendCode").post(strictLimiter, User.sendCode);
@@ -90,6 +92,7 @@ userRouter
     allowedTo("admin"),
     validation(UserValidation.userSchemaUpdate),
     User.updateUser
-  ).delete(auth,allowedTo("admin"),User.deleteUser)
+  )
+  .delete(auth, allowedTo("admin"), User.deleteUser);
 
 export default userRouter;

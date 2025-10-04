@@ -8,7 +8,6 @@ import tourModel from "../../models/tourModel.js";
 import userModel from "../../models/userModel.js";
 import Stripe from "stripe";
 import sendConfirmationEmail from "../../utilities/Emails/send-confirmation-email.js";
-import mongoose from "mongoose";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("STRIPE_SECRET_KEY is not defined");
@@ -405,22 +404,22 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
         console.error("Failed to send user email:", error.message);
       }
 
-      // const admins = await userModel.find({ role: "admin" });
-      // const adminEmails = admins.map((admin) => admin.email);
-      // if (adminEmails.length > 0) {
-      //   try {
-      //     await sendConfirmationEmail({
-      //       email: adminEmails,
-      //       type: "confirmation",
-      //       data: { ...emailData, sendToAdmins: true, locale: "en" },
-      //       sendToAdmins: true,
-      //     });
-      //   } catch (error) {
-      //     console.error("Failed to send admin emails:", error.message);
-      //   }
-      // } else {
-      //   console.warn("No admin emails found for notification");
-      // }
+      const admins = await userModel.find({ role: "admin" });
+      const adminEmails = admins.map((admin) => admin.email);
+      if (adminEmails.length > 0) {
+        try {
+          await sendConfirmationEmail({
+            email: adminEmails,
+            type: "confirmation",
+            data: { ...emailData, sendToAdmins: true, locale: "en" },
+            sendToAdmins: true,
+          });
+        } catch (error) {
+          console.error("Failed to send admin emails:", error.message);
+        }
+      } else {
+        console.warn("No admin emails found for notification");
+      }
     } catch (dbError) {
       console.error("Database error:", dbError.message);
       console.error("Full error:", dbError);
@@ -560,9 +559,6 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
     });
   }
 
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const refund = await stripe.refunds.create({
       payment_intent: booking.paymentIntentId,
@@ -575,7 +571,7 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
     });
 
     booking.payment = "refunded";
-    await booking.save({ session });
+    await booking.save();
 
     if (booking.tourDetails) {
       const adults = booking.adultPricing?.adults || 0;
@@ -590,14 +586,10 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
       if (totalTravelers > 0) {
         await tourModel.findByIdAndUpdate(
           booking.tourDetails._id,
-          { $inc: { totalTravelers: -totalTravelers } },
-          { session }
+          { $inc: { totalTravelers: -totalTravelers } }
         );
       }
     }
-
-    await session.commitTransaction();
-    session.endSession();
 
     const locale =
       req.headers["accept-language"]?.split(",")[0]?.split("-")[0] || "en";
@@ -658,8 +650,6 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
       },
     });
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
     console.error("Refund processing error:", error);
 
     if (error.type === "StripeInvalidRequestError") {

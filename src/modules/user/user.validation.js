@@ -90,7 +90,7 @@ const userSchemaCreate = joi.object({
     })
     .optional(),
   dateOfBirth: joi.string().optional(),
-  phone: phoneSchema,
+  phone: phoneSchema.optional(),
   city: joi.string().optional(),
   instagram: joi.string().optional(),
   gender: joi.string().valid("male", "female", "other").optional(),

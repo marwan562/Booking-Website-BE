@@ -6,15 +6,22 @@ const schema = new Schema(
   {
     name: { type: String, required: true },
     lastname: { type: String, required: false },
-
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true, select: false },
+    
+    googleId: { type: String, unique: true, sparse: true },
+    authProvider: { 
+      type: String, 
+      enum: ["local", "google"], 
+      default: "local" 
+    },
+    
     phone: {
       type: {
-        code: { type: String, required: true },
+        code: { type: String, required: false},
         number: { type: String, required: true },
       },
-      required: true,
+      required: false,
     },
     city: { type: String, required: false },
     instagram: { type: String, required: false },
@@ -48,14 +55,12 @@ const schema = new Schema(
   },
   {
     timestamps: true,
-    // Enable optimistic concurrency control
     optimisticConcurrency: true,
-    // Add collection-level options for better performance
     collection: "users",
   }
 );
 
-// Performance indexes for common queries
+schema.index({ googleId: 1 });
 schema.index({ createdAt: -1 });
 
 // Pre-save middleware for password hashing

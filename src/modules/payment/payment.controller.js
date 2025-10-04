@@ -411,7 +411,11 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
           await sendConfirmationEmail({
             email: adminEmails,
             type: "confirmation",
-            data: { ...emailData, sendToAdmins: true, locale: "en" },
+            data: {
+              ...emailData,
+              locale,
+              sendToAdmins: true,
+            },
             sendToAdmins: true,
           });
         } catch (error) {
@@ -584,10 +588,9 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
       const totalTravelers = adults + children + optionsTotal;
 
       if (totalTravelers > 0) {
-        await tourModel.findByIdAndUpdate(
-          booking.tourDetails._id,
-          { $inc: { totalTravelers: -totalTravelers } }
-        );
+        await tourModel.findByIdAndUpdate(booking.tourDetails._id, {
+          $inc: { totalTravelers: -totalTravelers },
+        });
       }
     }
 

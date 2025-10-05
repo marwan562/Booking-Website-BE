@@ -28,7 +28,7 @@ try {
 
 // Stripe webhook
 app.use(
-  "/api/payment/webhook",
+  "/payment/webhook",
   express.raw({ type: "application/json" }),
   paymentRouter
 );

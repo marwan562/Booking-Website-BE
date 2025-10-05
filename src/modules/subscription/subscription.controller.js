@@ -481,6 +481,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
           $sort: {
             "_id.country": 1,
             "_id.city": 1,
+            createdAt: -1,
           },
         },
       ]);
@@ -588,6 +589,11 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
         $unwind: {
           path: "$tourDetails",
           preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $sort: {
+          createdAt: -1,
         },
       },
     ];
@@ -917,6 +923,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
         $sort: {
           country: 1,
           city: 1,
+          createdAt: -1,
         },
       },
     ]);

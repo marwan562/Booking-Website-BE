@@ -4,7 +4,7 @@ import slugify from "slugify";
 const localizedSchema = new Schema(
   {
     en: { type: String, required: true },
-    es: { type: String, required: true },
+    es: { type: String, required: false },
     fr: { type: String, required: false },
   },
   { _id: false }

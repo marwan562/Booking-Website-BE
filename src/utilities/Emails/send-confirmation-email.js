@@ -50,7 +50,6 @@ const sendConfirmationEmail = async (option) => {
       html,
     });
 
-    console.log("Email sent successfully:", response.id);
     return response;
 
   } catch (error) {

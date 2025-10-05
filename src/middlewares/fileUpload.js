@@ -27,7 +27,6 @@ const fileFilter = (req, file, cb) => {
   const { mimetype, originalname } = file;
 
   if (!ALLOWED_MIME_TYPES.includes(mimetype)) {
-    console.log(mimetype)
     return cb(
       new AppError("Only image files (JPEG, PNG, WebP, GIF) are allowed", 400)
     );

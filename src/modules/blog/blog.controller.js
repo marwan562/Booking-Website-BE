@@ -6,8 +6,6 @@ import cloudinary from "cloudinary";
 class AdminController {
   async getAllBlogs(req, res) {
     try {
-      console.log("getAllBlogsAdmin called with query:", req.query);
-
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 12;
       const category = req.query.category;
@@ -36,8 +34,6 @@ class AdminController {
         ];
       }
 
-      console.log("MongoDB query:", JSON.stringify(query, null, 2));
-
       const blogs = await Blog.find(query)
         .populate("author", "name lastname email avatar role")
         .populate("comments.author", "name avatar")
@@ -48,8 +44,6 @@ class AdminController {
         .lean();
 
       const total = await Blog.countDocuments(query);
-
-      console.log(`Found ${blogs.length} blogs out of ${total} total`);
 
       const adminBlogs = blogs.map((blog) => ({
         ...blog,
@@ -162,7 +156,6 @@ class AdminController {
         contentSections,
         structuredData,
       } = req.body;
-      console.log("Request body keys:", imageData);
       const parsedData = {
         title: typeof title === "string" ? JSON.parse(title) : title,
         excerpt: typeof excerpt === "string" ? JSON.parse(excerpt) : excerpt,
@@ -354,9 +347,6 @@ class AdminController {
         structuredData,
       } = req.body;
 
-      console.log("Update blog request for ID:", id);
-      console.log("Request body keys:", Object.keys(req.body));
-
       const parsedData = {
         title: typeof title === "string" ? JSON.parse(title) : title,
         excerpt: typeof excerpt === "string" ? JSON.parse(excerpt) : excerpt,
@@ -402,17 +392,11 @@ class AdminController {
         scheduledFor: scheduledFor || null,
       };
 
-      // Debug: Log the parsed image data
-      console.log("Parsed image data:", parsedData.image);
-      console.log("req.body.image:", req.body.image);
-
       const parsedImageMetadata = imageMetadata
         ? typeof imageMetadata === "string"
           ? JSON.parse(imageMetadata)
           : imageMetadata
         : null;
-
-      console.log("request data", parsedData);
 
       const existingBlog = await Blog.findById(id);
       if (!existingBlog) {
@@ -490,17 +474,6 @@ class AdminController {
 
       // FIX: Handle additionalImages with simplified approach
       let updatedAdditionalImages = [];
-
-      // Debug logs
-      console.log(
-        "req.body.additionalImages type:",
-        typeof req.body.additionalImages
-      );
-      console.log("req.body.additionalImages:", req.body.additionalImages);
-      console.log(
-        "req.body.existingAdditionalImages:",
-        req.body.existingAdditionalImages
-      );
 
       // First, add existing images (if any)
       if (req.body.existingAdditionalImages) {
@@ -583,8 +556,6 @@ class AdminController {
         updatedAdditionalImages = existingBlog.additionalImages || [];
       }
 
-      console.log("Final updatedAdditionalImages:", updatedAdditionalImages);
-
       const updateData = {
         title: parsedData.title || existingBlog.title,
         slug: slug,
@@ -640,17 +611,13 @@ class AdminController {
         lastUpdated: new Date(),
       };
 
-      console.log("Update data:", JSON.stringify(updateData, null, 2));
-
-      const updatedBlog = await Blog.findByIdAndUpdate(id, updateData, {
-        new: true,
-        runValidators: true,
-      });
+      Object.assign(existingBlog, updateData);
+      await existingBlog.save();
 
       res.status(200).json({
         success: true,
         message: "Blog updated successfully",
-        data: updatedBlog,
+        data: existingBlog,
       });
     } catch (error) {
       console.error("Error updating blog:", error);

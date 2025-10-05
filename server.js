@@ -75,7 +75,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Routes
-app.use("/api", router);
+app.use("/", router);
 
 app.get("/health", (_, res) => {
   res.status(200).json({

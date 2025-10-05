@@ -16,7 +16,6 @@ const sendEmail = async (option) => {
     if (!option.email) {
       throw new AppError("Email recipient is required", 400);
     }
-    console.log("Sending email to:", option);
     const from = "hello@yallaegipto.com";
     const to = option.email;
 
@@ -28,7 +27,6 @@ const sendEmail = async (option) => {
       html = contactDetailsHTML(option.contactDetails);
     } else if (option.id) {
       subject = "Verify Email";
-      console.log("verify", option.id);
       html = verifyEmailHTML(option.id);
     } else if (option.code) {
       subject = "Reset Password";
@@ -44,7 +42,6 @@ const sendEmail = async (option) => {
       html,
     });
 
-    console.log("Email sent successfully:", response.id);
     return response;
   } catch (error) {
     console.error("Failed to send email:", error);

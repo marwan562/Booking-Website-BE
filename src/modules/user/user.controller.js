@@ -158,7 +158,6 @@ const login = catchAsyncError(async (req, res, next) => {
   }
   if (!user.verified) {
     const accessToken = await user.generateVerificationToken();
-    console.log(email, accessToken);
     await sendEmail({ email, id: accessToken });
     return next(new AppError("Please verify your account", 401));
   }
@@ -470,7 +469,6 @@ const sendCode = catchAsyncError(async (req, res, next) => {
   const code = randomCode.toString();
   user.code = code;
   await user.save();
-  console.log(email, code);
   await sendEmail({ email, code });
   res.status(200).send({ message: "success", sendToAdmins: false });
 });

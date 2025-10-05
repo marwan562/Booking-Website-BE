@@ -225,34 +225,25 @@ const deleteTour = catchAsyncError(async (req, res, next) => {
     message: "Tour deleted successfully",
   });
 });
+
 const updateTour = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
   const { locale = "en" } = req.query;
 
-  // Validate tour ID
   if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid tour ID", 400));
   }
 
   const tour = await tourModel.findById(id);
-
   if (!tour) {
     return next(new AppError("Tour not found", 404));
   }
 
-  let imagesToKeep = [];
-  let imagesToDelete = [];
-
-  if (req.body.imagesToKeep && req.body.imagesToKeep.length > 0) {
-    imagesToKeep = req.body.imagesToKeep;
-  }
-
-  if (req.body.imagesToDelete && req.body.imagesToDelete.length > 0) {
-    imagesToDelete = req.body.imagesToDelete;
-  }
+  let imagesToKeep = req.body.imagesToKeep || [];
+  let imagesToDelete = req.body.imagesToDelete || [];
 
   try {
-    if (req.body.mainImg && tour.mainImg && tour.mainImg.public_id) {
+    if (req.body.mainImg && tour.mainImg?.public_id) {
       await removeImage(tour.mainImg.public_id);
     }
 
@@ -263,38 +254,30 @@ const updateTour = catchAsyncError(async (req, res, next) => {
     console.error("Error cleaning up old images:", error);
   }
 
-  // Build final images array
   let finalImages = [];
 
-  // Add kept images (find full objects from existing tour.images)
-  if (Array.isArray(imagesToKeep) && imagesToKeep.length > 0) {
-    const keptImageObjects = tour.images.filter(
-      (img) => img && img.public_id && imagesToKeep.includes(img.public_id)
+  if (imagesToKeep.length > 0) {
+    const keptImages = tour.images.filter((img) =>
+      imagesToKeep.includes(img.public_id)
     );
-    finalImages = finalImages.concat(keptImageObjects);
+    finalImages = finalImages.concat(keptImages);
   }
 
-  // Add new images
-  if (req.body.images && Array.isArray(req.body.images)) {
+  if (Array.isArray(req.body.images)) {
     finalImages = finalImages.concat(req.body.images);
-  } else if (req.body.images && typeof req.body.images === "object") {
+  } else if (typeof req.body.images === "object") {
     finalImages.push(req.body.images);
   }
 
   req.body.images = finalImages;
 
-  console.log("Final images array:", finalImages);
-
-  const updatedTour = await tourModel.findByIdAndUpdate(id, req.body, {
-    new: true,
-    runValidators: true,
+  Object.keys(req.body).forEach((key) => {
+    tour[key] = req.body[key];
   });
 
-  if (!updatedTour) {
-    return next(new AppError("Failed to update tour", 500));
-  }
+  await tour.save();
 
-  const transformedTour = transformTour(updatedTour.toObject(), locale);
+  const transformedTour = transformTour(tour.toObject(), locale);
 
   res.status(200).json({
     status: "success",
@@ -634,7 +617,8 @@ export const getAllTourForAdmin = catchAsyncError(async (req, res, next) => {
 
   const apiFeature = new ApiFeature(
     tourModel
-      .find().select("+coupons")
+      .find()
+      .select("+coupons")
       .populate({ path: "destination", select: "city country slug" }),
     req.query
   )

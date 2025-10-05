@@ -106,8 +106,6 @@ class BlogController {
         .select("-content -comments -contentSections")
         .lean();
 
-      console.log(`Found ${blogs.length} trending blogs`);
-
       const transformedBlogs = blogs.map((blog) => transformBlog(blog, locale));
 
       res.status(200).json({
@@ -128,8 +126,6 @@ class BlogController {
     try {
       const { slug } = req.params;
       const locale = req.query.locale || "en";
-
-      console.log(`Looking for blog with slug: ${slug}, locale: ${locale}`);
 
       const blog = await Blog.findOneAndUpdate(
         {
@@ -155,7 +151,6 @@ class BlogController {
         .lean();
 
       if (!blog) {
-        console.log(`Blog with slug '${slug}' not found`);
         return res.status(404).json({
           success: false,
           message: "Blog not found",
@@ -430,15 +425,12 @@ class BlogController {
 
   async getCategories(req, res) {
     try {
-      console.log("getCategories called");
 
       const locale = req.query.locale || "en";
 
       const categories = await Blog.distinct(`category.${locale}`, {
         status: "published",
       });
-
-      console.log(`Found categories:`, categories);
 
       res.status(200).json({
         success: true,

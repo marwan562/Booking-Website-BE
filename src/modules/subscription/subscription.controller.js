@@ -488,8 +488,6 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       if (!result || result.length === 0) {
         return next(new AppError("No bookings by destination found.", 404));
       }
-      console.log("result", result);
-
       return res
         .status(200)
         .json(localizeData({ message: "Success", data: result }, locale));
@@ -926,7 +924,6 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
     if (!result || result.length === 0) {
       return next(new AppError("No Bookings by destination found.", 404));
     }
-    console.log("result", result);
     return res
       .status(200)
       .json(localizeData({ message: "Success", data: result }, locale));

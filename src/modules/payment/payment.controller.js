@@ -280,17 +280,9 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
     if (event.type === "checkout.session.completed") {
       paymentIntentId = eventObject.payment_intent;
       metadata = eventObject.metadata;
-      console.log(
-        "checkout.session.completed - PaymentIntent ID:",
-        paymentIntentId
-      );
     } else if (event.type === "payment_intent.succeeded") {
       paymentIntentId = eventObject.id;
       metadata = eventObject.metadata;
-      console.log(
-        "payment_intent.succeeded - PaymentIntent ID:",
-        paymentIntentId
-      );
     }
 
     if (!paymentIntentId || !paymentIntentId.startsWith("pi_")) {
@@ -339,22 +331,13 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
         });
       }
 
-      console.log(
-        `Found ${subscriptions.length} pending subscriptions to update`
-      );
-
       const updatePromises = subscriptions.map((subscription) => {
         subscription.payment = "success";
         subscription.paymentIntentId = paymentIntentId;
-        console.log(
-          `Updating booking ${subscription.bookingReference} with paymentIntentId: ${paymentIntentId}`
-        );
         return subscription.save();
       });
 
       await Promise.all(updatePromises);
-
-      console.log("All subscriptions updated successfully");
 
       const populatedSubscriptions = await subscriptionModel
         .find({

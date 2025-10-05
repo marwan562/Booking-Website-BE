@@ -51,7 +51,7 @@ export const createReview = catchAsyncError(async (req, res, next) => {
   }
 
   // Extract the tour date from subscription and convert it to Date object
-  const tourDateParts = subscription.date.split("/");
+  const tourDateParts = subscription.date.split("-");
   const tourDate = new Date(
     `${tourDateParts[2]}-${tourDateParts[1]}-${tourDateParts[0]}`
   );

@@ -660,15 +660,20 @@ export const deleteDestination = catchAsyncError(async (req, res, next) => {
 export const updateDestination = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
   const { locale = "en" } = req.query;
-  if (!ObjectId.isValid(id))
+
+  if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid destination ID", 400));
+  }
 
   const destination = await destinationModel.findById(id);
-  if (!destination) return next(new AppError("Destination not found", 404));
+  if (!destination) {
+    return next(new AppError("Destination not found", 404));
+  }
 
   try {
-    if (req.body.mainImg && destination.mainImg?.public_id)
+    if (req.body.mainImg && destination.mainImg?.public_id) {
       removeImage(destination.mainImg.public_id);
+    }
     if (req.body.images && destination.images?.length) {
       destination.images.forEach((img) => {
         if (img?.public_id) removeImage(img.public_id);
@@ -678,21 +683,15 @@ export const updateDestination = catchAsyncError(async (req, res, next) => {
     console.error("Error cleaning up old images:", error);
   }
 
-  const updatedDestination = await destinationModel.findByIdAndUpdate(
-    id,
-    req.body,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
+  Object.keys(req.body).forEach((key) => {
+    destination[key] = req.body[key];
+  });
 
-  if (!updatedDestination)
-    return next(new AppError("Failed to update destination", 500));
+  await destination.save();
 
   res.status(200).json({
     status: "success",
-    data: transformDestination(updatedDestination.toObject(), locale),
+    data: transformDestination(destination.toObject(), locale),
   });
 });
 

@@ -11,14 +11,6 @@ contactRouter.post(
   "/",
   uploadMixfile([{ name: "attachedFiles", maxCount: 10 }]),
   saveImg,
-  (req, res, next) => {
-    if (req.body.attachedFiles) {
-      console.log("Final attachedFiles in body:", req.body.attachedFiles);
-    } else {
-      console.log("No attachedFiles found in body.");
-    }
-    next();
-  },
   validation(contactValidation),
   createContact
 );

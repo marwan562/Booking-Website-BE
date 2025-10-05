@@ -374,14 +374,14 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
         )
           ? populatedSubscriptions[0].coupon
           : null,
-        sendToAdmins: false,
       };
 
       try {
         await sendConfirmationEmail({
           email: user.email,
           type: "confirmation",
-          data: emailData,
+          data: { ...emailData, sendToAdmins: false },
+          sendToAdmins: false,
         });
       } catch (error) {
         console.error("Failed to send user email:", error.message);
@@ -396,7 +396,6 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
             type: "confirmation",
             data: {
               ...emailData,
-              locale,
               sendToAdmins: true,
             },
             sendToAdmins: true,

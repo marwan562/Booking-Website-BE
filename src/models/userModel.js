@@ -60,7 +60,6 @@ const schema = new Schema(
   }
 );
 
-schema.index({ googleId: 1 });
 schema.index({ createdAt: -1 });
 
 // Pre-save middleware for password hashing

@@ -186,6 +186,20 @@ schema.index({ "slug.es": -1 });
 schema.index({ "slug.fr": -1 });
 
 schema.pre("save", async function (next) {
+  if (this.adultPricing?.length) {
+    this.adultPricing = this.adultPricing.map((item) => ({
+      ...item.toObject?.() || item,
+      totalPrice: item.adults * item.price,
+    }));
+  }
+
+  if (this.childrenPricing?.length) {
+    this.childrenPricing = this.childrenPricing.map((item) => ({
+      ...item.toObject?.() || item,
+      totalPrice: item.children * item.price,
+    }));
+  }
+  
   const langs = ["en", "es", "fr"];
   const isNewDoc = this.isNew;
 
@@ -229,6 +243,16 @@ schema.pre("save", async function (next) {
 
   if (!this.price && this.adultPricing?.length > 0) {
     this.price = this.adultPricing[0].totalPrice;
+  }
+
+  if (this.adultPricing?.length < 1 && this.price) {
+    this.adultPricing = [
+      {
+        adults: 1,
+        price: this.price,
+        totalPrice: this.price,
+      },
+    ];
   }
 
   if (this.isModified("durationInMinutes") || !this.durationInDays) {

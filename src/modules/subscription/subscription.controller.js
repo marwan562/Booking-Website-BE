@@ -61,9 +61,12 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
 
   let subtotalPrice = 0;
   let totalPrice = 0;
-  let discountAmount = 0;
-  let discountPercent = tour.discountPercent || 0;
+  let tourDiscountAmount = 0;
+  let tourDiscountPercent = 0;
+  let couponDiscountAmount = 0;
+  let couponDiscountPercent = 0;
   let coupon = null;
+
   let parseCouponCode = couponCode ? JSON.parse(couponCode) : undefined;
   if (parseCouponCode) {
     const couponData = tour.coupons.find(
@@ -86,12 +89,11 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       return next(new AppError("Invalid or expired coupon code", 400));
     }
 
-    // Coupon discount overrides tour discount
     coupon = {
       code: couponData.code,
       discountPercent: couponData.discountPercent,
     };
-    discountPercent = couponData.discountPercent;
+    couponDiscountPercent = couponData.discountPercent;
   }
 
   // Calculate adult pricing
@@ -222,17 +224,30 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       });
   }
 
-  // NOW calculate discount and total price (AFTER subtotalPrice is calculated)
-  if (discountPercent > 0) {
-    discountPercent = Math.min(discountPercent, 100);
-    discountAmount = (subtotalPrice * discountPercent) / 100;
-    totalPrice = subtotalPrice - discountAmount;
-  } else {
-    totalPrice = subtotalPrice;
+  if (tour.hasOffer && tour.discountPercent > 0 && numberOfAdults === 1) {
+    tourDiscountPercent = Math.min(tour.discountPercent, 100);
+    const oneAdultPrice = adultUnitPrice;
+    tourDiscountAmount = (oneAdultPrice * tourDiscountPercent) / 100;
   }
 
-  // Round to 2 decimal places
-  discountAmount = Number(discountAmount.toFixed(2));
+  const priceAfterTourDiscount = subtotalPrice - tourDiscountAmount;
+
+  if (coupon && couponDiscountPercent > 0) {
+    couponDiscountPercent = Math.min(couponDiscountPercent, 100);
+    // Coupon applies to the total price after tour discount
+    couponDiscountAmount = (priceAfterTourDiscount * couponDiscountPercent) / 100;
+  }
+
+  totalPrice = priceAfterTourDiscount - couponDiscountAmount;
+
+  const totalDiscountAmount = tourDiscountAmount + couponDiscountAmount;
+  
+  const effectiveDiscountPercent = subtotalPrice > 0 
+    ? (totalDiscountAmount / subtotalPrice) * 100 
+    : 0;
+
+  tourDiscountAmount = Number(tourDiscountAmount.toFixed(2));
+  couponDiscountAmount = Number(couponDiscountAmount.toFixed(2));
   totalPrice = Number(totalPrice.toFixed(2));
   subtotalPrice = Number(subtotalPrice.toFixed(2));
 
@@ -248,14 +263,22 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     time,
     date,
     totalPrice: Number(totalPrice),
-    discount: discountPercent,
-    coupon: coupon
-      ? { code: coupon.code, discountPercent: coupon.discountPercent }
-      : undefined,
+    subtotalPrice: Number(subtotalPrice),
+    tourDiscount: tourDiscountAmount > 0 ? {
+      percent: tourDiscountPercent,
+      amount: tourDiscountAmount,
+    } : undefined,
+    coupon: coupon ? {
+      code: coupon.code,
+      discountPercent: coupon.discountPercent,
+      discountAmount: couponDiscountAmount,
+    } : undefined,
+    discount: effectiveDiscountPercent,
+    discountAmount: totalDiscountAmount,
     mainImg: tour.mainImg,
     title: tour.title,
     day,
-    discountPercent,
+    discountPercent: effectiveDiscountPercent,
   };
 
   const resultOfSubscription = new subscriptionModel(subscriptionData);
@@ -274,10 +297,22 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     message: "Subscription created successfully",
     data: {
       ...subscriptionObj,
-      coupon: coupon
-        ? { code: coupon.code, discountPercent: coupon.discountPercent }
-        : undefined,
-      discount: discountPercent,
+      priceBreakdown: {
+        subtotal: subtotalPrice,
+        tourDiscount: tourDiscountAmount > 0 ? {
+          percent: tourDiscountPercent,
+          amount: tourDiscountAmount,
+          appliedTo: "1 adult only",
+        } : null,
+        couponDiscount: couponDiscountAmount > 0 ? {
+          code: coupon?.code,
+          percent: couponDiscountPercent,
+          amount: couponDiscountAmount,
+          appliedTo: "total price",
+        } : null,
+        totalDiscount: totalDiscountAmount,
+        finalPrice: totalPrice,
+      },
     },
   });
 });

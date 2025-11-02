@@ -20,7 +20,7 @@ tourRouter
     allowedTo("admin"),
     uploadMixfile([
       { name: "mainImg", maxCount: 1 },
-      { name: "images", maxCount: 10 },
+      { name: "images", maxCount: 50 },
     ]),
     saveImg,
     parseJsonFields,
@@ -42,7 +42,7 @@ tourRouter
     allowedTo("admin"),
     uploadMixfile([
       { name: "mainImg", maxCount: 1 },
-      { name: "images", maxCount: 10 },
+      { name: "images", maxCount: 50 },
     ]),
     saveImg,
     parseJsonFields,

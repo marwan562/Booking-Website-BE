@@ -98,7 +98,7 @@ export const createTourSchema = joi.object({
 
   features: joi.array().items(localizedSchema),
   includes: joi.array().items(localizedSchema),
-  notIncludes: joi.array().items(localizedSchema),
+  notIncludes: joi.array().items(localizedSchema).optional(),
   tags: joi.array().items(localizedSchema),
 
   price: joi.number().optional(),
@@ -109,7 +109,7 @@ export const createTourSchema = joi.object({
   location: location.required(),
   mapDetails: joi.string().allow(""),
 
-  options: options.required(),
+  options: options.optional(),
   isRepeated: joi.boolean().required(),
   hasOffer: joi.boolean(),
 
@@ -154,7 +154,7 @@ export const updatedTourSchema = joi.object({
 
   features: joi.array().items(localizedSchema),
   includes: joi.array().items(localizedSchema),
-  notIncludes: joi.array().items(localizedSchema),
+  notIncludes: joi.array().items(localizedSchema).optional(),
   tags: joi.array().items(localizedSchema),
 
   price: joi.number().optional(),

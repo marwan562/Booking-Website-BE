@@ -6,6 +6,7 @@ export function parseJsonFields(req, res, next) {
     "historyBrief",
     "location",
     "coupons",
+    "refundPolicy",
     "date",
     "features",
     "includes",

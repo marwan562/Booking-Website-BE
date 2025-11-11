@@ -432,7 +432,10 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
       userDetails: userId,
     })
     .select("+paymentIntentId")
-    .populate("tourDetails", "title slug mainImg discountPercent")
+    .populate({
+      path: "tourDetails",
+      select: "title slug mainImg discountPercent refundPolicy",
+    })
     .populate("userDetails", "name email");
 
   if (!booking) {
@@ -470,22 +473,49 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
 
   const bookingDateTime = new Date(`${booking.date} ${booking.time}`);
   const now = new Date();
-  const hoursUntilBooking = (bookingDateTime - now) / (1000 * 60 * 60);
-
-  const REFUND_CUTOFF_HOURS = 24;
-
-  if (hoursUntilBooking < REFUND_CUTOFF_HOURS && hoursUntilBooking > 0) {
-    return res.status(400).json({
-      error: `Refunds are not allowed within ${REFUND_CUTOFF_HOURS} hours of the booking time`,
-      bookingTime: bookingDateTime.toISOString(),
-      hoursRemaining: Math.round(hoursUntilBooking * 10) / 10,
-    });
-  }
+  const daysUntilBooking = (bookingDateTime - now) / (1000 * 60 * 60 * 24);
 
   if (bookingDateTime < now) {
     return res.status(400).json({
       error: "Cannot refund a booking that has already occurred",
       bookingTime: bookingDateTime.toISOString(),
+    });
+  }
+
+  const refundPolicy = booking.tourDetails?.refundPolicy || [
+    { daysBefore: 4, discountPercent: 0 },
+  ];
+
+  const sortedPolicy = [...refundPolicy].sort(
+    (a, b) => b.daysBefore - a.daysBefore
+  );
+
+  let applicablePolicy = null;
+  for (const policy of sortedPolicy) {
+    if (daysUntilBooking >= policy.daysBefore) {
+      applicablePolicy = policy;
+      break;
+    }
+  }
+
+  if (!applicablePolicy) {
+    const earliestPolicy = sortedPolicy[sortedPolicy.length - 1];
+    return res.status(400).json({
+      error: `Refunds are not allowed within ${earliestPolicy.daysBefore} days of the booking`,
+      bookingTime: bookingDateTime.toISOString(),
+      daysRemaining: Math.round(daysUntilBooking * 10) / 10,
+      refundPolicy: sortedPolicy,
+    });
+  }
+
+  const refundPercentage = 100 - applicablePolicy.discountPercent;
+  const refundAmount = Math.round((booking.totalPrice * refundPercentage) / 100);
+
+  if (refundAmount <= 0) {
+    return res.status(400).json({
+      error: "Refund amount is zero based on the refund policy",
+      policy: applicablePolicy,
+      daysRemaining: Math.round(daysUntilBooking * 10) / 10,
     });
   }
 
@@ -546,17 +576,37 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
   }
 
   try {
+    const refundAmountInCents = Math.round(refundAmount * 100);
+
     const refund = await stripe.refunds.create({
       payment_intent: booking.paymentIntentId,
+      amount: refundAmountInCents,
       reason: "requested_by_customer",
       metadata: {
         bookingReference: booking.bookingReference,
         userId: userId.toString(),
         refundedAt: new Date().toISOString(),
+        originalAmount: booking.totalPrice,
+        refundPercentage: refundPercentage,
+        discountPercent: applicablePolicy.discountPercent,
+        daysBeforeBooking: Math.round(daysUntilBooking * 10) / 10,
       },
     });
 
     booking.payment = "refunded";
+    booking.refundDetails = {
+      refundedAt: new Date(),
+      refundAmount: refundAmount,
+      originalAmount: booking.totalPrice,
+      refundPercentage: refundPercentage,
+      deductionAmount: booking.totalPrice - refundAmount,
+      daysBeforeBooking: Math.round(daysUntilBooking * 10) / 10,
+      appliedPolicy: {
+        daysBefore: applicablePolicy.daysBefore,
+        discountPercent: applicablePolicy.discountPercent,
+      },
+      refundId: refund.id,
+    };
     await booking.save();
 
     if (booking.tourDetails) {
@@ -581,7 +631,11 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
 
     const emailData = {
       booking: booking,
-      refundAmount: booking.totalPrice,
+      refundAmount: refundAmount,
+      originalAmount: booking.totalPrice,
+      refundPercentage: refundPercentage,
+      deductionAmount: booking.totalPrice - refundAmount,
+      refundPolicy: applicablePolicy,
       refundId: refund.id,
       refundedAt: new Date(refund.created * 1000).toISOString(),
       user: booking.userDetails,
@@ -623,7 +677,11 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
       message: "Refund processed successfully",
       refund: {
         id: refund.id,
-        amount: refund.amount / 100,
+        amount: refundAmount,
+        originalAmount: booking.totalPrice,
+        deductionAmount: booking.totalPrice - refundAmount,
+        refundPercentage: refundPercentage,
+        discountPercent: applicablePolicy.discountPercent,
         currency: refund.currency,
         status: refund.status,
         refundedAt: new Date(refund.created * 1000).toISOString(),
@@ -631,8 +689,10 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
       booking: {
         reference: booking.bookingReference,
         tourTitle: booking.tourDetails?.title,
-        originalAmount: booking.totalPrice,
+        bookingDate: booking.date,
+        daysBeforeBooking: Math.round(daysUntilBooking * 10) / 10,
       },
+      appliedPolicy: applicablePolicy,
     });
   } catch (error) {
     console.error("Refund processing error:", error);

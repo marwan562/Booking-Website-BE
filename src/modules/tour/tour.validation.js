@@ -25,6 +25,14 @@ const couponSchema = joi
   })
   .optional();
 
+const refundPolicySchema = joi
+  .object({
+    _id: joi.string().hex().length(24).optional(),
+    daysBefore: joi.number().required(),
+    discountPercent: joi.number().min(0).max(100).required(),
+  })
+  .optional();
+
 const childrenPricing = joi.array().items(
   joi.object({
     _id: joi.string().hex().length(24),
@@ -126,6 +134,8 @@ export const createTourSchema = joi.object({
 
   coupons: joi.array().items(couponSchema).optional(),
 
+  refundPolicy: joi.array().items(refundPolicySchema).optional(),
+
   isTrending: joi.boolean().optional(),
   isTopRated: joi.boolean().optional(),
 });
@@ -181,6 +191,8 @@ export const updatedTourSchema = joi.object({
   discountPercent: joi.number().min(0).max(100),
 
   coupons: joi.array().items(couponSchema).optional(),
+
+  refundPolicy: joi.array().items(refundPolicySchema).optional(),
 
   isTrending: joi.boolean().optional(),
   isTopRated: joi.boolean().optional(),

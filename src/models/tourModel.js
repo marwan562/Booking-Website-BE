@@ -45,6 +45,24 @@ const couponSchema = new Schema(
   { _id: true }
 );
 
+const refundPolicySchema = new Schema(
+  {
+    daysBefore: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    discountPercent: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100,
+      default: 0,
+    },
+  },
+  { _id: true }
+);
+
 const schema = new Schema(
   {
     title: { type: localizedSchema, required: true },
@@ -157,6 +175,12 @@ const schema = new Schema(
       type: [couponSchema],
       select: false,
     },
+
+    refundPolicy: {
+      type: [refundPolicySchema],
+      default: [{ daysBefore: 4, discountPercent: 0 }],
+    },
+
     isTrending: { type: Boolean, default: false, index: true },
     isTopRated: { type: Boolean, default: false, index: true },
   },
@@ -188,18 +212,18 @@ schema.index({ "slug.fr": -1 });
 schema.pre("save", async function (next) {
   if (this.adultPricing?.length) {
     this.adultPricing = this.adultPricing.map((item) => ({
-      ...item.toObject?.() || item,
+      ...(item.toObject?.() || item),
       totalPrice: item.adults * item.price,
     }));
   }
 
   if (this.childrenPricing?.length) {
     this.childrenPricing = this.childrenPricing.map((item) => ({
-      ...item.toObject?.() || item,
+      ...(item.toObject?.() || item),
       totalPrice: item.children * item.price,
     }));
   }
-  
+
   const langs = ["en", "es", "fr"];
   const isNewDoc = this.isNew;
 

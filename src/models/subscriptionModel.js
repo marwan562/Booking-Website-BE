@@ -176,7 +176,7 @@ schema.pre(/^find/, async function (next) {
     this.populate({
       path: "tourDetails",
       select:
-        "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes",
+        "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes refundPolicy",
     });
     next();
   } catch (error) {

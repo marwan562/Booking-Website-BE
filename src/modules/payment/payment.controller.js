@@ -471,7 +471,41 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
     });
   }
 
-  const bookingDateTime = new Date(`${booking.date} ${booking.time}`);
+  let bookingDateTime;
+  try {
+    let dateStr = booking.date;
+    if (dateStr.includes("T")) {
+      dateStr = dateStr.split("T")[0];
+    }
+
+    let timeStr = booking.time;
+    if (timeStr.match(/^\d{1,2}:\d{2}\s[AP]M$/i)) {
+      const [time, period] = timeStr.split(" ");
+      const [hourStr, minuteStr] = time.split(":");
+      let hours = parseInt(hourStr);
+      const minutes = parseInt(minuteStr);
+
+      if (period.toUpperCase() === "PM" && hours !== 12) hours += 12;
+      if (period.toUpperCase() === "AM" && hours === 12) hours = 0;
+
+      timeStr = `${hours.toString().padStart(2, "0")}:${minutes
+        .toString()
+        .padStart(2, "0")}`;
+    }
+
+    bookingDateTime = new Date(`${dateStr}T${timeStr}:00`);
+
+    if (isNaN(bookingDateTime.getTime())) {
+      throw new Error("Invalid date created");
+    }
+  } catch (parseError) {
+    console.error("Date parsing error:", parseError);
+    return res.status(400).json({
+      error: "Invalid booking date or time format",
+      detail: `Date: ${booking.date}, Time: ${booking.time}`,
+    });
+  }
+
   const now = new Date();
   const daysUntilBooking = (bookingDateTime - now) / (1000 * 60 * 60 * 24);
 
@@ -487,11 +521,12 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
   ];
 
   const sortedPolicy = [...refundPolicy].sort(
-    (a, b) => b.daysBefore - a.daysBefore
+    (a, b) => a.daysBefore - b.daysBefore
   );
 
   let applicablePolicy = null;
-  for (const policy of sortedPolicy) {
+  for (let i = sortedPolicy.length - 1; i >= 0; i--) {
+    const policy = sortedPolicy[i];
     if (daysUntilBooking >= policy.daysBefore) {
       applicablePolicy = policy;
       break;
@@ -499,7 +534,7 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
   }
 
   if (!applicablePolicy) {
-    const earliestPolicy = sortedPolicy[sortedPolicy.length - 1];
+    const earliestPolicy = sortedPolicy[0];
     return res.status(400).json({
       error: `Refunds are not allowed within ${earliestPolicy.daysBefore} days of the booking`,
       bookingTime: bookingDateTime.toISOString(),
@@ -509,13 +544,15 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
   }
 
   const refundPercentage = 100 - applicablePolicy.discountPercent;
-  const refundAmount = Math.round((booking.totalPrice * refundPercentage) / 100);
-
+  const refundAmount = parseFloat(
+    ((booking.totalPrice * refundPercentage) / 100).toFixed(2)
+  );
   if (refundAmount <= 0) {
     return res.status(400).json({
-      error: "Refund amount is zero based on the refund policy",
+      error: "No refund available based on the refund policy",
       policy: applicablePolicy,
       daysRemaining: Math.round(daysUntilBooking * 10) / 10,
+      message: `Cancellations within ${applicablePolicy.daysBefore} days incur a ${applicablePolicy.discountPercent}% cancellation fee`,
     });
   }
 

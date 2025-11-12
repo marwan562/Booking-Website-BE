@@ -285,6 +285,16 @@ schema.pre("save", async function (next) {
     }
   }
 
+  if (this.isModified("refundPolicy") && Array.isArray(this.refundPolicy)) {
+    if (this.refundPolicy.length > 1) {
+      this.refundPolicy.sort((a, b) => a.daysBefore - b.daysBefore);
+    }
+
+    if (this.refundPolicy.length < 1) {
+      this.refundPolicy = [{ daysBefore: 4, discountPercent: 0 }];
+    }
+  }
+
   next();
 });
 

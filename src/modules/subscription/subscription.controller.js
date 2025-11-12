@@ -496,6 +496,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
                   price: "$tourDetails.price",
                   duration: "$tourDetails.duration",
                   date: "$tourDetails.date",
+                  refundPolicy: "$tourDetails.refundPolicy",
                 },
                 createdAt: "$createdAt",
                 updatedAt: "$updatedAt",
@@ -535,7 +536,7 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
         .populate({
           path: "tourDetails",
           select:
-            "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes",
+            "mainImg slug title totalReviews features averageRating hasOffer location discountPercent includes notIncludes refundPolicy",
         }),
       req.query
     )
@@ -938,6 +939,7 @@ const upcomingBookings = catchAsyncError(async (req, res, next) => {
                 price: "$tourDetails.price",
                 duration: "$tourDetails.duration",
                 date: "$tourDetails.date",
+                refundPolicy: "$tourDetails.refundPolicy",
               },
               createdAt: "$createdAt",
               updatedAt: "$updatedAt",

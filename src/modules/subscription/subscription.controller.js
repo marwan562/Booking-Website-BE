@@ -235,16 +235,16 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
   if (coupon && couponDiscountPercent > 0) {
     couponDiscountPercent = Math.min(couponDiscountPercent, 100);
     // Coupon applies to the total price after tour discount
-    couponDiscountAmount = (priceAfterTourDiscount * couponDiscountPercent) / 100;
+    couponDiscountAmount =
+      (priceAfterTourDiscount * couponDiscountPercent) / 100;
   }
 
   totalPrice = priceAfterTourDiscount - couponDiscountAmount;
 
   const totalDiscountAmount = tourDiscountAmount + couponDiscountAmount;
-  
-  const effectiveDiscountPercent = subtotalPrice > 0 
-    ? (totalDiscountAmount / subtotalPrice) * 100 
-    : 0;
+
+  const effectiveDiscountPercent =
+    subtotalPrice > 0 ? (totalDiscountAmount / subtotalPrice) * 100 : 0;
 
   tourDiscountAmount = Number(tourDiscountAmount.toFixed(2));
   couponDiscountAmount = Number(couponDiscountAmount.toFixed(2));
@@ -264,15 +264,20 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     date,
     totalPrice: Number(totalPrice),
     subtotalPrice: Number(subtotalPrice),
-    tourDiscount: tourDiscountAmount > 0 ? {
-      percent: tourDiscountPercent,
-      amount: tourDiscountAmount,
-    } : undefined,
-    coupon: coupon ? {
-      code: coupon.code,
-      discountPercent: coupon.discountPercent,
-      discountAmount: couponDiscountAmount,
-    } : undefined,
+    tourDiscount:
+      tourDiscountAmount > 0
+        ? {
+            percent: tourDiscountPercent,
+            amount: tourDiscountAmount,
+          }
+        : undefined,
+    coupon: coupon
+      ? {
+          code: coupon.code,
+          discountPercent: coupon.discountPercent,
+          discountAmount: couponDiscountAmount,
+        }
+      : undefined,
     discount: effectiveDiscountPercent,
     discountAmount: totalDiscountAmount,
     mainImg: tour.mainImg,
@@ -299,17 +304,23 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
       ...subscriptionObj,
       priceBreakdown: {
         subtotal: subtotalPrice,
-        tourDiscount: tourDiscountAmount > 0 ? {
-          percent: tourDiscountPercent,
-          amount: tourDiscountAmount,
-          appliedTo: "1 adult only",
-        } : null,
-        couponDiscount: couponDiscountAmount > 0 ? {
-          code: coupon?.code,
-          percent: couponDiscountPercent,
-          amount: couponDiscountAmount,
-          appliedTo: "total price",
-        } : null,
+        tourDiscount:
+          tourDiscountAmount > 0
+            ? {
+                percent: tourDiscountPercent,
+                amount: tourDiscountAmount,
+                appliedTo: "1 adult only",
+              }
+            : null,
+        couponDiscount:
+          couponDiscountAmount > 0
+            ? {
+                code: coupon?.code,
+                percent: couponDiscountPercent,
+                amount: couponDiscountAmount,
+                appliedTo: "total price",
+              }
+            : null,
         totalDiscount: totalDiscountAmount,
         finalPrice: totalPrice,
       },
@@ -682,9 +693,23 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
       { $match: matchConditions },
       {
         $facet: {
-          totalRevenue: [
+          successRevenue: [
             { $match: { payment: "success" } },
             { $group: { _id: null, total: { $sum: "$totalPrice" } } },
+          ],
+          refundedAmount: [
+            {
+              $match: {
+                payment: "refunded",
+                "refundDetails.refundAmount": { $exists: true },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                total: { $sum: "$refundDetails.refundAmount" },
+              },
+            },
           ],
           successPayments: [
             { $match: { payment: "success" } },
@@ -694,14 +719,24 @@ const getAllSubscription = catchAsyncError(async (req, res, next) => {
             { $match: { payment: "pending" } },
             { $count: "count" },
           ],
+          refundedPayments: [
+            { $match: { payment: "refunded" } },
+            { $count: "count" },
+          ],
         },
       },
     ]);
 
+    const successRevenue = metricsAgg[0]?.successRevenue[0]?.total || 0;
+    const refundedAmount = metricsAgg[0]?.refundedAmount[0]?.total || 0;
+
     const metrics = {
-      totalRevenue: metricsAgg[0]?.totalRevenue[0]?.total || 0,
+      totalRevenue: refundedAmount + successRevenue,
+      grossRevenue: successRevenue,
+      totalRefunded: refundedAmount,
       totalSuccessPayments: metricsAgg[0]?.successPayments[0]?.count || 0,
       totalPendingPayments: metricsAgg[0]?.pendingPayments[0]?.count || 0,
+      totalRefundedPayments: metricsAgg[0]?.refundedPayments[0]?.count || 0,
     };
 
     const transformedSubscriptions = result.map((booking) => ({

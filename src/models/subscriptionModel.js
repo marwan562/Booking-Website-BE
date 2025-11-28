@@ -51,7 +51,7 @@ const schema = new Schema(
       enum: ["pending", "success", "refunded"],
       default: "pending",
     },
-    paymentIntentId: { type: String, unique: true, select: false },
+    paymentIntentId: { type: String, select: false, default: null },
     chargeId: { type: String },
     specialRequests: { type: String },
     coupon: {
@@ -127,7 +127,7 @@ schema.methods.isRefundable = function (tourRefundPolicy) {
   const now = new Date();
 
   if (bookingDateTime < now) {
-    return { eligible: false, };
+    return { eligible: false };
   }
 
   const daysUntilBooking = (bookingDateTime - now) / (1000 * 60 * 60 * 24);

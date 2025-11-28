@@ -136,6 +136,31 @@ export const transformTour = (tour, locale = "en") => {
     to: getLocalizedValue(tour.location?.to, locale),
   };
 
+  if (tour.tourLanguage) {
+    transformed.tourLanguage = {
+      ...tour.tourLanguage,
+      description: getLocalizedValue(tour.tourLanguage.description, locale),
+    };
+  }
+
+  // Transform freeCancelation
+  if (tour.freeCancelation) {
+    transformed.freeCancelation = {
+      note: getLocalizedValue(tour.freeCancelation.note, locale),
+      description: getLocalizedValue(tour.freeCancelation.description, locale),
+    };
+  }
+
+  // Transform refundPolicy with notePolicy
+  if (tour.refundPolicy && Array.isArray(tour.refundPolicy)) {
+    transformed.refundPolicy = tour.refundPolicy.map((policy) => ({
+      ...policy,
+      notePolicy: policy.notePolicy
+        ? getLocalizedValue(policy.notePolicy, locale)
+        : undefined,
+    }));
+  }
+
   // Transform arrays
   if (tour?.features) {
     transformed.features = tour.features?.map((feature) =>

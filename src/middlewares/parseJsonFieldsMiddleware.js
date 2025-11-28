@@ -12,6 +12,8 @@ export function parseJsonFields(req, res, next) {
     "includes",
     "notIncludes",
     "tags",
+    "tourLanguage",
+    "freeCancelation",
     "repeatTime",
     "repeatDays",
     "options",

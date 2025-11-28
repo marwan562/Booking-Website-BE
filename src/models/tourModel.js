@@ -10,6 +10,15 @@ const localizedSchema = new Schema(
   { _id: false }
 );
 
+const localizedOptionalSchema = new Schema(
+  {
+    en: { type: String, required: false },
+    es: { type: String, required: false },
+    fr: { type: String, required: false },
+  },
+  { _id: false }
+);
+
 const optionSchema = new Schema(
   {
     name: localizedSchema,
@@ -23,6 +32,11 @@ const optionSchema = new Schema(
   },
   { _id: true }
 );
+
+const tourLanguageSchema = new Schema({
+  flag: { type: String },
+  description: { type: localizedOptionalSchema },
+});
 
 const couponSchema = new Schema(
   {
@@ -59,9 +73,15 @@ const refundPolicySchema = new Schema(
       max: 100,
       default: 0,
     },
+    notePolicy: { type: localizedOptionalSchema },
   },
   { _id: true }
 );
+
+const freeCancelationSchema = new Schema({
+  note: { type: localizedOptionalSchema },
+  description: { type: localizedOptionalSchema },
+});
 
 const schema = new Schema(
   {
@@ -93,6 +113,10 @@ const schema = new Schema(
       from: { type: Date },
       to: { type: Date },
     },
+
+    tourLanguage: { type: tourLanguageSchema },
+
+    freeCancelation: { type: freeCancelationSchema },
 
     features: [{ type: localizedSchema }],
     includes: [{ type: localizedSchema }],

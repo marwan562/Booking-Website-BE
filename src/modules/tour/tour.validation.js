@@ -30,6 +30,13 @@ const refundPolicySchema = joi
     _id: joi.string().hex().length(24).optional(),
     daysBefore: joi.number().required(),
     discountPercent: joi.number().min(0).max(100).required(),
+    notePolicy: joi
+      .object({
+        en: joi.string().allow("").optional(),
+        es: joi.string().allow("").optional(),
+        fr: joi.string().allow("").optional(),
+      })
+      .optional(),
   })
   .optional();
 
@@ -37,8 +44,8 @@ const childrenPricing = joi.array().items(
   joi.object({
     _id: joi.string().hex().length(24),
     totalPrice: joi.number(),
-    children: joi.number().min(1).max(30),
-    price: joi.number().min(1).max(10000),
+    children: joi.number().min(1),
+    price: joi.number().min(1),
   })
 );
 
@@ -46,6 +53,34 @@ const localizedSchema = joi.object({
   en: joi.string().required(),
   es: joi.string().required(),
   fr: joi.string(),
+});
+
+const tourLanguageSchema = joi.object({
+  flag: joi.string().allow("").optional(),
+  description: joi
+    .object({
+      en: joi.string().allow("").optional(),
+      es: joi.string().allow("").optional(),
+      fr: joi.string().allow("").optional(),
+    })
+    .optional(),
+});
+
+const freeCancelationSchema = joi.object({
+  note: joi
+    .object({
+      en: joi.string().allow("").optional(),
+      es: joi.string().allow("").optional(),
+      fr: joi.string().allow("").optional(),
+    })
+    .optional(),
+  description: joi
+    .object({
+      en: joi.string().allow("").optional(),
+      es: joi.string().allow("").optional(),
+      fr: joi.string().allow("").optional(),
+    })
+    .optional(),
 });
 
 const repeatDays = joi
@@ -104,10 +139,13 @@ export const createTourSchema = joi.object({
     })
     .required(),
 
-  features: joi.array().items(localizedSchema),
-  includes: joi.array().items(localizedSchema),
+  tourLanguage: tourLanguageSchema.optional(),
+  freeCancelation: freeCancelationSchema.optional(),
+
+  features: joi.array().items(localizedSchema).optional(),
+  includes: joi.array().items(localizedSchema).optional(),
   notIncludes: joi.array().items(localizedSchema).optional(),
-  tags: joi.array().items(localizedSchema),
+  tags: joi.array().items(localizedSchema).optional(),
 
   price: joi.number().optional(),
 
@@ -162,10 +200,13 @@ export const updatedTourSchema = joi.object({
     })
     .optional(),
 
-  features: joi.array().items(localizedSchema),
-  includes: joi.array().items(localizedSchema),
+  tourLanguage: tourLanguageSchema.optional(),
+  freeCancelation: freeCancelationSchema.optional(),
+
+  features: joi.array().items(localizedSchema).optional(),
+  includes: joi.array().items(localizedSchema).optional(),
   notIncludes: joi.array().items(localizedSchema).optional(),
-  tags: joi.array().items(localizedSchema),
+  tags: joi.array().items(localizedSchema).optional(),
 
   price: joi.number().optional(),
 

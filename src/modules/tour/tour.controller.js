@@ -230,6 +230,8 @@ const updateTour = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
   const { locale = "en" } = req.query;
 
+  console.log("Update Tour Request Body:", req.body.tourLanguage);
+
   if (!ObjectId.isValid(id)) {
     return next(new AppError("Invalid tour ID", 400));
   }

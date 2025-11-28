@@ -295,6 +295,8 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
     const userId = metadata.userId;
     const bookingRefsString = metadata.bookingRefs;
 
+    console.log("bookingsrefs",bookingRefsString)
+
     if (!bookingRefsString) {
       console.error("No bookingRefs found in metadata");
       return res.status(400).json({ error: "No bookingRefs found" });

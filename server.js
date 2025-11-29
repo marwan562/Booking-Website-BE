@@ -12,6 +12,7 @@ import {
 import logger from "./logs/logger.js";
 import { AppError } from "./src/utilities/AppError.js";
 import customErrorHandler from "./src/middlewares/customErrorHandler.js";
+import { stripeSessionCompleted } from "./src/modules/payment/payment.controller.js";
 import paymentRouter from "./src/modules/payment/payment.router.js";
 import cors from "cors";
 import "dotenv/config";
@@ -26,29 +27,24 @@ try {
   logger.error(`Database connection failed: ${err.message}`);
 }
 
-// Stripe webhook
-app.use(
+app.post(
   "/payment/webhook",
   express.raw({ type: "application/json" }),
-  paymentRouter
+  stripeSessionCompleted
 );
 
-app.use(
-  compression({
-    level: 6,
-    threshold: 1024,
-    filter: (req, res) => {
-      // Don't compress if client doesn't support it
-      if (req.headers["x-no-compression"]) {
-        return false;
-      }
-      // Use compression for all other responses
-      return compression.filter(req, res);
-    },
-  })
-);
+app.use(compression({
+  level: 6,
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers["x-no-compression"]) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+}));
 
-// Security middleware (order matters!)
+// Security middleware
 app.use(securityHeaders);
 app.use(sanitizeData);
 
@@ -56,14 +52,13 @@ app.use(sanitizeData);
 if (process.env.NODE_ENV === "development") {
   app.use(cors());
 }
-// Request parsing cookies
+
 app.use(cookieParser());
 
-// Request parsing with size limits
 app.use(express.json(requestSizeLimit));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Logging with performance optimization
+// Logging
 const stream = {
   write: (message) => logger.info(message.trim()),
 };
@@ -75,6 +70,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Routes
+app.use("/payment", paymentRouter);
 app.use("/", router);
 
 app.get("/health", (_, res) => {
@@ -86,12 +82,10 @@ app.get("/health", (_, res) => {
   });
 });
 
-// 404 handler
 app.all("*", (req, _, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));
 });
 
-// Global error handler
 app.use(customErrorHandler);
 
 const PORT = process.env.PORT || 3000;

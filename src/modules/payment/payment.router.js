@@ -7,7 +7,6 @@ import {
   handleFaildPayment,
   handlePendingPayment,
   handleSuccessPayment,
-  stripeSessionCompleted,
   stripeRefundPayment
 } from "./payment.controller.js";
 
@@ -19,13 +18,11 @@ paymentRouter.post(
   validation(fwaterkSchema),
   fwaterk
 );
-// paymentRouter.post("/complete-order", completeOrder);
+
 paymentRouter.get("/handelPassCheckout/:token", handleSuccessPayment);
 paymentRouter.get("/handelPendingPass/:token", handlePendingPayment);
 paymentRouter.get("/handelFaildPass/:token", handleFaildPayment);
-// paymentRouter.post("/fwaterk/:id", auth, fwaterk);
 
-paymentRouter.post("/", stripeSessionCompleted);
 paymentRouter.post(
   "/refund",
   auth,

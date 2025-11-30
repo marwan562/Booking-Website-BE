@@ -66,12 +66,12 @@ export const refundDetailsHTML = (data) => {
     ...(booking.adultPricing?.adults > 0
       ? [
           `<tr>
-            <td style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #555;">
+            <td style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #535146;">
               ${booking.adultPricing.adults} Adult${
             booking.adultPricing.adults > 1 ? "s" : ""
           }
             </td>
-            <td style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #333; font-weight: 600; text-align: right;">
+            <td style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #3d3929; font-weight: 600; text-align: right;">
               ${formatPrice(booking.adultPricing.totalPrice)}
             </td>
           </tr>`,
@@ -80,12 +80,12 @@ export const refundDetailsHTML = (data) => {
     ...(booking.childrenPricing?.children > 0
       ? [
           `<tr>
-            <td style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #555;">
+            <td style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #535146;">
               ${booking.childrenPricing.children} Child${
             booking.childrenPricing.children > 1 ? "ren" : ""
           }
             </td>
-            <td style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #333; font-weight: 600; text-align: right;">
+            <td style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #3d3929; font-weight: 600; text-align: right;">
               ${formatPrice(booking.childrenPricing.totalPrice)}
             </td>
           </tr>`,
@@ -99,17 +99,17 @@ export const refundDetailsHTML = (data) => {
           .map((option) => {
             const optionRows = [
               `<tr>
-              <td colspan="2" style="padding: 12px 0 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; color: #333; border-top: 1px solid #e9ecef;">
+              <td colspan="2" style="padding: 12px 0 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; color: #3d3929; border-top: 1px solid #dad9d4;">
                 ${option.name || "Additional Option"}
               </td>
             </tr>`,
               ...(option.number > 0
                 ? [
                     `<tr>
-                    <td style="padding: 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #555;">
+                    <td style="padding: 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #535146;">
                       ${option.number} Adult${option.number > 1 ? "s" : ""}
                     </td>
-                    <td style="padding: 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #333; font-weight: 600; text-align: right;">
+                    <td style="padding: 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #3d3929; font-weight: 600; text-align: right;">
                       ${formatPrice(option.price * option.number)}
                     </td>
                   </tr>`,
@@ -118,12 +118,12 @@ export const refundDetailsHTML = (data) => {
               ...(option.numberOfChildren > 0
                 ? [
                     `<tr>
-                    <td style="padding: 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #555;">
+                    <td style="padding: 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #535146;">
                       ${option.numberOfChildren} Child${
                       option.numberOfChildren > 1 ? "ren" : ""
                     }
                     </td>
-                    <td style="padding: 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #333; font-weight: 600; text-align: right;">
+                    <td style="padding: 4px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #3d3929; font-weight: 600; text-align: right;">
                       ${formatPrice(
                         option.childPrice * option.numberOfChildren
                       )}
@@ -142,7 +142,7 @@ export const refundDetailsHTML = (data) => {
     discountHTML = `
       <tr>
         <td colspan="2" style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 12px; color: #10b981; font-weight: 500;">
-          ✓ Discount applied: ${tour.discountPercent}% off
+          Discount applied: ${tour.discountPercent}% off
         </td>
       </tr>
     `;
@@ -151,7 +151,7 @@ export const refundDetailsHTML = (data) => {
     discountHTML = `
       <tr>
         <td colspan="2" style="padding: 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 12px; color: #10b981; font-weight: 500;">
-          ✓ Coupon <span style="font-weight: 700;">${booking.coupon.code}</span> applied: ${booking.coupon.discountPercent}% off
+          Coupon <span style="font-weight: 700;">${booking.coupon.code}</span> applied: ${booking.coupon.discountPercent}% off
         </td>
       </tr>
     `;
@@ -188,31 +188,31 @@ export const refundDetailsHTML = (data) => {
     div[style*="margin: 16px 0;"] { margin: 0 !important; }
     body { width: 100% !important; height: 100% !important; padding: 0 !important; margin: 0 !important; }
     table { border-collapse: collapse !important; }
-    a { color: #333333; }
+    a { color: #ff0066; }
     img { height: auto; line-height: 100%; text-decoration: none; border: 0; outline: none; }
     .view-bookings-button {
-      background: #333333;
-      color: white;
+      background: #ff0066;
+      color: #ffffff;
       font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif;
       font-size: 16px;
       font-weight: 700;
       padding: 16px 32px;
       border-radius: 8px;
       text-align: center;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.10), 0 4px 6px -1px rgba(0, 0, 0, 0.10);
       text-decoration: none;
       display: inline-block;
     }
     </style>
   </head>
   <body style="background-color: #ffffff;">
-  
+
     <div class="preheader" style="display: none; max-width: 0; max-height: 0; overflow: hidden; font-size: 1px; line-height: 1px; color: #fff; opacity: 0;">
       Your refund has been processed - Yalla Egipto
     </div>
-  
+
     <table border="0" cellpadding="0" cellspacing="0" width="100%">
-  
+
       <!-- Logo -->
       <tr>
         <td align="center" bgcolor="#ffffff">
@@ -220,10 +220,10 @@ export const refundDetailsHTML = (data) => {
             <tr>
               <td align="center" valign="top" style="padding: 36px 24px;">
                 <div style="display: inline-block;">
-                  <h2 style="margin: 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 700; color: #333333; text-decoration: none;">
+                  <h2 style="margin: 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 700; color: #3d3929; text-decoration: none;">
                     Yalla Egipto
                   </h2>
-                  <p style="margin: 4px 0 0 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #666; text-align: center;">
+                  <p style="margin: 4px 0 0 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #83827d; text-align: center;">
                     Discover Egypt's Ancient Wonders
                   </p>
                 </div>
@@ -232,14 +232,14 @@ export const refundDetailsHTML = (data) => {
           </table>
         </td>
       </tr>
-  
+
       <!-- Hero -->
       <tr>
         <td align="center" bgcolor="#ffffff">
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
             <tr>
-              <td align="left" bgcolor="#fff3e0" style="padding: 36px 24px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; border-top: 4px solid #ff9800; border-radius: 8px 8px 0 0;">
-                <h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -1px; line-height: 48px; color: #2c3e50;">
+              <td align="left" bgcolor="#faf9f5" style="padding: 36px 24px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; border-top: 4px solid #c96442; border-radius: 12px 12px 0 0;">
+                <h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -1px; line-height: 40px; color: #3d3929;">
                   ${greeting}
                 </h1>
               </td>
@@ -247,28 +247,28 @@ export const refundDetailsHTML = (data) => {
           </table>
         </td>
       </tr>
-  
+
       <!-- Refund Message -->
       <tr>
         <td align="center" bgcolor="#ffffff">
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
             <tr>
-              <td align="left" bgcolor="#fff3e0" style="padding: 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 24px;">
-                <p style="margin: 0; margin-bottom: 16px; color: #555;">
+              <td align="left" bgcolor="#faf9f5" style="padding: 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 24px;">
+                <p style="margin: 0; margin-bottom: 16px; color: #535146;">
                   ${refundMessage}
                 </p>
-                <div style="background: #ffffff; border-left: 4px solid #ff9800; padding: 16px 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-                  <p style="margin: 0; font-size: 14px; color: #555;">
-                    <strong style="color: #333;">Refund Amount:</strong>
+                <div style="background: #ffffff; border-left: 4px solid #c96442; padding: 16px 20px; border-radius: 8px; box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.05);">
+                  <p style="margin: 0; font-size: 14px; color: #535146;">
+                    <strong style="color: #3d3929;">Refund Amount:</strong>
                   </p>
-                  <p style="margin: 8px 0 0 0; font-size: 28px; font-weight: 700; color: #ff9800;">
+                  <p style="margin: 8px 0 0 0; font-size: 28px; font-weight: 700; color: #c96442;">
                     ${formattedRefundAmount}
                   </p>
-                  <p style="margin: 12px 0 0 0; font-size: 12px; color: #666;">
-                    <strong>Refund ID:</strong> ${refundId}
+                  <p style="margin: 12px 0 0 0; font-size: 12px; color: #83827d;">
+                    <strong style="color: #3d3929;">Refund ID:</strong> ${refundId}
                   </p>
-                  <p style="margin: 4px 0 0 0; font-size: 12px; color: #666;">
-                    <strong>Processed on:</strong> ${formatRefundDate(
+                  <p style="margin: 4px 0 0 0; font-size: 12px; color: #83827d;">
+                    <strong style="color: #3d3929;">Processed on:</strong> ${formatRefundDate(
                       refundedAt
                     )}
                   </p>
@@ -278,61 +278,61 @@ export const refundDetailsHTML = (data) => {
           </table>
         </td>
       </tr>
-  
+
       <!-- Booking Details -->
       <tr>
         <td align="center" bgcolor="#ffffff">
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
             <tr>
-              <td bgcolor="#fff3e0" style="padding: 0 24px 24px;">
+              <td bgcolor="#faf9f5" style="padding: 0 24px 24px;">
                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                   <tr>
                     <td style="padding: 0 0 24px 0;">
-                      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #ffffff; border: 1px solid #e9ecef; border-radius: 8px;">
+                      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #ffffff; border: 1px solid #dad9d4; border-radius: 12px;">
                         <tr>
                           <td style="padding: 20px;">
                             <!-- Booking Number -->
-                            <div style="background: #f8f9fa; padding: 8px 12px; border-radius: 4px; margin-bottom: 16px;">
-                              <span style="font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 12px; color: #666; font-weight: 600;">REFUNDED BOOKING</span>
-                              <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #333; font-weight: 600; margin-top: 4px;">${
+                            <div style="background: #ede9de; padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
+                              <span style="font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 12px; color: #83827d; font-weight: 600;">REFUNDED BOOKING</span>
+                              <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #3d3929; font-weight: 600; margin-top: 4px;">${
                                 booking.bookingReference
                               }</div>
                             </div>
-                            
+
                             <!-- Tour Image -->
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                               <tr>
                                 <td align="center" style="padding-bottom: 16px;">
                                   <img src="${imgSrc}" alt="${
     tour?.title[locale] || "Tour Image"
-  }" style="width: 100%; max-width: 300px; height: auto; border-radius: 8px; display: block; opacity: 0.7;" />
+  }" style="width: 100%; max-width: 300px; height: auto; border-radius: 12px; display: block; opacity: 0.7;" />
                                 </td>
                               </tr>
                             </table>
-                            
+
                             <!-- Tour Title -->
-                            <h3 style="margin: 0 0 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 700; color: #333; text-align: center;">
+                            <h3 style="margin: 0 0 8px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 700; color: #3d3929; text-align: center;">
                               ${tour?.title[locale] || "Tour Title"}
                             </h3>
-                            
+
                             <!-- Date & Time -->
-                            <p style="margin: 0 0 16px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #666; text-align: center;">
+                            <p style="margin: 0 0 16px 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; color: #83827d; text-align: center;">
                               ${formattedDate} • ${booking.time}
                             </p>
-                            
+
                             <!-- Pricing Details -->
                             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 16px;">
                               ${basePricingDetails}
                               ${optionsPricingDetails}
                               ${discountHTML}
                               <tr>
-                                <td colspan="2" style="padding: 12px 0 0 0; border-top: 2px solid #333;">
+                                <td colspan="2" style="padding: 12px 0 0 0; border-top: 2px solid #c96442;">
                                   <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr>
-                                      <td style="font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; color: #333;">
+                                      <td style="font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; color: #3d3929;">
                                         Refunded Amount
                                       </td>
-                                      <td style="font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 18px; font-weight: 700; color: #ff9800; text-align: right;">
+                                      <td style="font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 18px; font-weight: 700; color: #c96442; text-align: right;">
                                         ${formattedRefundAmount}
                                       </td>
                                     </tr>
@@ -351,7 +351,7 @@ export const refundDetailsHTML = (data) => {
           </table>
         </td>
       </tr>
-  
+
       ${
         sendToAdmins
           ? `
@@ -360,11 +360,11 @@ export const refundDetailsHTML = (data) => {
         <td align="center" bgcolor="#ffffff">
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
             <tr>
-              <td align="center" bgcolor="#fff3e0" style="padding: 0 24px 24px;">
-                <a href="${LINK}" class="view-bookings-button" style="background: #333333; color: white; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; padding: 16px 32px; border-radius: 8px; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); text-decoration: none; display: inline-block;">
+              <td align="center" bgcolor="#faf9f5" style="padding: 0 24px 24px;">
+                <a href="${LINK}" class="view-bookings-button" style="background: #ff0066; color: #ffffff; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; padding: 16px 32px; border-radius: 8px; text-align: center; box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.10), 0 4px 6px -1px rgba(0, 0, 0, 0.10); text-decoration: none; display: inline-block;">
                   View in Dashboard
                 </a>
-                <p style="margin: 12px 0 0 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 12px; color: #666; text-align: center;">
+                <p style="margin: 12px 0 0 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 12px; color: #83827d; text-align: center;">
                   Manage this refund in the admin dashboard
                 </p>
               </td>
@@ -377,11 +377,11 @@ export const refundDetailsHTML = (data) => {
         <td align="center" bgcolor="#ffffff">
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
             <tr>
-              <td align="center" bgcolor="#fff3e0" style="padding: 0 24px 24px;">
-                <a href="${LINK}" class="view-bookings-button" style="background: #333333; color: white; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; padding: 16px 32px; border-radius: 8px; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); text-decoration: none; display: inline-block;">
-                 Browse new tours
+              <td align="center" bgcolor="#faf9f5" style="padding: 0 24px 24px;">
+                <a href="${LINK}" class="view-bookings-button" style="background: #ff0066; color: #ffffff; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; padding: 16px 32px; border-radius: 8px; text-align: center; box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.10), 0 4px 6px -1px rgba(0, 0, 0, 0.10); text-decoration: none; display: inline-block;">
+                 Browse New Tours
                 </a>
-                <p style="margin: 12px 0 0 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 12px; color: #666; text-align: center;">
+                <p style="margin: 12px 0 0 0; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 12px; color: #83827d; text-align: center;">
                   View trending tours
                 </p>
               </td>
@@ -390,22 +390,22 @@ export const refundDetailsHTML = (data) => {
         </td>
       </tr>`
       }
-  
+
       <!-- Important Info -->
       <tr>
         <td align="center" bgcolor="#ffffff">
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
             <tr>
-              <td align="left" bgcolor="#fff3e0" style="padding: 0 24px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; border-radius: 0 0 8px 8px;">
-                <div style="background: #ffffff; border-left: 4px solid #ff9800; padding: 16px 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-                  <p style="margin: 0; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #333333;">
+              <td align="left" bgcolor="#faf9f5" style="padding: 0 24px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; border-radius: 0 0 12px 12px;">
+                <div style="background: #ffffff; border-left: 4px solid #c96442; padding: 16px 20px; border-radius: 8px; box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.05);">
+                  <p style="margin: 0; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #3d3929;">
                     Refund Processing Information
                   </p>
-                  <p style="margin: 0; color: #555; font-size: 14px; line-height: 20px;">
+                  <p style="margin: 0; color: #535146; font-size: 14px; line-height: 20px;">
                     ${
                       sendToAdmins
                         ? "The refund has been initiated in Stripe. Funds will be returned to the customer's original payment method within 5-10 business days."
-                        : "Your refund has been processed and will appear in your original payment method within 5-10 business days, depending on your bank's processing time. If you have any questions, contact us at <a href='mailto:support@yallaegipto.com' style='color: #333333; font-weight: 600;'>support@yallaegipto.com</a>"
+                        : "Your refund has been processed and will appear in your original payment method within 5-10 business days, depending on your bank's processing time. If you have any questions, contact us at <a href='mailto:support@yallaegipto.com' style='color: #ff0066; font-weight: 600;'>support@yallaegipto.com</a>"
                     }
                   </p>
                 </div>
@@ -414,22 +414,22 @@ export const refundDetailsHTML = (data) => {
           </table>
         </td>
       </tr>
-  
+
       <!-- Footer -->
       <tr>
         <td align="center" bgcolor="#ffffff" style="padding: 24px;">
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
             <tr>
-              <td align="center" bgcolor="#ffffff" style="padding: 12px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #666;">
+              <td align="center" bgcolor="#ffffff" style="padding: 12px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #83827d;">
                 <p style="margin: 0;">
                   You received this email because a refund was processed for your booking with Yalla Egipto.
                 </p>
               </td>
             </tr>
             <tr>
-              <td align="center" bgcolor="#ffffff" style="padding: 12px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #666;">
+              <td align="center" bgcolor="#ffffff" style="padding: 12px 24px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #83827d;">
                 <p style="margin: 0; margin-bottom: 8px;">
-                  <strong style="color: #333333;">Yalla Egipto Tours & Travel</strong><br>
+                  <strong style="color: #3d3929;">Yalla Egipto Tours & Travel</strong><br>
                   Your trusted partner for authentic Egyptian experiences
                 </p>
                 <p style="margin: 0; font-size: 12px;">
@@ -438,21 +438,21 @@ export const refundDetailsHTML = (data) => {
               </td>
             </tr>
             <tr>
-              <td align="center" bgcolor="#ffffff" style="padding: 0 24px 12px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #666;">
+              <td align="center" bgcolor="#ffffff" style="padding: 0 24px 12px; font-family: 'Source Sans Pro', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #83827d;">
                 <p style="margin: 0; font-size: 12px;">
-                  Need help? Contact us: 
-                  <a href="mailto:support@yallaegipto.com" style="color: #333333; text-decoration: none; margin: 0 4px;">Email</a> |
-                  <a href="#" style="color: #333333; text-decoration: none; margin: 0 4px;">WhatsApp</a> |
-                  <a href="#" style="color: #333333; text-decoration: none; margin: 0 4px;">Live Chat</a>
+                  Need help? Contact us:
+                  <a href="mailto:support@yallaegipto.com" style="color: #ff0066; text-decoration: none; font-weight: 600; margin: 0 4px;">Email</a> |
+                  <a href="#" style="color: #ff0066; text-decoration: none; font-weight: 600; margin: 0 4px;">WhatsApp</a> |
+                  <a href="#" style="color: #ff0066; text-decoration: none; font-weight: 600; margin: 0 4px;">Live Chat</a>
                 </p>
               </td>
             </tr>
           </table>
         </td>
       </tr>
-  
+
     </table>
-  
+
   </body>
   </html>`;
 };

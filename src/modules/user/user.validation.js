@@ -1,12 +1,7 @@
 import joi from "joi";
 
 const phoneSchema = joi.object({
-  code: joi.string().required().messages({
-    "string.base": "Country code must be a string",
-    "string.empty": "Country code cannot be empty",
-    "string.pattern.base": "Country code must contain only digits (no '+')",
-    "any.required": "Country code is required",
-  }),
+  code: joi.string().optional(),
   number: joi.string().length(10).pattern(/^\d+$/).required().messages({
     "string.base": "Phone number must be a string",
     "string.empty": "Phone number cannot be empty",
@@ -28,7 +23,7 @@ const userSchemaLogin = joi.object({
   password: joi
     .string()
     .min(8)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+
     .required()
     .messages({
       "string.min": "Password must be at least 8 characters long",
@@ -63,7 +58,7 @@ const userSchemaCreate = joi.object({
   password: joi
     .string()
     .min(8)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+
     .required()
     .messages({
       "string.min": "Password must be at least 8 characters long",
@@ -101,10 +96,7 @@ const userSchemaUpdate = joi.object({
   name: joi.string().min(2).max(15),
   lastname: joi.string().min(2).max(15),
   email: joi.string().email({ tlds: { allow: false } }),
-  password: joi
-    .string()
-    .min(8)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/),
+  password: joi.string().min(8),
   rePassword: joi.ref("password"),
   avatar: joi.object({
     url: joi.string().uri(),
@@ -155,7 +147,7 @@ const forgetPasswordSchema = joi.object({
   newPassword: joi
     .string()
     .min(8)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+
     .required()
     .messages({
       "string.min": "Password must be at least 8 characters long",
@@ -180,7 +172,7 @@ const changePasswordSchema = joi.object({
   newPassword: joi
     .string()
     .min(8)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+
     .required()
     .messages({
       "string.min": "Password must be at least 8 characters long",

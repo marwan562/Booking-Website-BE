@@ -269,7 +269,8 @@ schema.pre("save", async function (next) {
           locale: lang,
           trim: true,
           remove: /[*+~.()'"!:@،؟]/g,
-        });
+          replacement: '-',
+        }).replace(/\//g, '-');
 
         let slug = baseSlug;
         let count = 1;

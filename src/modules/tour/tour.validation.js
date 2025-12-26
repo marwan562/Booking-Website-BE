@@ -113,10 +113,7 @@ const location = joi.object({
   to: localizedSchema.required(),
 });
 
-const itinerarySchema = joi.object({
-  title: localizedSchema.required(),
-  subtitle: localizedSchema.required(),
-});
+
 
 export const createTourSchema = joi.object({
   title: localizedSchema.required(),
@@ -166,7 +163,7 @@ export const createTourSchema = joi.object({
   durationInMinutes: joi.number().min(0),
   durationInDays: joi.number().min(0),
 
-  itinerary: joi.array().items(itinerarySchema).required(),
+  itinerary: joi.array().items(localizedSchema).required(),
 
   discountPercent: joi.number().min(0).max(100),
 
@@ -227,7 +224,7 @@ export const updatedTourSchema = joi.object({
   durationInMinutes: joi.number().min(0),
   durationInDays: joi.number().min(0),
 
-  itinerary: joi.array().items(itinerarySchema).min(1).optional(),
+  itinerary: joi.array().items(localizedSchema).min(1).optional(),
 
   discountPercent: joi.number().min(0).max(100),
 

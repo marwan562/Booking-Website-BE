@@ -181,12 +181,7 @@ const schema = new Schema(
 
     price: { type: Number },
     duration: { type: String },
-    itinerary: [
-      {
-        title: { type: localizedSchema, required: true },
-        subtitle: { type: localizedSchema, required: true },
-      },
-    ],
+    itinerary: [{ type: localizedSchema }],
 
     historyBrief: { type: localizedSchema },
 

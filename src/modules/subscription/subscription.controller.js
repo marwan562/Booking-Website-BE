@@ -267,16 +267,16 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     tourDiscount:
       tourDiscountAmount > 0
         ? {
-            percent: tourDiscountPercent,
-            amount: tourDiscountAmount,
-          }
+          percent: tourDiscountPercent,
+          amount: tourDiscountAmount,
+        }
         : undefined,
     coupon: coupon
       ? {
-          code: coupon.code,
-          discountPercent: coupon.discountPercent,
-          discountAmount: couponDiscountAmount,
-        }
+        code: coupon.code,
+        discountPercent: coupon.discountPercent,
+        discountAmount: couponDiscountAmount,
+      }
       : undefined,
     discount: effectiveDiscountPercent,
     discountAmount: totalDiscountAmount,
@@ -307,19 +307,19 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
         tourDiscount:
           tourDiscountAmount > 0
             ? {
-                percent: tourDiscountPercent,
-                amount: tourDiscountAmount,
-                appliedTo: "1 adult only",
-              }
+              percent: tourDiscountPercent,
+              amount: tourDiscountAmount,
+              appliedTo: "1 adult only",
+            }
             : null,
         couponDiscount:
           couponDiscountAmount > 0
             ? {
-                code: coupon?.code,
-                percent: couponDiscountPercent,
-                amount: couponDiscountAmount,
-                appliedTo: "total price",
-              }
+              code: coupon?.code,
+              percent: couponDiscountPercent,
+              amount: couponDiscountAmount,
+              appliedTo: "total price",
+            }
             : null,
         totalDiscount: totalDiscountAmount,
         finalPrice: totalPrice,
@@ -411,18 +411,18 @@ function localizeData(data, locale = "en") {
             },
             features: Array.isArray(localizedBooking.tourDetails.features)
               ? localizedBooking.tourDetails.features.map((feature) =>
-                  getLocalizedValue({ feature }, "feature", locale)
-                )
+                getLocalizedValue({ feature }, "feature", locale)
+              )
               : [],
             includes: Array.isArray(localizedBooking.tourDetails.includes)
               ? localizedBooking.tourDetails.includes.map((include) =>
-                  getLocalizedValue({ include }, "include", locale)
-                )
+                getLocalizedValue({ include }, "include", locale)
+              )
               : [],
             notIncludes: Array.isArray(localizedBooking.tourDetails.notIncludes)
               ? localizedBooking.tourDetails.notIncludes.map((notInclude) =>
-                  getLocalizedValue({ notInclude }, "notInclude", locale)
-                )
+                getLocalizedValue({ notInclude }, "notInclude", locale)
+              )
               : [],
           };
         }
@@ -1055,24 +1055,20 @@ const transformTourByRefs = (tour, locale) => {
       : [],
     options: tour.options
       ? tour.options.map((opt) => ({
-          ...opt,
-          name: getLocalizedValue(opt.name, locale),
-        }))
+        ...opt,
+        name: getLocalizedValue(opt.name, locale),
+      }))
       : [],
     category: getLocalizedValue(tour.category, locale),
     tags: tour.tags ? tour.tags.map((t) => getLocalizedValue(t, locale)) : [],
     location: tour.location
       ? {
-          from: getLocalizedValue(tour.location.from, locale),
-          to: getLocalizedValue(tour.location.to, locale),
-        }
+        from: getLocalizedValue(tour.location.from, locale),
+        to: getLocalizedValue(tour.location.to, locale),
+      }
       : { from: "", to: "" },
     itinerary: tour.itinerary
-      ? tour.itinerary.map((item) => ({
-          ...item,
-          title: getLocalizedValue(item.title, locale),
-          subtitle: getLocalizedValue(item.subtitle, locale),
-        }))
+      ? tour.itinerary.map((item) => getLocalizedValue(item, locale))
       : [],
     historyBrief: getLocalizedValue(tour.historyBrief, locale),
   };

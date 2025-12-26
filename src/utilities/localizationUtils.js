@@ -73,23 +73,23 @@ export const transformBlog = (blog, locale = "en") => {
       tags: blog.tags?.map((tag) => getLocalizedValue(tag, locale)) || [],
       image: blog.image
         ? {
-            ...blog.image,
-            alt: getLocalizedValue(blog.image.alt, locale),
-            caption: getLocalizedValue(blog.image.caption, locale),
-          }
+          ...blog.image,
+          alt: getLocalizedValue(blog.image.alt, locale),
+          caption: getLocalizedValue(blog.image.caption, locale),
+        }
         : null,
       seo: blog.seo
         ? {
-            metaTitle: getLocalizedValue(blog.seo.metaTitle, locale),
-            metaDescription: getLocalizedValue(
-              blog.seo.metaDescription,
-              locale
-            ),
-            keywords:
-              blog.seo.keywords?.map((keyword) =>
-                getLocalizedValue(keyword, locale)
-              ) || [],
-          }
+          metaTitle: getLocalizedValue(blog.seo.metaTitle, locale),
+          metaDescription: getLocalizedValue(
+            blog.seo.metaDescription,
+            locale
+          ),
+          keywords:
+            blog.seo.keywords?.map((keyword) =>
+              getLocalizedValue(keyword, locale)
+            ) || [],
+        }
         : null,
       slug: getLocalizedValue(blog.slug, locale),
     };
@@ -195,11 +195,9 @@ export const transformTour = (tour, locale = "en") => {
 
   // Transform itinerary
   if (tour.itinerary) {
-    transformed.itinerary = tour.itinerary.map((item) => ({
-      ...item,
-      title: getLocalizedValue(item.title, locale),
-      subtitle: getLocalizedValue(item.subtitle, locale),
-    }));
+    transformed.itinerary = tour.itinerary.map((item) =>
+      getLocalizedValue(item, locale)
+    );
   }
 
   // Transform destination

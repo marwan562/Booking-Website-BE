@@ -9,15 +9,18 @@ import {
   updatedDestinationSchema,
 } from "./destination.validation.js";
 import { parseJsonFields } from "../../middlewares/parseJsonFieldsMiddleware.js";
+import cacheMiddleware from "../../middlewares/cacheMiddleware.js";
+import { clearCacheMiddleware } from "../../utilities/cacheUtils.js";
 
 const destinationRouter = Router();
+const DESTINATION_CACHE_PATTERN = "cache:/destination*";
 
-destinationRouter.route("/popular").get(Destination.getPopularDestinations);
-destinationRouter.route("/search").get(Destination.searchDestinations);
+destinationRouter.route("/popular").get(cacheMiddleware(), Destination.getPopularDestinations);
+destinationRouter.route("/search").get(cacheMiddleware(), Destination.searchDestinations);
 
 destinationRouter
   .route("/")
-  .get(Destination.getAllDestinations)
+  .get(cacheMiddleware(), Destination.getAllDestinations)
   .post(
     auth,
     allowedTo("admin"),
@@ -25,15 +28,16 @@ destinationRouter
     saveImg,
     parseJsonFields,
     validation(createDestinationSchema),
+    clearCacheMiddleware(DESTINATION_CACHE_PATTERN),
     Destination.createDestination
   )
-  .delete(auth, allowedTo("admin"), Destination.deleteAllDestinations);
+  .delete(auth, allowedTo("admin"), clearCacheMiddleware(DESTINATION_CACHE_PATTERN), Destination.deleteAllDestinations);
 
-destinationRouter.route("/:destination").get(Destination.getDestination);
+destinationRouter.route("/:destination").get(cacheMiddleware(), Destination.getDestination);
 
 destinationRouter
   .route("/:id")
-  .delete(auth, allowedTo("admin"), Destination.deleteDestination)
+  .delete(auth, allowedTo("admin"), clearCacheMiddleware(DESTINATION_CACHE_PATTERN), Destination.deleteDestination)
   .patch(
     auth,
     allowedTo("admin"),
@@ -41,15 +45,16 @@ destinationRouter
     saveImg,
     parseJsonFields,
     validation(updatedDestinationSchema),
+    clearCacheMiddleware(DESTINATION_CACHE_PATTERN),
     Destination.updateDestination
   );
 
 destinationRouter
   .route("/:id/tours")
-  .get(Destination.getDestinationTours);
-destinationRouter.route("/:id/stats").get(Destination.getDestinationStats);
+  .get(cacheMiddleware(), Destination.getDestinationTours);
+destinationRouter.route("/:id/stats").get(cacheMiddleware(), Destination.getDestinationStats);
 destinationRouter
   .route("/category/:category")
-  .get(Destination.getDestinationsByCategory);
+  .get(cacheMiddleware(), Destination.getDestinationsByCategory);
 
 export default destinationRouter;

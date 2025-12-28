@@ -6,15 +6,18 @@ import { saveImg } from "../../middlewares/uploadToCloud.js";
 import { validation } from "../../middlewares/validation.js";
 import { createTourSchema, updatedTourSchema } from "./tour.validation.js";
 import { parseJsonFields } from "../../middlewares/parseJsonFieldsMiddleware.js";
+import cacheMiddleware from "../../middlewares/cacheMiddleware.js";
+import { clearCacheMiddleware } from "../../utilities/cacheUtils.js";
 const tourRouter = Router();
+const TOUR_CACHE_PATTERN = "cache:/tour*";
 
 tourRouter.route("/order").patch(auth, Tour.orderTour);
 
-tourRouter.route("/by-id/:id").get(Tour.getTourById);
+tourRouter.route("/by-id/:id").get(cacheMiddleware(), Tour.getTourById);
 
 tourRouter
   .route("/")
-  .get(Tour.getAllTour)
+  .get(cacheMiddleware(), Tour.getAllTour)
   .post(
     auth,
     allowedTo("admin"),
@@ -25,18 +28,19 @@ tourRouter
     saveImg,
     parseJsonFields,
     validation(createTourSchema),
+    clearCacheMiddleware(TOUR_CACHE_PATTERN),
     Tour.createTour
   )
-  .delete(auth, allowedTo("admin"), Tour.deleteAllTour);
+  .delete(auth, allowedTo("admin"), clearCacheMiddleware(TOUR_CACHE_PATTERN), Tour.deleteAllTour);
 
 tourRouter.route("/search", Tour.searchTours);
-tourRouter.route("/categories").get(Tour.getCategories);
+tourRouter.route("/categories").get(cacheMiddleware(), Tour.getCategories);
 
-tourRouter.route("/:slug").get(Tour.getTourBySlug);
+tourRouter.route("/:slug").get(cacheMiddleware(), Tour.getTourBySlug);
 
 tourRouter
   .route("/:id")
-  .delete(auth, allowedTo("admin"), Tour.deleteTour)
+  .delete(auth, allowedTo("admin"), clearCacheMiddleware(TOUR_CACHE_PATTERN), Tour.deleteTour)
   .patch(
     auth,
     allowedTo("admin"),
@@ -47,6 +51,7 @@ tourRouter
     saveImg,
     parseJsonFields,
     validation(updatedTourSchema),
+    clearCacheMiddleware(TOUR_CACHE_PATTERN),
     Tour.updateTour
   );
 

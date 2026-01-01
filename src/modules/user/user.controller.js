@@ -50,6 +50,7 @@ const verifyUser = catchAsyncError(async (req, res, next) => {
       const { id } = decoded;
       const user = await userModel.findOne({ _id: id });
 
+      user.confirmedEmail = true;
       user.verified = true;
       await user.save();
 

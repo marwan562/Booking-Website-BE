@@ -2,20 +2,23 @@ import reviewModel from "../../models/reviewModel.js";
 import subscriptionModel from "../../models/subscriptionModel.js";
 import { catchAsyncError } from "../../middlewares/catchAsyncError.js";
 import { AppError } from "../../utilities/AppError.js";
+import tourModel from "../../models/tourModel.js";
 
 export const createReview = catchAsyncError(async (req, res, next) => {
   const { _id: userId } = req.user;
   const { id: tourId } = req.params;
   const { comment, rating } = req.body;
 
+  const tour = await tourModel.findById(tourId);
+
   // Validate input
   if (!comment || !rating) {
     return next(new AppError("Comment and rating are required", 400));
   }
 
-  if (comment.length < 10 || comment.length > 1000) {
+  if (comment.length > 7000) {
     return next(
-      new AppError("Comment must be between 10 and 1000 characters", 400)
+      new AppError("Comment must be less than 7000 characters", 400)
     );
   }
 
@@ -27,7 +30,7 @@ export const createReview = catchAsyncError(async (req, res, next) => {
   const currentDate = new Date();
   const subscription = await subscriptionModel.findOne({
     userDetails: userId,
-    tourDetails: tourId,
+    bookingReference: tour.bookingReference,
     payment: "success",
   });
 

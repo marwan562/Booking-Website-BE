@@ -1141,7 +1141,9 @@ const getAllRefunds = catchAsyncError(async (req, res, next) => {
   const transformedSubscriptions = results.map((booking) => ({
     ...booking,
     tourDetails: transformTour(booking.tourDetails, locale),
+    refundDetails: booking.refundDetails ?? null,
   }));
+
 
   res.status(200).json({
     status: "success",

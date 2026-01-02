@@ -1118,6 +1118,38 @@ const getSubscriptionsByRefs = catchAsyncError(async (req, res, next) => {
   });
 });
 
+const getAllRefunds = catchAsyncError(async (req, res, next) => {
+  const { _id } = req.user;
+  const { locale = "en" } = req.query;
+
+  const apiFeature = new ApiFeature(
+    subscriptionModel.find({ userDetails: _id, payment: "refunded" }),
+    req.query
+  )
+    .paginate()
+    .fields()
+    .filter()
+    .sort()
+    .search();
+
+  const results = await apiFeature.mongoseQuery.lean();
+  const totalCount = await subscriptionModel.countDocuments({
+    userDetails: _id,
+    payment: "refunded",
+  });
+
+  const transformedSubscriptions = results.map((booking) => ({
+    ...booking,
+    tourDetails: transformTour(booking.tourDetails, locale),
+  }));
+
+  res.status(200).json({
+    status: "success",
+    count: totalCount,
+    data: transformedSubscriptions,
+  });
+});
+
 const clearSubscription = catchAsyncError(async (req, res, next) => {
   const subscriptions = await subscriptionModel.find({ payment: "pending" });
   const now = new Date();
@@ -1149,4 +1181,5 @@ export {
   clearSubscription,
   getSubscriptionById,
   updateToursWithPersonalDetails,
+  getAllRefunds,
 };

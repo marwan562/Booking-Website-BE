@@ -12,6 +12,7 @@ import {
   updateToursWithPersonalDetails,
   upcomingBookings,
   getSubscriptionsByRefs,
+  getAllRefunds,
 } from "./subscription.controller.js";
 import { validation } from "../../middlewares/validation.js";
 import {
@@ -27,7 +28,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 const subscriptionRouter = Router();
 
 subscriptionRouter.route("/by-refs").get(auth, getSubscriptionsByRefs);
-
+subscriptionRouter.route("/refunds").get(auth, getAllRefunds);
+  
 subscriptionRouter.route("/cart").get(auth, getAllCart);
 subscriptionRouter
   .route("/cart/:id")

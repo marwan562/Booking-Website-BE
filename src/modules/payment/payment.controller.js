@@ -120,8 +120,8 @@ export const fwaterk = catchAsyncError(async (req, res, next) => {
       currency === "EGP"
         ? adultPricing.price * EGP
         : currency === "EUR"
-        ? adultPricing.price * EUR
-        : adultPricing.price;
+          ? adultPricing.price * EUR
+          : adultPricing.price;
 
     cartItems.push({
       name: "adult",
@@ -133,8 +133,8 @@ export const fwaterk = catchAsyncError(async (req, res, next) => {
         currency === "EGP"
           ? childrenPricing.price * EGP
           : currency === "EUR"
-          ? childrenPricing.price * EUR
-          : childrenPricing.price;
+            ? childrenPricing.price * EUR
+            : childrenPricing.price;
 
       cartItems.push({
         name: "child",
@@ -149,8 +149,8 @@ export const fwaterk = catchAsyncError(async (req, res, next) => {
           currency === "EGP"
             ? option.totalPrice * EGP
             : currency === "EUR"
-            ? option.totalPrice * EUR
-            : option.totalPrice;
+              ? option.totalPrice * EUR
+              : option.totalPrice;
 
         cartItems.push({
           name: option.name,
@@ -180,8 +180,8 @@ export const fwaterk = catchAsyncError(async (req, res, next) => {
       currency == "EGP"
         ? totalPrice * EGP
         : currency == "EUR"
-        ? totalPrice * EUR
-        : totalPrice;
+          ? totalPrice * EUR
+          : totalPrice;
 
     const currencyPayment =
       currency == "EUR" ? "EUR" : currency == "EGP" ? "EGP" : "USD";
@@ -250,7 +250,7 @@ async function createInvoiceLink(
 
     throw new Error(
       error.response?.data?.message ||
-        "Something went wrong while creating the invoice."
+      "Something went wrong while creating the invoice."
     );
   }
 }
@@ -295,7 +295,7 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
     const userId = metadata.userId;
     const bookingRefsString = metadata.bookingRefs;
 
-    console.log("bookingsrefs",bookingRefsString)
+    console.log("bookingsrefs", bookingRefsString)
 
     if (!bookingRefsString) {
       console.error("No bookingRefs found in metadata");
@@ -545,16 +545,16 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
     });
   }
 
-  const refundPercentage = 100 - applicablePolicy.discountPercent;
+  const discountPercent = applicablePolicy.discountPercent;
   const refundAmount = parseFloat(
-    ((booking.totalPrice * refundPercentage) / 100).toFixed(2)
+    ((booking.totalPrice * discountPercent) / 100).toFixed(2)
   );
   if (refundAmount <= 0) {
     return res.status(400).json({
       error: "No refund available based on the refund policy",
       policy: applicablePolicy,
       daysRemaining: Math.round(daysUntilBooking * 10) / 10,
-      message: `Cancellations within ${applicablePolicy.daysBefore} days incur a ${applicablePolicy.discountPercent}% cancellation fee`,
+      message: `Cancellations within ${applicablePolicy.daysBefore} days incur a ${100 - applicablePolicy.discountPercent}% cancellation fee`,
     });
   }
 
@@ -626,8 +626,8 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
         userId: userId.toString(),
         refundedAt: new Date().toISOString(),
         originalAmount: booking.totalPrice,
-        refundPercentage: refundPercentage,
-        discountPercent: applicablePolicy.discountPercent,
+        refundPercentage: discountPercent,
+        discountPercent: 100 - applicablePolicy.discountPercent,
         daysBeforeBooking: Math.round(daysUntilBooking * 10) / 10,
       },
     });
@@ -637,7 +637,7 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
       refundedAt: new Date(),
       refundAmount: refundAmount,
       originalAmount: booking.totalPrice,
-      refundPercentage: refundPercentage,
+      refundPercentage: discountPercent,
       deductionAmount: booking.totalPrice - refundAmount,
       daysBeforeBooking: Math.round(daysUntilBooking * 10) / 10,
       appliedPolicy: {
@@ -672,7 +672,7 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
       booking: booking,
       refundAmount: refundAmount,
       originalAmount: booking.totalPrice,
-      refundPercentage: refundPercentage,
+      refundPercentage: discountPercent,
       deductionAmount: booking.totalPrice - refundAmount,
       refundPolicy: applicablePolicy,
       refundId: refund.id,
@@ -719,8 +719,8 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
         amount: refundAmount,
         originalAmount: booking.totalPrice,
         deductionAmount: booking.totalPrice - refundAmount,
-        refundPercentage: refundPercentage,
-        discountPercent: applicablePolicy.discountPercent,
+        refundPercentage: discountPercent,
+        discountPercent: 100 - applicablePolicy.discountPercent,
         currency: refund.currency,
         status: refund.status,
         refundedAt: new Date(refund.created * 1000).toISOString(),

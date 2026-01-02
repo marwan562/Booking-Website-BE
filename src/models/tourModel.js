@@ -197,7 +197,7 @@ const schema = new Schema(
 
     refundPolicy: {
       type: [refundPolicySchema],
-      default: [{ daysBefore: 4, discountPercent: 0 }],
+      default: [{ daysBefore: 4, discountPercent: 100 }],
     },
 
     isTrending: { type: Boolean, default: false, index: true },
@@ -311,7 +311,7 @@ schema.pre("save", async function (next) {
     }
 
     if (this.refundPolicy.length < 1) {
-      this.refundPolicy = [{ daysBefore: 4, discountPercent: 0 }];
+      this.refundPolicy = [{ daysBefore: 4, discountPercent: 100 }];
     }
   }
 

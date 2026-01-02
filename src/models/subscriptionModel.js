@@ -133,7 +133,7 @@ schema.methods.isRefundable = function (tourRefundPolicy) {
   const daysUntilBooking = (bookingDateTime - now) / (1000 * 60 * 60 * 24);
 
   const refundPolicy = tourRefundPolicy || [
-    { daysBefore: 4, discountPercent: 0 },
+    { daysBefore: 4, discountPercent: 100 },
   ];
   const sortedPolicy = [...refundPolicy].sort(
     (a, b) => b.daysBefore - a.daysBefore
@@ -154,14 +154,14 @@ schema.methods.isRefundable = function (tourRefundPolicy) {
     };
   }
 
-  const refundPercentage = 100 - applicablePolicy.discountPercent;
-  const refundAmount = Math.round((this.totalPrice * refundPercentage) / 100);
+  const discountPercent = applicablePolicy.discountPercent;
+  const refundAmount = Math.round((this.totalPrice * discountPercent) / 100);
 
   return {
     eligible: true,
     applicablePolicy,
     refundAmount,
-    refundPercentage,
+    discountPercent,
     deductionAmount: this.totalPrice - refundAmount,
     daysUntilBooking: Math.round(daysUntilBooking * 10) / 10,
   };

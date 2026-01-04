@@ -132,8 +132,17 @@ export class ApiFeature {
     const locale = this.queryString.locale || "en";
     const keyword = this.queryString.keyword;
     const category = this.queryString.category;
+    const isTrending = this.queryString.isTrending;
+    const isTopRatedP = this.queryString.isTopRated;
 
     const filter = {};
+
+    if (isTrending) {
+      filter["isTrending"] = true;
+    }
+    if (isTopRatedP) {
+      filter["isTopRated"] = true;
+    }
 
     // Add search conditions using centralized functions
     if (keyword) {

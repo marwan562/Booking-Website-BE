@@ -17,7 +17,7 @@ tourRouter.route("/by-id/:id").get(cacheMiddleware(), Tour.getTourById);
 
 tourRouter
   .route("/")
-  .get(cacheMiddleware(), Tour.getAllTour)
+  .get(Tour.getAllTour)
   .post(
     auth,
     allowedTo("admin"),
@@ -31,7 +31,12 @@ tourRouter
     clearCacheMiddleware(TOUR_CACHE_PATTERN),
     Tour.createTour
   )
-  .delete(auth, allowedTo("admin"), clearCacheMiddleware(TOUR_CACHE_PATTERN), Tour.deleteAllTour);
+  .delete(
+    auth,
+    allowedTo("admin"),
+    clearCacheMiddleware(TOUR_CACHE_PATTERN),
+    Tour.deleteAllTour
+  );
 
 tourRouter.route("/search", Tour.searchTours);
 tourRouter.route("/categories").get(cacheMiddleware(), Tour.getCategories);
@@ -40,7 +45,12 @@ tourRouter.route("/:slug").get(cacheMiddleware(), Tour.getTourBySlug);
 
 tourRouter
   .route("/:id")
-  .delete(auth, allowedTo("admin"), clearCacheMiddleware(TOUR_CACHE_PATTERN), Tour.deleteTour)
+  .delete(
+    auth,
+    allowedTo("admin"),
+    clearCacheMiddleware(TOUR_CACHE_PATTERN),
+    Tour.deleteTour
+  )
   .patch(
     auth,
     allowedTo("admin"),
@@ -57,7 +67,8 @@ tourRouter
 
 tourRouter.route("/:id/apply-coupon").post(Tour.checkCoupon);
 
-tourRouter.route("/get-all/admin", auth, allowedTo("admin")).get(Tour.getAllTourForAdmin);
-
+tourRouter
+  .route("/get-all/admin", auth, allowedTo("admin"))
+  .get(Tour.getAllTourForAdmin);
 
 export default tourRouter;

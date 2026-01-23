@@ -59,6 +59,10 @@ const createSubscription = catchAsyncError(async (req, res, next) => {
     return next(new AppError("Time and date are required", 400));
   }
 
+  if (options.length <= 0) {
+    return next(new AppError("At least one option must be selected", 400));
+  }
+
   let subtotalPrice = 0;
   let totalPrice = 0;
   let tourDiscountAmount = 0;

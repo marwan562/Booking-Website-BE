@@ -51,8 +51,8 @@ const childrenPricing = joi.array().items(
 
 const localizedSchema = joi.object({
   en: joi.string().required(),
-  es: joi.string().required(),
-  fr: joi.string(),
+  es: joi.string().optional(),
+  fr: joi.string().optional(),
 });
 
 const tourLanguageSchema = joi.object({

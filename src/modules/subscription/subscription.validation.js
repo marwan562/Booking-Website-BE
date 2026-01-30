@@ -58,7 +58,7 @@ export const updateCartSchema = joi.object({
         id: joi.string().hex().length(24),
         number: joi.number().min(1).max(500),
         numberOfChildren: joi.number(),
-        price: joi.number().required(),
+        price: joi.number().optional(),
       })
     )
     .optional(),

@@ -5,17 +5,20 @@ import {
   deleteReview,
   editReview,
   getAllReviews,
+  leaveAReview
 } from "./review.controller.js";
 import {
   reviewSchema,
   createReviewSchema,
-  editReviewSchema,
+  createLeaveAReviewSchema,
 } from "./review.validation.js";
 import { validation } from "../../middlewares/validation.js";
 import { auth } from "../../middlewares/auth.js";
 import { saveImg } from "../../middlewares/uploadToCloud.js";
 import { uploadMixfile } from "../../middlewares/fileUpload.js";
 const reviewRouter = Router();
+
+reviewRouter.post("/leave-a-review", uploadMixfile([{ name: "images", maxCount: 10 }]), saveImg, validation(createLeaveAReviewSchema), leaveAReview)
 
 reviewRouter
   .route("/:id")

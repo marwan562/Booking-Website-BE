@@ -3,6 +3,7 @@ import subscriptionModel from "../../models/subscriptionModel.js";
 import { catchAsyncError } from "../../middlewares/catchAsyncError.js";
 import { AppError } from "../../utilities/AppError.js";
 import tourModel from "../../models/tourModel.js";
+import leaveAReviewModel from "../../models/leave-a-reviewModel.js";
 
 export const createReview = catchAsyncError(async (req, res, next) => {
   const { _id: userId } = req.user;
@@ -77,6 +78,25 @@ export const createReview = catchAsyncError(async (req, res, next) => {
     data: review,
   });
 });
+
+export const leaveAReview = catchAsyncError(async (req, res, next) => {
+  const { name, email, comment, rating, images } = req.body;
+
+  const review = new leaveAReviewModel({
+    name,
+    email,
+    comment,
+    rating,
+    images,
+  });
+
+  await review.save();
+
+  res.status(201).json({
+    status: "success",
+    data: review,
+  });
+})
 
 export const editReview = catchAsyncError(async (req, res, next) => {
   const { id: reviewId } = req.params;

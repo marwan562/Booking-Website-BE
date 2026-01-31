@@ -4,6 +4,7 @@ import { catchAsyncError } from "../../middlewares/catchAsyncError.js";
 import { AppError } from "../../utilities/AppError.js";
 import tourModel from "../../models/tourModel.js";
 import leaveAReviewModel from "../../models/leave-a-reviewModel.js";
+import { ApiFeature } from "../../utilities/AppFeature.js";
 
 export const createReview = catchAsyncError(async (req, res, next) => {
   const { _id: userId } = req.user;
@@ -188,5 +189,33 @@ export const getAllReviews = catchAsyncError(async (req, res, next) => {
     status: "success",
     data: reviews,
     count: reviews.length,
+  });
+});
+
+export const getAllLeaveReviews = catchAsyncError(async (req, res, next) => {
+  const apiFeature = new ApiFeature(leaveAReviewModel.find(), req.query)
+    .paginate()
+    .fields()
+    .filter()
+    .search()
+    .sort()
+    .lean();
+
+  const reviews = await apiFeature.mongoseQuery;
+  const totalCount = await leaveAReviewModel.countDocuments(
+    apiFeature.mongoseQuery._conditions
+  );
+  const paginationMeta = apiFeature.getPaginationMeta(totalCount);
+
+  if (!reviews || reviews.length === 0) {
+    return next(new AppError("No reviews found", 404));
+  }
+  console.log(reviews)
+  res.status(200).json({
+    status: "success",
+    data: {
+      reviews,
+      pagination: paginationMeta,
+    },
   });
 });

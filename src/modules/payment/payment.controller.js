@@ -64,19 +64,23 @@ export const handleSuccessPayment = catchAsyncError(async (req, res, next) => {
       if (err) return next(new AppError(err.message));
 
       const { subscriptionId } = decoded;
-      const subscription = await subscriptionModel
+      let subscription = await subscriptionModel.findById(subscriptionId);
+
+      if (!subscription)
+        return next(new AppError("Subscription not found", 404));
+
+      if (subscription.payment == "success") {
+        return next(new AppError("The subscription has been paid", 200));
+      }
+
+      subscription = await subscriptionModel
         .findByIdAndUpdate(
           subscriptionId,
           { payment: "success" },
           { new: true }
         )
-        .populate("tourDetails");
+        .populate("tourDetails userDetails");
 
-      if (subscription.payment == "success") {
-        return next(new AppError("The subscription has been paid", 200));
-      }
-      if (!subscription)
-        return next(new AppError("Subscription not found", 404));
       const adults = subscription.adultPricing?.adults || 0;
       const children = subscription.childrenPricing?.children || 0;
 
@@ -89,6 +93,45 @@ export const handleSuccessPayment = catchAsyncError(async (req, res, next) => {
       await tourModel.findByIdAndUpdate(subscription.tourDetails._id, {
         $inc: { totalTravelers },
       });
+
+      // Email Logic
+      const user = subscription.userDetails;
+      const emailData = {
+        bookings: [subscription],
+        totalAmount: subscription.totalPrice,
+        user,
+        currency: "USD", // Default for Fawaterk or as needed
+        locale: "en", // Default locale
+        coupon: subscription.coupon,
+      };
+
+      if (user && user.email) {
+        try {
+          await sendConfirmationEmail({
+            email: user.email,
+            type: "confirmation",
+            data: { ...emailData, sendToAdmins: false },
+            sendToAdmins: false,
+          });
+        } catch (error) {
+          console.error("Failed to send user confirmation email (Fawaterk):", error.message);
+        }
+      }
+
+      const admins = await userModel.find({ role: "admin" });
+      const adminEmails = admins.map((admin) => admin.email);
+      if (adminEmails.length > 0) {
+        try {
+          await sendConfirmationEmail({
+            email: adminEmails,
+            type: "confirmation",
+            data: { ...emailData, sendToAdmins: true },
+            sendToAdmins: true,
+          });
+        } catch (error) {
+          console.error("Failed to send admin confirmation emails (Fawaterk):", error.message);
+        }
+      }
 
       res.redirect(
         `${process.env.FRONT_END_URL}/account/user/${subscription.userDetails._id}/${subscriptionId}/orderConfirmed`
@@ -386,7 +429,12 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
           sendToAdmins: false,
         });
       } catch (error) {
-        console.error("Failed to send user email:", error.message);
+        console.error("CRITICAL: Failed to send user confirmation email (Stripe):", error.message);
+        console.error("Email Details:", {
+          to: user.email,
+          userId: user._id,
+          bookingRefs: bookingRefsArray
+        });
       }
 
       const admins = await userModel.find({ role: "admin" });

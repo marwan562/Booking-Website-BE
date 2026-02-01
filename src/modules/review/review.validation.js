@@ -17,10 +17,13 @@ export const createReviewSchema = Joi.object({
   images: Joi.any().optional(),
   // Admin-only fields for fake reviews
   name: Joi.string().optional(),
-  avatar: Joi.object({
-    url: Joi.string().optional(),
-    public_id: Joi.string().optional(),
-  }).optional(),
+  avatar: Joi.alternatives().try(
+    Joi.object({
+      url: Joi.string().optional(),
+      public_id: Joi.string().optional(),
+    }),
+    Joi.string()
+  ).optional(),
   nationality: Joi.string().optional(),
   user: Joi.string().hex().length(24).optional(),
 });
@@ -48,10 +51,13 @@ export const editReviewSchema = Joi.object({
   images: Joi.array().items(imgSchema).optional(),
   // Admin-only fields for fake reviews
   name: Joi.string().optional(),
-  avatar: Joi.object({
-    url: Joi.string().optional(),
-    public_id: Joi.string().optional(),
-  }).optional(),
+  avatar: Joi.alternatives().try(
+    Joi.object({
+      url: Joi.string().optional(),
+      public_id: Joi.string().optional(),
+    }),
+    Joi.string()
+  ).optional(),
   nationality: Joi.string().optional(),
   user: Joi.string().hex().length(24).optional(),
 });

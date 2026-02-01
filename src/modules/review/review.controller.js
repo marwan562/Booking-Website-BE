@@ -87,27 +87,35 @@ export const createReview = catchAsyncError(async (req, res, next) => {
       // Default to admin ID if no fake name or custom user ID is provided
       req.body.user = userId;
     }
-
-    // Parse avatar if it's sent as a JSON string (for admins)
-    if (req.body.avatar && typeof req.body.avatar === 'string') {
-      try {
-        req.body.avatar = JSON.parse(req.body.avatar);
-      } catch (e) {
-        // ignore if not json
-      }
-    }
   }
 
   req.body.tour = tourId;
 
-  // Similarly parse images if needed
-  if (req.body.images && typeof req.body.images === 'string') {
-    try {
-      req.body.images = JSON.parse(req.body.images);
-    } catch (e) {
-      // ignore if not json
+  // Handle JSON parsing for images and avatar
+  const parseSafe = (val) => {
+    if (typeof val === 'string') {
+      try { return JSON.parse(val); } catch (e) { return val; }
+    }
+    if (Array.isArray(val)) {
+      return val.map(item => (typeof item === 'string' ? parseSafe(item) : item));
+    }
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      // Handle object with numeric keys like { '0': '...', '1': '...' }
+      const keys = Object.keys(val);
+      if (keys.length > 0 && keys.every(k => !isNaN(k))) {
+        return Object.values(val).map(item => (typeof item === 'string' ? parseSafe(item) : item));
+      }
+    }
+    return val;
+  };
+
+  if (req.body.avatar) {
+    req.body.avatar = parseSafe(req.body.avatar);
+    if (typeof req.body.avatar === 'string' && req.body.avatar.startsWith('http')) {
+      req.body.avatar = { url: req.body.avatar };
     }
   }
+  if (req.body.images) req.body.images = parseSafe(req.body.images);
 
   const review = new reviewModel(req.body);
   await review.save();
@@ -141,22 +149,31 @@ export const editReview = catchAsyncError(async (req, res, next) => {
   const { id: reviewId } = req.params;
   const { _id: userId, role } = req.user;
 
-  // Handle JSON parsing for images and avatar if sent as strings (typical for multipart form data)
-  if (req.body.images && typeof req.body.images === 'string') {
-    try {
-      req.body.images = JSON.parse(req.body.images);
-    } catch (e) {
-      // ignore if not json
+  // Handle JSON parsing for images and avatar
+  const parseSafe = (val) => {
+    if (typeof val === 'string') {
+      try { return JSON.parse(val); } catch (e) { return val; }
     }
-  }
+    if (Array.isArray(val)) {
+      return val.map(item => (typeof item === 'string' ? parseSafe(item) : item));
+    }
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      // Handle object with numeric keys like { '0': '...', '1': '...' }
+      const keys = Object.keys(val);
+      if (keys.length > 0 && keys.every(k => !isNaN(k))) {
+        return Object.values(val).map(item => (typeof item === 'string' ? parseSafe(item) : item));
+      }
+    }
+    return val;
+  };
 
-  if (req.body.avatar && typeof req.body.avatar === 'string') {
-    try {
-      req.body.avatar = JSON.parse(req.body.avatar);
-    } catch (e) {
-      // ignore if not json
+  if (req.body.avatar) {
+    req.body.avatar = parseSafe(req.body.avatar);
+    if (typeof req.body.avatar === 'string' && req.body.avatar.startsWith('http')) {
+      req.body.avatar = { url: req.body.avatar };
     }
   }
+  if (req.body.images) req.body.images = parseSafe(req.body.images);
 
   // Validate review ID
   if (!reviewId || reviewId.length !== 24) {

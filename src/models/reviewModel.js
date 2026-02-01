@@ -3,14 +3,49 @@ import tourModel from "./tourModel.js";
 
 const schema = new Schema(
   {
-    user: { type: Types.ObjectId, ref: "user", required: true },
+    user: { type: Types.ObjectId, ref: "user", required: false },
     tour: { type: Types.ObjectId, ref: "tour", required: true },
     comment: { type: String, required: true },
     rating: { type: Number, min: 1, max: 5, required: true },
     images: [{ url: { type: String }, public_id: { type: String } }],
+    // Fields for fake reviews (admin only)
+    name: { type: String },
+    avatar: { url: { type: String }, public_id: { type: String } },
+    nationality: { type: String },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
+
+// Virtual for a unified user object
+schema.virtual('userDetails').get(function () {
+  if (this.user && typeof this.user === 'object') {
+    return this.user;
+  }
+  return {
+    name: this.name,
+    avatar: this.avatar,
+    nationality: this.nationality
+  };
+});
+
+// Transform the output to ensure 'user' always contains valid data for the frontend
+schema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret) => {
+    if (!ret.user || (typeof ret.user === 'object' && Object.keys(ret.user).length === 0)) {
+      ret.user = {
+        name: ret.name,
+        avatar: ret.avatar,
+        nationality: ret.nationality
+      };
+    }
+    return ret;
+  }
+});
 
 schema.pre("find", async function (next) {
   this.populate([
@@ -30,7 +65,7 @@ schema.pre("save", async function (next) {
 
 schema.post("save", async function () {
   try {
-    const tour = await await tourModel.findByIdAndUpdate(
+    const tour = await tourModel.findByIdAndUpdate(
       this.tour,
       {
         $inc: {
@@ -41,10 +76,12 @@ schema.post("save", async function () {
       { new: true }
     );
 
-    tour.averageRating = parseFloat(
-      (tour.ratingSum / tour.totalReviews).toFixed(2)
-    );
-    await tour.save();
+    if (tour) {
+      tour.averageRating = parseFloat(
+        (tour.ratingSum / tour.totalReviews).toFixed(2)
+      );
+      await tour.save();
+    }
   } catch (err) {
     console.error("Error updating destination ratings:", err);
   }

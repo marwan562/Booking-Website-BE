@@ -15,6 +15,14 @@ export const createReviewSchema = Joi.object({
   }),
   comment: Joi.string().max(7000),
   images: Joi.any().optional(),
+  // Admin-only fields for fake reviews
+  name: Joi.string().optional(),
+  avatar: Joi.object({
+    url: Joi.string().optional(),
+    public_id: Joi.string().optional(),
+  }).optional(),
+  nationality: Joi.string().optional(),
+  user: Joi.string().hex().length(24).optional(),
 });
 
 export const createLeaveAReviewSchema = Joi.object({
@@ -38,6 +46,14 @@ export const editReviewSchema = Joi.object({
   }),
   comment: Joi.string().max(7000),
   images: Joi.array().items(imgSchema).optional(),
+  // Admin-only fields for fake reviews
+  name: Joi.string().optional(),
+  avatar: Joi.object({
+    url: Joi.string().optional(),
+    public_id: Joi.string().optional(),
+  }).optional(),
+  nationality: Joi.string().optional(),
+  user: Joi.string().hex().length(24).optional(),
 });
 
 export const reviewSchema = Joi.object({

@@ -2,10 +2,10 @@ import joi from "joi";
 
 const phoneSchema = joi.object({
   code: joi.string().optional(),
-  number: joi.string().length(10).pattern(/^\d+$/).required().messages({
+  number: joi.string().length(11).pattern(/^\d+$/).required().messages({
     "string.base": "Phone number must be a string",
     "string.empty": "Phone number cannot be empty",
-    "string.length": "Phone number must be exactly 10 digits",
+    "string.length": "Phone number must be exactly 11 digits",
     "string.pattern.base": "Phone number must contain only digits",
     "any.required": "Phone number is required",
   }),

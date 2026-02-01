@@ -437,24 +437,18 @@ export const stripeSessionCompleted = catchAsyncError(async (req, res) => {
         });
       }
 
-      const admins = await userModel.find({ role: "admin" });
-      const adminEmails = admins.map((admin) => admin.email);
-      if (adminEmails.length > 0) {
-        try {
-          await sendConfirmationEmail({
-            email: adminEmails,
-            type: "confirmation",
-            data: {
-              ...emailData,
-              sendToAdmins: true,
-            },
+      try {
+        await sendConfirmationEmail({
+          email: "bookings@yallaegipto.com",
+          type: "confirmation",
+          data: {
+            ...emailData,
             sendToAdmins: true,
-          });
-        } catch (error) {
-          console.error("Failed to send admin emails:", error.message);
-        }
-      } else {
-        console.warn("No admin emails found for notification");
+          },
+          sendToAdmins: true,
+        });
+      } catch (error) {
+        console.error("Failed to send admin emails:", error.message);
       }
     } catch (dbError) {
       console.error("Database error:", dbError.message);
@@ -739,24 +733,18 @@ export const stripeRefundPayment = catchAsyncError(async (req, res, next) => {
       },
     });
 
-    const admins = await userModel.find({ role: "admin" });
-    const adminEmails = admins.map((admin) => admin.email);
-    if (adminEmails.length > 0) {
-      try {
-        await sendConfirmationEmail({
-          email: adminEmails,
-          type: "refund",
-          data: {
-            ...emailData,
-            sendToAdmins: true,
-          },
+    try {
+      await sendConfirmationEmail({
+        email: "bookings@yallaegipto.com",
+        type: "refund",
+        data: {
+          ...emailData,
           sendToAdmins: true,
-        });
-      } catch (error) {
-        console.error("Failed to send admin emails:", error.message);
-      }
-    } else {
-      console.warn("No admin emails found for notification");
+        },
+        sendToAdmins: true,
+      });
+    } catch (error) {
+      console.error("Failed to send admin emails:", error.message);
     }
 
     return res.status(200).json({
